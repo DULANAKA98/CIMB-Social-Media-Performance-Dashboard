@@ -1,0 +1,25 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/.env
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Debug / temp files
+backend/debug_*.py
+backend/check_*.py
+backend/dump_*.py
+backend/*.json
+backend/*.txt
+backend/test_*.py
+!backend/requirements.txt
+
+# OS
+.DS_Store
+Thumbs.db
