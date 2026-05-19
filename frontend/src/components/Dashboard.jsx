@@ -41,8 +41,30 @@ const Dashboard = ({ onLogout }) => {
   const [strategyLoading, setStrategyLoading] = useState(false);
   // Track expanded state per platform section: { Facebook_top: true, Facebook_bottom: false, ... }
   const [expanded, setExpanded] = useState({});
+  const [dataLoaded, setDataLoaded] = useState(true); // Assume loaded initially, will turn false if backend returns 400
+  const [dataSourceUrl, setDataSourceUrl] = useState('');
+  const [dataSourceLoading, setDataSourceLoading] = useState(false);
+  const [dataSourceError, setDataSourceError] = useState('');
 
-
+  const handleLoadDataSource = async (e) => {
+    e.preventDefault();
+    if (!dataSourceUrl.trim()) return;
+    setDataSourceLoading(true);
+    setDataSourceError('');
+    try {
+      const res = await axios.get(`${API_URL}/refresh?sheet_url=${encodeURIComponent(dataSourceUrl)}`);
+      if (res.data.error) {
+        setDataSourceError(res.data.error);
+      } else {
+        setDataLoaded(true);
+        fetchData();
+      }
+    } catch (err) {
+      setDataSourceError(err.response?.data?.error || 'Failed to load data. Please check the URL.');
+    } finally {
+      setDataSourceLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -70,8 +92,12 @@ const Dashboard = ({ onLogout }) => {
       setContentTypes(ctRes.data);
       setFormatPerformance(formatRes.data);
       setExpanded({});
+      setDataLoaded(true);
     } catch (error) {
       console.error("Error fetching data:", error);
+      if (error.response && error.response.status === 400) {
+        setDataLoaded(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -90,7 +116,7 @@ const Dashboard = ({ onLogout }) => {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      await axios.get(`${API_URL}/refresh`);
+      await axios.get(`${API_URL}/refresh?sheet_url=${encodeURIComponent(dataSourceUrl)}`);
       await fetchData();
     } catch (error) {
       console.error("Error refreshing data:", error);
@@ -238,6 +264,111 @@ const Dashboard = ({ onLogout }) => {
       setExecLoading(false);
     }
   };
+
+  if (!dataLoaded) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0a0c14 0%, #0d1117 50%, #0a0e18 100%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: "'Inter', 'Outfit', sans-serif", position: 'relative', overflow: 'hidden',
+      }}>
+        {/* Background blobs */}
+        <div style={{
+          position: 'absolute', width: 500, height: 500,
+          background: 'radial-gradient(circle, rgba(185,28,28,0.12) 0%, transparent 70%)',
+          top: '10%', left: '5%', borderRadius: '50%', pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', width: 400, height: 400,
+          background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)',
+          bottom: '10%', right: '10%', borderRadius: '50%', pointerEvents: 'none',
+        }} />
+
+        <div style={{
+          width: '100%', maxWidth: 500, background: 'rgba(255,255,255,0.04)',
+          backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 20, padding: '2.8rem 2.4rem', boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          position: 'relative', zIndex: 10
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '2.2rem' }}>
+            <div style={{
+              width: 60, height: 60, borderRadius: 16, background: 'linear-gradient(135deg, #b91c1c, #7f1d1d)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem',
+              boxShadow: '0 8px 24px rgba(185,28,28,0.4)',
+            }}>
+              <FileText size={26} color="#fff" />
+            </div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px', margin: 0, marginBottom: '0.3rem' }}>
+              Connect Data Source
+            </h1>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>
+              Please provide the Google Sheet URL containing the raw analytics data to load the dashboard.
+            </p>
+          </div>
+
+          <form onSubmit={handleLoadDataSource}>
+            <div style={{ marginBottom: '1.6rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.4rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                Google Sheet URL
+              </label>
+              <input
+                type="text"
+                value={dataSourceUrl}
+                onChange={e => { setDataSourceUrl(e.target.value); setDataSourceError(''); }}
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                style={{
+                  width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${dataSourceError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 10, padding: '0.85rem 1rem', color: '#fff', fontSize: '0.92rem',
+                  fontFamily: 'inherit', outline: 'none', transition: 'border-color 0.2s',
+                }}
+                onFocus={e => e.target.style.borderColor = 'rgba(185,28,28,0.6)'}
+                onBlur={e => e.target.style.borderColor = dataSourceError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}
+              />
+            </div>
+
+            {dataSourceError && (
+              <p style={{ color: '#f87171', fontSize: '0.83rem', margin: '-0.8rem 0 1rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                ⚠ {dataSourceError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={dataSourceLoading || !dataSourceUrl.trim()}
+              style={{
+                width: '100%', background: dataSourceLoading || !dataSourceUrl.trim() ? 'rgba(185,28,28,0.4)' : 'linear-gradient(135deg, #b91c1c, #991b1b)',
+                color: '#fff', border: 'none', borderRadius: 10, padding: '0.85rem', fontWeight: 700, fontSize: '0.95rem',
+                cursor: dataSourceLoading || !dataSourceUrl.trim() ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                fontFamily: 'inherit', boxShadow: dataSourceLoading || !dataSourceUrl.trim() ? 'none' : '0 4px 20px rgba(185,28,28,0.4)',
+                transition: 'all 0.2s',
+              }}
+            >
+              {dataSourceLoading ? (
+                <><div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Loading Data...</>
+              ) : (
+                <><Layers size={18} /> Load Dashboard</>
+              )}
+            </button>
+          </form>
+          {onLogout && (
+            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+               <button onClick={onLogout} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
+                 Sign Out
+               </button>
+            </div>
+          )}
+        </div>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   if (loading && !summary) {
     return (
@@ -922,7 +1053,7 @@ const Dashboard = ({ onLogout }) => {
         </nav>
 
         <div className="sidebar-footer">
-          <p>CIMB © {new Date().getFullYear()}</p>
+          <p>Dulanaka Siriwardana © {new Date().getFullYear()}</p>
           {onLogout && (
             <button
               onClick={onLogout}

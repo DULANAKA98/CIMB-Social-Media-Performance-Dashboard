@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
-from data_processor import load_data, SHEET_URL
+from data_processor import load_data
 import pandas as pd
 import math
 import json
@@ -29,8 +29,8 @@ CACHE = {
 }
 
 def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] = None):
-    if not CACHE["data"]:
-        refresh_data()
+    if CACHE["data"] is None:
+        raise HTTPException(status_code=400, detail="Data not loaded. Please provide a sheet URL to load data.")
     
     df = pd.DataFrame(CACHE["data"])
     df['date'] = pd.to_datetime(df['date'])
@@ -46,10 +46,13 @@ def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] 
     return df
 
 @app.get("/api/refresh")
-def refresh_data():
-    CACHE["data"] = load_data()
-    CACHE["last_fetched"] = pd.Timestamp.now().isoformat()
-    return {"message": "Data refreshed successfully", "last_fetched": CACHE["last_fetched"]}
+def refresh_data(sheet_url: str = Query(...)):
+    try:
+        CACHE["data"] = load_data(sheet_url)
+        CACHE["last_fetched"] = pd.Timestamp.now().isoformat()
+        return {"message": "Data refreshed successfully", "last_fetched": CACHE["last_fetched"]}
+    except Exception as e:
+        return {"error": f"Failed to load data from sheet: {str(e)}"}
 
 @app.get("/api/dashboard-summary")
 def get_dashboard_summary(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):

@@ -1,10 +1,18 @@
 import pandas as pd
 import numpy as np
 
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1Fxpn0kzGq7iTEj7RHbvzbYFa80qcKs-Y3sYXqoXt2p4/export?format=xlsx"
+def load_data(sheet_url: str):
+    # Convert standard Google Sheet URL to export URL if needed
+    if "/edit" in sheet_url:
+        sheet_url = sheet_url.split("/edit")[0] + "/export?format=xlsx"
+    elif not sheet_url.endswith("export?format=xlsx"):
+        # Append export format if it's a base URL without edit
+        if sheet_url.endswith("/"):
+            sheet_url += "export?format=xlsx"
+        else:
+            sheet_url += "/export?format=xlsx"
 
-def load_data():
-    xl = pd.ExcelFile(SHEET_URL)
+    xl = pd.ExcelFile(sheet_url)
     
     # Load raw sheets
     fb = xl.parse("Raw_FB") if "Raw_FB" in xl.sheet_names else pd.DataFrame()
