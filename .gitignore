@@ -19,6 +19,7 @@ backend/*.json
 backend/*.txt
 backend/test_*.py
 !backend/requirements.txt
+!backend/runtime.txt
 
 # OS
 .DS_Store
