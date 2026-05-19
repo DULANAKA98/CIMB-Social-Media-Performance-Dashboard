@@ -341,11 +341,22 @@ def get_format_performance(start_date: Optional[str] = Query(None), end_date: Op
 
 @app.get("/api/export-all-contents")
 def export_all_contents(
+    sheet_url: str = Query(..., description="Public Google Sheet URL"),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
 ):
     """Return an Excel file with all contents (organic + paid) for the given date range."""
-    xl = pd.ExcelFile(SHEET_URL)
+    import re
+    match = re.search(r'/spreadsheets/d/([a-zA-Z0-9_-]+)', sheet_url)
+    if not match:
+        return {"error": "Invalid Google Sheet URL. Could not extract spreadsheet ID."}
+    sheet_id = match.group(1)
+    export_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
+
+    try:
+        xl = pd.ExcelFile(export_url)
+    except Exception as e:
+        return {"error": f"Failed to download Google Sheet: {str(e)}"}
 
     def _get(row, *keys, default=''):
         for k in keys:

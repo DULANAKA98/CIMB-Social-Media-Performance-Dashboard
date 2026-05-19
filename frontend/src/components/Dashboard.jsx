@@ -127,10 +127,10 @@ const Dashboard = ({ onLogout }) => {
   const handleDownloadExcel = async () => {
     setDownloadLoading(true);
     try {
-      let query = '';
-      if (startDate && endDate) query = `?start_date=${startDate}&end_date=${endDate}`;
-      else if (startDate) query = `?start_date=${startDate}`;
-      else if (endDate) query = `?end_date=${endDate}`;
+      let query = `?sheet_url=${encodeURIComponent(dataSourceUrl)}`;
+      if (startDate && endDate) query += `&start_date=${startDate}&end_date=${endDate}`;
+      else if (startDate) query += `&start_date=${startDate}`;
+      else if (endDate) query += `&end_date=${endDate}`;
 
       const res = await axios.get(`${API_URL}/export-all-contents${query}`, {
         responseType: 'blob',
