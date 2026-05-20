@@ -45,7 +45,7 @@ const Dashboard = ({ onLogout }) => {
   const [strategyLoading, setStrategyLoading] = useState(false);
   // Track expanded state per platform section: { Facebook_top: true, Facebook_bottom: false, ... }
   const [expanded, setExpanded] = useState({});
-  const [dataLoaded, setDataLoaded] = useState(true); // Assume loaded initially, will turn false if backend returns 400
+  const [dataLoaded, setDataLoaded] = useState(false); // Always start false to force user to connect data source
   
   const handleLoadDataSource = async (e) => {
     e.preventDefault();
@@ -106,12 +106,9 @@ const Dashboard = ({ onLogout }) => {
   };
 
   useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line
-  }, []);
-
-  useEffect(() => {
-    fetchData();
+    if (dataLoaded) {
+      fetchData();
+    }
     // eslint-disable-next-line
   }, [startDate, endDate]);
 
