@@ -32,7 +32,11 @@ const Dashboard = ({ onLogout }) => {
   const [executiveSummary, setExecutiveSummary] = useState(null);
   const [execLoading, setExecLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
-  const [pillarSheetUrl, setPillarSheetUrl] = useState('');
+  const [dataSourceUrl, setDataSourceUrl] = useState(() => localStorage.getItem('analytics_data_url') || '');
+  const [dataSourceLoading, setDataSourceLoading] = useState(false);
+  const [dataSourceError, setDataSourceError] = useState('');
+  
+  const [pillarSheetUrl, setPillarSheetUrl] = useState(() => localStorage.getItem('analytics_pillar_url') || '');
   const [pillarData, setPillarData] = useState(null);
   const [pillarLoading, setPillarLoading] = useState(false);
   const [pillarError, setPillarError] = useState('');
@@ -42,10 +46,7 @@ const Dashboard = ({ onLogout }) => {
   // Track expanded state per platform section: { Facebook_top: true, Facebook_bottom: false, ... }
   const [expanded, setExpanded] = useState({});
   const [dataLoaded, setDataLoaded] = useState(true); // Assume loaded initially, will turn false if backend returns 400
-  const [dataSourceUrl, setDataSourceUrl] = useState('');
-  const [dataSourceLoading, setDataSourceLoading] = useState(false);
-  const [dataSourceError, setDataSourceError] = useState('');
-
+  
   const handleLoadDataSource = async (e) => {
     e.preventDefault();
     if (!dataSourceUrl.trim()) return;
@@ -56,6 +57,7 @@ const Dashboard = ({ onLogout }) => {
       if (res.data.error) {
         setDataSourceError(res.data.error);
       } else {
+        localStorage.setItem('analytics_data_url', dataSourceUrl);
         setDataLoaded(true);
         fetchData();
       }
@@ -125,9 +127,17 @@ const Dashboard = ({ onLogout }) => {
   };
 
   const handleDownloadExcel = async () => {
+    let currentUrl = dataSourceUrl;
+    if (!currentUrl) {
+      currentUrl = prompt("Please enter the Google Sheet URL to download:");
+      if (!currentUrl) return;
+      setDataSourceUrl(currentUrl);
+      localStorage.setItem('analytics_data_url', currentUrl);
+    }
+
     setDownloadLoading(true);
     try {
-      let query = `?sheet_url=${encodeURIComponent(dataSourceUrl)}`;
+      let query = `?sheet_url=${encodeURIComponent(currentUrl)}`;
       if (startDate && endDate) query += `&start_date=${startDate}&end_date=${endDate}`;
       else if (startDate) query += `&start_date=${startDate}`;
       else if (endDate) query += `&end_date=${endDate}`;
@@ -176,12 +186,18 @@ const Dashboard = ({ onLogout }) => {
   };
 
   const handleFetchPillar = async () => {
-    if (!pillarSheetUrl.trim()) return;
+    let currentUrl = pillarSheetUrl;
+    if (!currentUrl) {
+      currentUrl = prompt("Please enter the Google Sheet URL for Pillar data:");
+      if (!currentUrl) return;
+      setPillarSheetUrl(currentUrl);
+      localStorage.setItem('analytics_pillar_url', currentUrl);
+    }
     setPillarLoading(true);
     setPillarError('');
     setPillarData(null);
     try {
-      let query = `?sheet_url=${encodeURIComponent(pillarSheetUrl)}`;
+      let query = `?sheet_url=${encodeURIComponent(currentUrl)}`;
       if (startDate) query += `&start_date=${startDate}`;
       if (endDate) query += `&end_date=${endDate}`;
       const res = await axios.get(`${API_URL}/pillar-er${query}`);
@@ -198,10 +214,16 @@ const Dashboard = ({ onLogout }) => {
   };
 
   const handleDownloadCrossPlatform = async () => {
-    if (!pillarSheetUrl.trim()) return;
+    let currentUrl = pillarSheetUrl;
+    if (!currentUrl) {
+      currentUrl = prompt("Please enter the Google Sheet URL to download:");
+      if (!currentUrl) return;
+      setPillarSheetUrl(currentUrl);
+      localStorage.setItem('analytics_pillar_url', currentUrl);
+    }
     setCrossPlatformLoading(true);
     try {
-      let query = `?sheet_url=${encodeURIComponent(pillarSheetUrl)}`;
+      let query = `?sheet_url=${encodeURIComponent(currentUrl)}`;
       if (startDate) query += `&start_date=${startDate}`;
       if (endDate) query += `&end_date=${endDate}`;
       const res = await axios.get(`${API_URL}/export-cross-platform${query}`, { responseType: 'blob' });
