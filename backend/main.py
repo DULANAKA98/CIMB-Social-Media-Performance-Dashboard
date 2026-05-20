@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
@@ -582,8 +582,8 @@ def export_all_contents(
 
     period = f"{start_date or 'all'}_{end_date or 'present'}"
     filename = f"CIMB_All_Contents_{period}.xlsx"
-    return StreamingResponse(
-        output,
+    return Response(
+        content=output.getvalue(),
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'}
     )
@@ -896,8 +896,8 @@ def export_cross_platform(
 
     buf.seek(0)
     period = f"{start_date or 'all'}_{end_date or 'present'}"
-    return StreamingResponse(
-        buf,
+    return Response(
+        content=buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="Cross_Platform_Contents_Performance_{period}.xlsx"'}
     )

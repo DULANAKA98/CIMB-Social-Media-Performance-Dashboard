@@ -136,6 +136,19 @@ const Dashboard = ({ onLogout }) => {
         responseType: 'blob',
       });
 
+      if (res.data.type === 'application/json') {
+        const text = await res.data.text();
+        try {
+          const json = JSON.parse(text);
+          if (json.error) {
+            alert(`Download failed: ${json.error}`);
+            return;
+          }
+        } catch (e) {
+          // Fall through
+        }
+      }
+
       const period = (startDate && endDate)
         ? `${startDate}_${endDate}`
         : (startDate || endDate || 'all');
@@ -192,6 +205,20 @@ const Dashboard = ({ onLogout }) => {
       if (startDate) query += `&start_date=${startDate}`;
       if (endDate) query += `&end_date=${endDate}`;
       const res = await axios.get(`${API_URL}/export-cross-platform${query}`, { responseType: 'blob' });
+      
+      if (res.data.type === 'application/json') {
+        const text = await res.data.text();
+        try {
+          const json = JSON.parse(text);
+          if (json.error) {
+            alert(`Download failed: ${json.error}`);
+            return;
+          }
+        } catch (e) {
+          // Fall through
+        }
+      }
+
       const period = startDate && endDate ? `${startDate}_${endDate}` : 'all';
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a');
