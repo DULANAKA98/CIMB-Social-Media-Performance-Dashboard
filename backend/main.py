@@ -406,7 +406,7 @@ def export_all_contents(
                 'Organic/Paid': str(_get(row, 'Organic/Paid')),
                 'Collab': str(_get(row, 'Collab')),
                 'Title': '',
-                'Caption': str(_get(row, 'Description', 'Post message'))[:500],
+                'Caption': str(_get(row, 'Description', 'Post message', 'Title')),
                 'Reach': reach,
                 'Views': views,
                 'Interaction': total_eng,
@@ -442,7 +442,7 @@ def export_all_contents(
                 'Organic/Paid': str(_get(row, 'Organic/Paid')),
                 'Collab': str(_get(row, 'Collab')),
                 'Title': '',
-                'Caption': str(_get(row, 'Description'))[:500],
+                'Caption': str(_get(row, 'Description')),
                 'Reach': reach,
                 'Views': views,
                 'Interaction': total_eng,
@@ -476,7 +476,7 @@ def export_all_contents(
                 'Organic/Paid': str(_get(row, 'Organic/ Paid', 'Organic/Paid')),
                 'Collab': str(_get(row, 'Collab')),
                 'Title': '',
-                'Caption': str(_get(row, 'Video title'))[:500],
+                'Caption': str(_get(row, 'Video title')),
                 'Reach': views,
                 'Views': views,
                 'Interaction': total_eng,
@@ -512,7 +512,7 @@ def export_all_contents(
                 'Organic/Paid': str(_get(row, 'Organic/Paid')),
                 'Collab': str(_get(row, 'Collab')),
                 'Title': '',
-                'Caption': str(_get(row, 'Video title'))[:500],
+                'Caption': str(_get(row, 'Video description', 'Video title')),
                 'Reach': views,
                 'Views': views,
                 'Interaction': total_eng,
@@ -547,7 +547,7 @@ def export_all_contents(
                 'Organic/Paid': str(_get(row, 'Organic/Paid')),
                 'Collab': str(_get(row, 'Collab')),
                 'Title': '',
-                'Caption': str(_get(row, 'Post title'))[:500],
+                'Caption': str(_get(row, 'Post content', 'Update title', 'Post title')),
                 'Reach': impressions,
                 'Views': views,
                 'Interaction': total_eng,
@@ -736,23 +736,30 @@ def export_cross_platform(
     sort_cols = ["Pillar"] + (["Date(Publish)"] if "Date(Publish)" in df.columns else [])
     df = df.sort_values(sort_cols, na_position="last").reset_index(drop=True)
 
-    # Build one output row per unique Caption
-    seen = {}          # caption -> first-seen order index
-    groups = {}        # caption -> {pillar, title, plat_er, plat_url}
+    # Build one output row per unique normalized Caption
+    seen = {}          # norm_cap -> first-seen order index
+    groups = {}        # norm_cap -> {original_caption, pillar, title, plat_er, plat_url}
 
     for _, row in df.iterrows():
         caption = str(row.get("Caption", "")).strip()
         if not caption or caption == "nan":
             continue
-        if caption not in groups:
-            seen[caption] = len(seen)
-            groups[caption] = {
+            
+        # Normalize the caption: ignore newlines, punctuation, whitespace
+        norm_cap = re.sub(r'[\W_]+', '', caption).lower()
+        if not norm_cap:
+            norm_cap = caption.strip().lower()
+            
+        if norm_cap not in groups:
+            seen[norm_cap] = len(seen)
+            groups[norm_cap] = {
+                "original_caption": caption,
                 "pillar": str(row.get("Pillar", "") or "").strip(),
                 "title":  str(row.get("Title", "")  or "").strip(),
                 "er":  {},
                 "url": {}
             }
-        g = groups[caption]
+        g = groups[norm_cap]
         plat = str(row.get("Platform", "")).strip()
         if plat in PLATFORMS and plat not in g["er"]:
             er_val = row.get("ER%")
@@ -768,7 +775,7 @@ def export_cross_platform(
     i = 0
     while i < len(ordered):
         pillar = groups[ordered[i]]["pillar"]
-        # Collect all captions for this pillar
+        # Collect all normalized captions for this pillar
         pillar_captions = []
         while i < len(ordered) and groups[ordered[i]]["pillar"] == pillar:
             pillar_captions.append(ordered[i])
@@ -778,15 +785,15 @@ def export_cross_platform(
         # Accumulate platform ER values across this pillar for totals
         pillar_plat_ers = {p: [] for p in PLATFORMS}
 
-        for caption in pillar_captions:
-            g = groups[caption]
+        for norm_cap in pillar_captions:
+            g = groups[norm_cap]
             valid_ers = [v for v in g["er"].values() if v is not None]
             grand_total = round(sum(valid_ers) / len(valid_ers), 2) if valid_ers else None
 
             output_rows.append({
                 "Pillar":      pillar if first_in_pillar else "",
                 "New Title":   g["title"] if g["title"] not in ("", "nan") else "",
-                "Caption":     caption,
+                "Caption":     g["original_caption"],
                 "Facebook":    g["er"].get("Facebook"),
                 "Instagram":   g["er"].get("Instagram"),
                 "LinkedIn":    g["er"].get("LinkedIn"),
