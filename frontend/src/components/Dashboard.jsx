@@ -32,11 +32,11 @@ const Dashboard = ({ onLogout }) => {
   const [executiveSummary, setExecutiveSummary] = useState(null);
   const [execLoading, setExecLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
-  const [dataSourceUrl, setDataSourceUrl] = useState(() => localStorage.getItem('analytics_data_url') || '');
+  const [dataSourceUrl, setDataSourceUrl] = useState('');
   const [dataSourceLoading, setDataSourceLoading] = useState(false);
   const [dataSourceError, setDataSourceError] = useState('');
   
-  const [pillarSheetUrl, setPillarSheetUrl] = useState(() => localStorage.getItem('analytics_pillar_url') || '');
+  const [pillarSheetUrl, setPillarSheetUrl] = useState('');
   const [pillarData, setPillarData] = useState(null);
   const [pillarLoading, setPillarLoading] = useState(false);
   const [pillarError, setPillarError] = useState('');
@@ -57,7 +57,6 @@ const Dashboard = ({ onLogout }) => {
       if (res.data.error) {
         setDataSourceError(res.data.error);
       } else {
-        localStorage.setItem('analytics_data_url', dataSourceUrl);
         setDataLoaded(true);
         fetchData();
       }
@@ -129,7 +128,6 @@ const Dashboard = ({ onLogout }) => {
       currentUrl = prompt("Please enter the Google Sheet URL to download:");
       if (!currentUrl) return;
       setDataSourceUrl(currentUrl);
-      localStorage.setItem('analytics_data_url', currentUrl);
     }
 
     setDownloadLoading(true);
@@ -188,7 +186,6 @@ const Dashboard = ({ onLogout }) => {
       currentUrl = prompt("Please enter the Google Sheet URL for Pillar data:");
       if (!currentUrl) return;
       setPillarSheetUrl(currentUrl);
-      localStorage.setItem('analytics_pillar_url', currentUrl);
     }
     setPillarLoading(true);
     setPillarError('');
@@ -216,7 +213,6 @@ const Dashboard = ({ onLogout }) => {
       currentUrl = prompt("Please enter the Google Sheet URL to download:");
       if (!currentUrl) return;
       setPillarSheetUrl(currentUrl);
-      localStorage.setItem('analytics_pillar_url', currentUrl);
     }
     setCrossPlatformLoading(true);
     try {
