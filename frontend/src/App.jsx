@@ -3,14 +3,11 @@ import Dashboard from './components/Dashboard'
 import Login from './components/Login'
 
 function App() {
-  const [authed, setAuthed] = useState(
-    () => localStorage.getItem('analytics_auth') === 'true'
-  );
+  const [authed, setAuthed] = useState(false);
 
   const handleLogin = () => setAuthed(true);
 
   const handleLogout = () => {
-    localStorage.removeItem('analytics_auth');
     setAuthed(false);
   };
 

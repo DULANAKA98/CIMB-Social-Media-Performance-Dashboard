@@ -21,7 +21,6 @@ const Login = ({ onLogin }) => {
     await new Promise(r => setTimeout(r, 600));
 
     if (username.trim() === VALID_USERNAME && password === VALID_PASSWORD) {
-      localStorage.setItem('analytics_auth', 'true');
       onLogin();
     } else {
       setError('Invalid username or password.');
