@@ -1270,4 +1270,131 @@ Additional rules:
     }
 
 
+@app.get("/api/wip-data")
+def get_wip_data(
+    sheet_url: str = Query(...),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+):
+    url = sheet_url
+    if "/edit" in url:
+        url = url.split("/edit")[0] + "/export?format=xlsx"
+    elif not url.endswith("export?format=xlsx"):
+        if url.endswith("/"):
+            url += "export?format=xlsx"
+        else:
+            url += "/export?format=xlsx"
+
+    try:
+        xl = pd.ExcelFile(url)
+    except Exception as e:
+        return {"error": f"Could not read Google Sheet: {e}"}
+
+    def _num(row, *keys):
+        for k in keys:
+            v = row.get(k)
+            if pd.isna(v):
+                continue
+            try:
+                f = float(v)
+                if not math.isnan(f):
+                    return f
+            except:
+                pass
+        return 0.0
+
+    def _in_range(dt):
+        if pd.isna(dt):
+            return False
+        try:
+            dt_ts = pd.to_datetime(dt)
+        except:
+            return False
+        if start_date and dt_ts < pd.to_datetime(start_date):
+            return False
+        if end_date:
+            end_dt = pd.to_datetime(end_date)
+            if end_dt.time() == pd.Timestamp('00:00:00').time():
+                end_dt = end_dt + pd.Timedelta(days=1, seconds=-1)
+            if dt_ts > end_dt:
+                return False
+        return True
+
+    result = {}
+
+    if "Raw_FB" in xl.sheet_names:
+        fb = xl.parse("Raw_FB")
+        fb_dates = pd.to_datetime(fb.get("Publish time"), errors="coerce")
+        posts, total_reach, total_eng, total_views, er_list = 0, 0.0, 0.0, 0.0, []
+        for idx, row in fb.iterrows():
+            pub_time = row.get("Publish time")
+            if pd.isna(pub_time):
+                continue
+            if not _in_range(fb_dates[idx]):
+                continue
+            posts += 1
+            total_reach += _num(row, "Reach", "Lifetime Post Total Reach")
+            views = _num(row, "Views")
+            eng = _num(row, "Reactions, comments and shares")
+            total_eng += eng
+            total_views += views
+            if views > 0:
+                er_list.append(eng / views * 100)
+        result["Facebook"] = {
+            "posts_count": posts,
+            "total_reach": round(total_reach),
+            "total_engagement": round(total_eng),
+            "total_video_views": round(total_views),
+            "avg_engagement_rate": round(sum(er_list)/len(er_list), 2) if er_list else 0.0,
+        }
+
+    if "Raw_IG" in xl.sheet_names:
+        ig = xl.parse("Raw_IG")
+        ig_dates = pd.to_datetime(ig.get("Publish time"), errors="coerce")
+        posts, total_reach, total_eng, total_views, er_list = 0, 0.0, 0.0, 0.0, []
+        for idx, row in ig.iterrows():
+            pub_time = row.get("Publish time")
+            if pd.isna(pub_time):
+                continue
+            if not _in_range(ig_dates[idx]):
+                continue
+            posts += 1
+            total_reach += _num(row, "Reach")
+            views = _num(row, "Views")
+            eng = _num(row, "Likes") + _num(row, "Comments") + _num(row, "Shares") + _num(row, "Saves")
+            total_eng += eng
+            total_views += views
+            if views > 0:
+                er_list.append(eng / views * 100)
+        result["Instagram"] = {
+            "posts_count": posts,
+            "total_reach": round(total_reach),
+            "total_engagement": round(total_eng),
+            "video_views": round(total_views),
+            "avg_engagement_rate": round(sum(er_list)/len(er_list), 2) if er_list else 0.0,
+        }
+
+    if "Raw_Youtube" in xl.sheet_names:
+        yt = xl.parse("Raw_Youtube")
+        yt_dates = pd.to_datetime(yt.get("Video publish time"), errors="coerce")
+        total_views, total_imp, total_wt = 0.0, 0.0, 0.0
+        for idx, row in yt.iterrows():
+            pub_time = row.get("Video publish time")
+            if pd.isna(pub_time):
+                continue
+            if not _in_range(yt_dates[idx]):
+                continue
+            total_views += _num(row, "Views")
+            total_imp += _num(row, "Impressions")
+            total_wt += _num(row, "Watch time (hours)")
+        result["YouTube"] = {
+            "total_views": round(total_views),
+            "impressions": round(total_imp),
+            "watch_time_hours": round(total_wt, 1),
+        }
+
+    return result
+
+
+
 

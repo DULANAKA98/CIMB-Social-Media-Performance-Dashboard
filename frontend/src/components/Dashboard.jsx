@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen } from 'lucide-react';
+import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen, Database } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
@@ -14,7 +14,9 @@ const NAV_ITEMS = [
   { id: 'pillar', label: 'Content Mix & Pillar Alignment', icon: PieChart },
   { id: 'strategy', label: 'Platform Strategy Recommendations', icon: Target },
   { id: 'learnings', label: 'Key Learnings & Recommendations', icon: BookOpen },
+  { id: 'wip', label: 'WIP Data', icon: Database },
 ];
+
 
 const Dashboard = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,12 @@ const Dashboard = ({ onLogout }) => {
   // Track expanded state per platform section: { Facebook_top: true, Facebook_bottom: false, ... }
   const [expanded, setExpanded] = useState({});
   const [dataLoaded, setDataLoaded] = useState(false); // Always start false to force user to connect data source
+  const [wipData, setWipData] = useState(null);
+  const [wipLoading, setWipLoading] = useState(false);
+  const [wipError, setWipError] = useState('');
+  const [wipTrigger, setWipTrigger] = useState(0);
   
+
   const handleLoadDataSource = async (e) => {
     e.preventDefault();
     if (!dataSourceUrl.trim()) return;
@@ -111,11 +118,42 @@ const Dashboard = ({ onLogout }) => {
     // eslint-disable-next-line
   }, [startDate, endDate]);
 
+  useEffect(() => {
+    if (dataSourceUrl) {
+      const fetchWip = async () => {
+        setWipLoading(true);
+        setWipError('');
+        try {
+          let query = `?sheet_url=${encodeURIComponent(dataSourceUrl)}`;
+          if (startDate) query += `&start_date=${startDate}`;
+          if (endDate) query += `&end_date=${endDate}`;
+          
+          const res = await axios.get(`${API_URL}/wip-data${query}`);
+          if (res.data.error) {
+            setWipError(res.data.error);
+            setWipData(null);
+          } else {
+            setWipData(res.data);
+          }
+        } catch (err) {
+          setWipError('Failed to fetch WIP Data. Please ensure the data source is loaded.');
+          setWipData(null);
+        } finally {
+          setWipLoading(false);
+        }
+      };
+      fetchWip();
+    }
+  }, [activeTab, dataSourceUrl, startDate, endDate, wipTrigger]);
+
   const handleRefresh = async () => {
     setLoading(true);
     try {
       await axios.get(`${API_URL}/refresh?sheet_url=${encodeURIComponent(dataSourceUrl)}`);
       await fetchData();
+      if (activeTab === 'wip') {
+        setWipTrigger(prev => prev + 1);
+      }
     } catch (error) {
       console.error("Error refreshing data:", error);
       setLoading(false);
@@ -178,6 +216,128 @@ const Dashboard = ({ onLogout }) => {
   const formatNumber = (num) => {
     if (num === null || num === undefined) return '0';
     return Math.round(num).toLocaleString();
+  };
+
+  const renderWipSection = () => {
+    if (wipLoading) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0' }}>
+          <div className="spinner" style={{ width: 40, height: 40, borderTopColor: 'var(--accent-purple)', marginBottom: '1rem' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Aggregating raw sheet metrics... Please wait.</p>
+        </div>
+      );
+    }
+
+    if (wipError) {
+      return (
+        <div className="glass-panel" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.08)', padding: '2rem', textAlign: 'center', transition: 'none' }}>
+          <p style={{ color: '#f87171', fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>⚠ Error Loading WIP Data</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '1.5rem' }}>{wipError}</p>
+          <button onClick={() => setWipTrigger(prev => prev + 1)} className="refresh-btn" style={{ margin: '0 auto' }}>
+            Try Again
+          </button>
+        </div>
+      );
+    }
+
+    if (!wipData) {
+      return (
+        <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', transition: 'none' }}>
+          <p style={{ color: 'var(--text-secondary)' }}>No WIP data loaded. Check if the sheet URL is correct.</p>
+        </div>
+      );
+    }
+
+    const { Facebook, Instagram, YouTube } = wipData;
+
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+        {/* Facebook Card */}
+        {Facebook && (
+          <div className="glass-panel" style={{ borderTop: '4px solid var(--fb-color)' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
+              <span style={{ fontSize: '1.4rem' }}>📘</span> Facebook WIP Data
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="metric-box" style={{ gridColumn: 'span 2' }}>
+                <span>Total Reach</span>
+                <strong>{formatNumber(Facebook.total_reach)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>Avg. Engagement Rate</span>
+                <strong style={{ color: 'var(--accent-pink)' }}>{Facebook.avg_engagement_rate?.toFixed(2)}%</strong>
+              </div>
+              <div className="metric-box">
+                <span>Total Engagement</span>
+                <strong style={{ color: 'var(--accent-purple)' }}>{formatNumber(Facebook.total_engagement)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>Total Video Views</span>
+                <strong>{formatNumber(Facebook.total_video_views)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>No. of Posts</span>
+                <strong>{Facebook.posts_count}</strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Instagram Card */}
+        {Instagram && (
+          <div className="glass-panel" style={{ borderTop: '4px solid var(--ig-color)' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
+              <span style={{ fontSize: '1.4rem' }}>📸</span> Instagram WIP Data
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="metric-box" style={{ gridColumn: 'span 2' }}>
+                <span>Total Reach</span>
+                <strong>{formatNumber(Instagram.total_reach)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>Avg. Engagement Rate</span>
+                <strong style={{ color: 'var(--accent-pink)' }}>{Instagram.avg_engagement_rate?.toFixed(2)}%</strong>
+              </div>
+              <div className="metric-box">
+                <span>Total Engagement</span>
+                <strong style={{ color: 'var(--accent-purple)' }}>{formatNumber(Instagram.total_engagement)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>Video Views</span>
+                <strong>{formatNumber(Instagram.video_views)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>No. of Posts</span>
+                <strong>{Instagram.posts_count}</strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* YouTube Card */}
+        {YouTube && (
+          <div className="glass-panel" style={{ borderTop: '4px solid var(--yt-color)' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
+              <span style={{ fontSize: '1.4rem' }}>▶️</span> YouTube WIP Data
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="metric-box">
+                <span>Total Views</span>
+                <strong>{formatNumber(YouTube.total_views)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>Impressions</span>
+                <strong>{formatNumber(YouTube.impressions)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>Watch Time (hours)</span>
+                <strong style={{ color: 'var(--accent-green)' }}>{YouTube.watch_time_hours?.toLocaleString()}h</strong>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const handleFetchPillar = async () => {
@@ -1505,6 +1665,16 @@ const Dashboard = ({ onLogout }) => {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'wip' && (
+            <div>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>WIP Data</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                Live aggregated metrics calculated directly from raw sheets.
+              </p>
+              {renderWipSection()}
             </div>
           )}
         </div>
