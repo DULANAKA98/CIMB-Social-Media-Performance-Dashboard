@@ -1150,9 +1150,9 @@ def get_strategy_insights(
             "avg_er_paid":        paid_er,
             "avg_reach":          int(pdf["reach"].mean()) if not pdf.empty else 0,
             "er_spread":          er_spread,
-            "format_performance": fmt_rows,        # ALL content
-            "top5_posts":         top5_posts,      # ALL content, for theme inference
-            "bot5_posts":         bot5_posts,      # ALL content, for theme inference
+            "format_performance": fmt_rows,
+            "top5_posts":         top5_posts,
+            "bot5_posts":         bot5_posts,
         }
 
     er_rank = sorted(plat_stats.items(), key=lambda x: x[1]["avg_er_all"], reverse=True)
@@ -1166,21 +1166,26 @@ def get_strategy_insights(
 Period: {period_label}
 Platform organic ER ranking: {er_rank_str}
 
-Per-platform analytics (format breakdown + top/bottom organic post titles for theme context):
+Per-platform analytics (format breakdown + top/bottom post titles for theme context):
 {data_str}
 
 TASK: Write a STOP / PAUSE / CONTINUE / ENHANCE strategy for each platform.
 
 HOW TO READ THE DATA:
-- "top5_organic_posts" gives you the titles of the BEST performing content — use these to infer CONTENT THEMES (e.g. "Security/fraud awareness", "Financial literacy tips", "Lifestyle/festive content", "Product promotions", "Community stories", "Employer brand")
-- "bot5_organic_posts" gives you the WORST performing content — use these to infer what themes/approaches to STOP or PAUSE
+- "top5_posts" gives you the titles of the BEST performing content — use these to infer CONTENT THEMES (e.g. "Security/fraud awareness", "Financial literacy tips", "Lifestyle/festive content", "CIMB Heroes stories", "Employer brand", "Sustainability content")
+- "bot5_posts" gives you the WORST performing content — use these to infer what specific approaches to STOP or PAUSE
 - "format_performance" tells you which FORMATS (Reel, Video, Static, Carousel, etc.) drove the highest vs lowest ER
 
 HOW TO WRITE EACH CELL:
-- STOP: The content THEMES or APPROACHES that consistently underperformed. Infer from bot5 titles + lowest ER formats. Be specific — e.g. "Static product announcement posts" or "Generic promotional announcements"
-- PAUSE: Themes or formats that showed inconsistent results (high er_spread) — currently working sometimes but need refinement. E.g. "Carousel-format campaign posts" or "Paid promotional reels"
-- CONTINUE: The THEMES and FORMATS with proven consistently high ER. Infer from top5 titles. E.g. "Security/fraud awareness content", "Financial literacy explainers", "Creator-led storytelling reels"
-- ENHANCE: High-potential themes/formats that appeared in top performers but are underutilised (few posts, high best_er). E.g. "Collaborations with creators", "Series-based educational content", "UGC-style community stories"
+- STOP: VERY CONSERVATIVE. For a bank, standard content categories (promotions, product announcements, brand campaigns) are mandatory and must NEVER be listed here. Only recommend STOP for a very specific FORMAT or EXECUTION STYLE that is consistently the lowest performer AND has a clearly better alternative already proven in the data. If no such clear case exists, write "No change, to monitor performance". Default to this unless the evidence is overwhelming.
+- PAUSE: Themes or formats that showed inconsistent results (high er_spread) — currently working sometimes but need refinement before scaling. E.g. "Carousel-format campaign posts" or "Link-based posts". If no clear PAUSE needed, write "No pause required".
+- CONTINUE: The THEMES and FORMATS with proven consistently high ER. Infer from top5 post titles. E.g. "Financial literacy tips, Security/fraud awareness", "Creator-led storytelling reels", "CIMB Heroes stories, Financial literacy explainers"
+- ENHANCE: High-potential themes/formats that appeared in top performers but are underutilised (few posts, high best_er). E.g. "Collaborations with creators", "Series-based educational content", "UGC-style community stories", "Collaborations with industry leaders"
+
+CRITICAL STOP GUIDANCE:
+- "Generic promotional posts" is NOT an acceptable STOP recommendation for a bank — promotions are core business content.
+- Only flag a very specific, narrow execution style (e.g. "Static single-image product launches with no hook") if the data clearly supports it.
+- When in doubt, write "No change, to monitor performance".
 
 Each cell = SHORT PHRASES only (max 15 words). Can list 2-3 themes separated by commas if relevant. NOT full sentences.
 
@@ -1197,10 +1202,17 @@ Return ONLY valid JSON, no markdown, no code fences:
 }}
 
 Additional rules:
-- If a platform has no clear underperformer, write "No change, to monitor performance" for STOP.
+- STOP defaults to "No change, to monitor performance" unless there is overwhelming data evidence of a specific underperforming execution style that is NOT a core bank content category.
 - If no clear PAUSE needed, write "No pause required".
-- Key takeaways: exactly 5. Each = one professional sentence referencing real ER% numbers AND specific content themes from the data.
-- Think like a strategist reading real content — what TOPICS and APPROACHES worked, not just what format file type was used."""
+- Key takeaways: exactly 5 items, one per platform (Facebook, Instagram, TikTok, YouTube, LinkedIn). Each takeaway must:
+  (a) Start with the platform name (e.g. "Instagram should...", "TikTok continues to be...", "Facebook remains...")
+  (b) Describe what the platform is currently doing well and what the NEXT strategic move should be — forward-looking, not just a data observation
+  (c) Reference the platform's avg ER% and at least one specific content theme proven in the data
+  (d) Be ONE complete professional sentence, written for a senior management audience
+  Example style: "Instagram should double down on its strengths in lifestyle, festive, and financial literacy explainers, using deep collaborations with creators to maintain its status as a primary engagement driver."
+  Example style: "TikTok continues to be a highly effective channel for bite-sized, practical knowledge — content should shift from pure corporate delivery toward authentic, UGC-style community stories to maximise its X.XX% avg ER."
+  DO NOT write takeaways that just describe a single post's ER or name a specific post.
+- Think like a strategist — what TOPICS and APPROACHES worked, and what should the team do MORE of?"""
 
     # ── Prompt 2: Key Learnings ──────────────────────────────────────────────────
     prompt2 = f"""You are a senior social media strategist producing a board-level report for CIMB Bank Malaysia.
