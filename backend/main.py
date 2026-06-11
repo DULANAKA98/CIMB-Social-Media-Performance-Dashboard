@@ -1618,6 +1618,18 @@ def get_wip_data(
             "impressions": round(total_imp),
             "watch_time_hours": round(total_wt, 1),
         }
+    return result
+
+
+# ── Helper: call Groq for chat with history ───────────────────────────────────
+def _call_groq_chat(api_key: str, messages: List[Dict[str, str]], max_tokens: int = 3000):
+    GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+    # Using the best models for conversational / reporting stuff
+    GROQ_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile"]
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    last_error = None
+    for model in GROQ_MODELS:
+        try:
             payload = {
                 "model": model, 
                 "messages": messages,
@@ -1637,7 +1649,6 @@ def get_wip_data(
             last_error = str(e)
             continue
     return {"error": f"No Groq model succeeded. Last error: {last_error}"}
-
 
 class ChatMessage(BaseModel):
     role: str
