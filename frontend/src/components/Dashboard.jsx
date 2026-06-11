@@ -646,6 +646,24 @@ const Dashboard = ({ onLogout }) => {
     }
   };
 
+  const exportPlatformHighlights = async () => {
+    try {
+      let query = `?start_date=${startDate}&end_date=${endDate}`;
+      const res = await axios.get(`${API_URL}/export-platform-highlights${query}`, { responseType: 'blob' });
+      
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Platform_Highlights_${startDate}_${endDate}.pptx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error exporting slides:", error);
+      alert("Failed to export slides. See console.");
+    }
+  };
+
   const handleDownloadCrossPlatform = async () => {
     let currentUrl = pillarSheetUrl;
     if (!currentUrl) {
@@ -1592,7 +1610,30 @@ const Dashboard = ({ onLogout }) => {
 
           {activeTab === 'highlights' && (
             <div>
-              {platformStats && Object.entries(platformStats).map(([platformName, stats]) =>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <button
+              onClick={exportPlatformHighlights}
+              style={{
+                padding: '0.6rem 1.2rem',
+                backgroundColor: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                boxShadow: '0 4px 6px -1px rgba(220, 38, 38, 0.3)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <Download size={18} /> Export AI Slide (.pptx)
+            </button>
+          </div>
+          {platformStats && Object.entries(platformStats).map(([platformName, stats]) =>
                 renderPlatformCard(platformName, stats)
               )}
             </div>
