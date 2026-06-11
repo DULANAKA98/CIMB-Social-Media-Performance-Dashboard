@@ -18,17 +18,25 @@ def download_logo(platform):
     if not url:
         return None
     
-    os.makedirs("backend/assets", exist_ok=True)
-    filepath = f"backend/assets/{platform}.png"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    assets_dir = os.path.join(base_dir, "assets")
+    os.makedirs(assets_dir, exist_ok=True)
+    filepath = os.path.join(assets_dir, f"{platform}.png")
+    
     if not os.path.exists(filepath):
         try:
-            r = requests.get(url, stream=True)
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0'}
+            r = requests.get(url, stream=True, headers=headers)
             if r.status_code == 200:
                 with open(filepath, 'wb') as f:
                     for chunk in r: f.write(chunk)
         except Exception as e:
             print("Logo download failed:", e)
             return None
+            
+    if not os.path.exists(filepath):
+        return None
+        
     return filepath
 
 def _set_cell_text(cell, text, bold=False, color=None, size=Pt(11), align=PP_ALIGN.CENTER):
