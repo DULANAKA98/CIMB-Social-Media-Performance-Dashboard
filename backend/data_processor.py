@@ -1,5 +1,14 @@
 import pandas as pd
 import numpy as np
+import hashlib
+
+def generate_id(platform_prefix, row, link, title, date, idx):
+    """Generate a guaranteed unique ID immune to float precision loss."""
+    unique_str = link
+    if not unique_str or unique_str == 'nan':
+        unique_str = f"{title}_{date}_{idx}"
+    hash_val = hashlib.md5(str(unique_str).encode('utf-8')).hexdigest()[:16]
+    return f"{platform_prefix}_{hash_val}"
 
 def load_data(sheet_url: str):
     # Convert standard Google Sheet URL to export URL if needed
@@ -14,12 +23,12 @@ def load_data(sheet_url: str):
 
     xl = pd.ExcelFile(sheet_url)
     
-    # Load raw sheets with specific dtypes to prevent precision loss on large IDs
-    fb = xl.parse("Raw_FB", dtype={'Post ID': str}) if "Raw_FB" in xl.sheet_names else pd.DataFrame()
-    ig = xl.parse("Raw_IG", dtype={'Post ID': str}) if "Raw_IG" in xl.sheet_names else pd.DataFrame()
-    yt = xl.parse("Raw_Youtube", dtype={'Content': str}) if "Raw_Youtube" in xl.sheet_names else pd.DataFrame()
-    tt = xl.parse("Raw_Tiktok") if "Raw_Tiktok" in xl.sheet_names else pd.DataFrame()
-    li = xl.parse("Raw_LI") if "Raw_LI" in xl.sheet_names else pd.DataFrame()
+    # Load raw sheets
+    fb = xl.parse("Raw_FB", dtype=str) if "Raw_FB" in xl.sheet_names else pd.DataFrame()
+    ig = xl.parse("Raw_IG", dtype=str) if "Raw_IG" in xl.sheet_names else pd.DataFrame()
+    yt = xl.parse("Raw_Youtube", dtype=str) if "Raw_Youtube" in xl.sheet_names else pd.DataFrame()
+    tt = xl.parse("Raw_Tiktok", dtype=str) if "Raw_Tiktok" in xl.sheet_names else pd.DataFrame()
+    li = xl.parse("Raw_LI", dtype=str) if "Raw_LI" in xl.sheet_names else pd.DataFrame()
     
     return process_data(fb, ig, yt, tt, li)
 
@@ -65,16 +74,16 @@ def process_data(fb, ig, yt, tt, li=None):
             format_val = str(row.get('Post type', ''))
             if format_val == 'nan': format_val = 'Unknown'
             
-            # Ensure ID string doesn't end with '.0' if pandas read it as float previously
-            raw_id = str(row.get('Post ID', idx)).replace('.0', '')
+            date_str = fb_dates[idx].isoformat() if pd.notna(fb_dates[idx]) else None
+            link = str(row.get('Permalink', row.get('Link', '')))
             
             unified_data.append({
-                'id': f"fb_{raw_id}",
+                'id': generate_id('fb', row, link, title, date_str, idx),
                 'platform': 'Facebook',
                 'format': format_val,
-                'date': fb_dates[idx].isoformat() if pd.notna(fb_dates[idx]) else None,
+                'date': date_str,
                 'title': title,
-                'link': str(row.get('Permalink', row.get('Link', ''))),
+                'link': link,
                 'reach': reach,
                 'views': views,
                 'engagement': total_eng,
@@ -106,15 +115,16 @@ def process_data(fb, ig, yt, tt, li=None):
             format_val = str(row.get('Post type', ''))
             if format_val == 'nan': format_val = 'Unknown'
 
-            raw_id = str(row.get('Post ID', idx)).replace('.0', '')
+            date_str = ig_dates[idx].isoformat() if pd.notna(ig_dates[idx]) else None
+            link = str(row.get('Permalink', ''))
 
             unified_data.append({
-                'id': f"ig_{raw_id}",
+                'id': generate_id('ig', row, link, str(row.get('Description', '')), date_str, idx),
                 'platform': 'Instagram',
                 'format': format_val,
-                'date': ig_dates[idx].isoformat() if pd.notna(ig_dates[idx]) else None,
+                'date': date_str,
                 'title': str(row.get('Description', ''))[:150],
-                'link': str(row.get('Permalink', '')),
+                'link': link,
                 'reach': reach,
                 'views': views,
                 'engagement': total_eng,
@@ -141,15 +151,16 @@ def process_data(fb, ig, yt, tt, li=None):
             organic_paid_val = str(row.get('Organic/ Paid', row.get('Organic/Paid', ''))).strip().lower()
             is_organic = (organic_paid_val == 'organic') if organic_paid_val else True
             
-            raw_id = str(row.get('Content', idx)).replace('.0', '')
-            
+            date_str = yt_dates[idx].isoformat() if pd.notna(yt_dates[idx]) else None
+            link = f"https://youtube.com/watch?v={row.get('Content', '')}"
+
             unified_data.append({
-                'id': f"yt_{raw_id}",
+                'id': generate_id('yt', row, link, str(row.get('Video title', '')), date_str, idx),
                 'platform': 'YouTube',
                 'format': 'Video',
-                'date': yt_dates[idx].isoformat() if pd.notna(yt_dates[idx]) else None,
+                'date': date_str,
                 'title': str(row.get('Video title', ''))[:150],
-                'link': f"https://youtube.com/watch?v={row.get('Content', '')}",
+                'link': link,
                 'reach': get_val(row, 'Impressions'),
                 'views': views,
                 'engagement': total_eng,
@@ -179,13 +190,16 @@ def process_data(fb, ig, yt, tt, li=None):
             organic_paid_val = str(row.get('Organic/Paid', '')).strip().lower()
             is_organic = (organic_paid_val == 'organic') if organic_paid_val else True
             
+            date_str = tt_dates[idx].isoformat() if pd.notna(tt_dates[idx]) else None
+            link = str(row.get('Video link', ''))
+
             unified_data.append({
-                'id': f"tt_{idx}",
+                'id': generate_id('tt', row, link, str(row.get('Video title', '')), date_str, idx),
                 'platform': 'TikTok',
                 'format': 'Video',
-                'date': tt_dates[idx].isoformat() if pd.notna(tt_dates[idx]) else None,
+                'date': date_str,
                 'title': str(row.get('Video title', ''))[:150],
-                'link': str(row.get('Video link', '')),
+                'link': link,
                 'reach': views, # TikTok Reach is essentially views
                 'views': views,
                 'engagement': total_eng,
@@ -216,13 +230,16 @@ def process_data(fb, ig, yt, tt, li=None):
             format_val = str(row.get('Content Type', ''))
             if format_val == 'nan': format_val = 'Unknown'
 
+            date_str = li_dates[idx].isoformat() if pd.notna(li_dates[idx]) else None
+            link = str(row.get('Post link', ''))
+
             unified_data.append({
-                'id': f"li_{idx}",
+                'id': generate_id('li', row, link, str(row.get('Post title', '')), date_str, idx),
                 'platform': 'LinkedIn',
                 'format': format_val,
-                'date': li_dates[idx].isoformat() if pd.notna(li_dates[idx]) else None,
+                'date': date_str,
                 'title': str(row.get('Post title', ''))[:150],
-                'link': str(row.get('Post link', '')),
+                'link': link,
                 'reach': impressions,
                 'views': views,
                 'engagement': total_eng,
@@ -235,7 +252,7 @@ def process_data(fb, ig, yt, tt, li=None):
                 'is_organic': is_organic
             })
 
-
     df = pd.DataFrame(unified_data)
     df = df.replace({np.nan: None})
     return df.to_dict(orient='records')
+
