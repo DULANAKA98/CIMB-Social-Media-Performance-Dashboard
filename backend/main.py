@@ -1356,7 +1356,7 @@ WRITING DOCTRINE — apply to every cell:
 5. CELL FORMAT: short phrases only (max 15 words per cell). Not full paragraphs.
 
 HOW TO READ THE DATA:
-- top5_posts: titles of BEST performing content → infer themes (e.g. "security/fraud tips", "financial literacy explainers", "festive storytelling")
+- top5_posts: titles of BEST performing content → infer themes (e.g. "[Theme A]", "[Theme B]" based strictly on the actual titles)
 - bot5_posts: titles of WORST performing content → infer what execution styles to STOP or PAUSE
 - format_performance: which formats (Reel, Video, Static, Carousel) drove highest vs lowest avg ER
 
@@ -1432,14 +1432,14 @@ Action: "Turn product posts into [Specific engaging format].
 
 ─── EXAMPLE of BAD writing ───
 
-Title: "Video-led content outperforms" (too vague)
-Description: "Instagram and TikTok showed higher engagement rates (2.16% and 1.37% avg ER) compared to other
-  platforms, supported by video content performance (3.7% avg ER on Instagram and 1.37% avg ER on TikTok).
-  This confirms the effectiveness of video-led content in driving engagement. The strong performance of video
-  content on these platforms is likely due to the high engagement rates of video posts (1.86% avg ER on
-  Instagram and 1.37% avg ER on TikTok)." → TOO MANY NUMBERS. REPEATS THE SAME STAT. NO MECHANIC EXPLAINED.
-Action: "Prioritise Video format across Instagram and TikTok, targeting ≥3 posts per week, to sustain the
-  3.2% avg ER proven this period." → TOO MECHANICAL. Does not describe a content mechanic or creative approach.
+Title: "[Generic format] outperforms" (too vague)
+Description: "[Platform A] and [Platform B] showed higher engagement rates ([X]% and [Y]% avg ER) compared to other
+  platforms, supported by [Format] content performance ([Z]% avg ER on [Platform A] and [W]% avg ER on [Platform B]).
+  This confirms the effectiveness of [Format]-led content in driving engagement. The strong performance of [Format]
+  content on these platforms is likely due to the high engagement rates of [Format] posts ([V]% avg ER on
+  [Platform A] and [U]% avg ER on [Platform B])." → TOO MANY NUMBERS. REPEATS THE SAME STAT. NO MECHANIC EXPLAINED.
+Action: "Prioritise [Format] format across [Platform A] and [Platform B], targeting ≥3 posts per week, to sustain the
+  [X]% avg ER proven this period." → TOO MECHANICAL. Does not describe a content mechanic or creative approach.
 
 ===========================================================================
 HOW TO USE THE DATA:
