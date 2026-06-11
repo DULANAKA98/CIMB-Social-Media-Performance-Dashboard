@@ -94,56 +94,37 @@ class SyncRequest(BaseModel):
 def sync_sheet(req: SyncRequest, db: Session = Depends(get_db)):
     try:
         records = load_data(req.sheet_url)
-        inserted = 0
-        updated = 0
+        synced = 0
         for rec in records:
-            existing = db.query(Post).filter(Post.id == rec['id']).first()
             date_val = None
             if rec.get('date'):
                 try:
                     date_val = pd.to_datetime(rec['date']).to_pydatetime()
                 except:
                     date_val = None
-            if existing:
-                existing.platform = rec.get('platform', existing.platform)
-                existing.format = rec.get('format', existing.format)
-                existing.date = date_val or existing.date
-                existing.title = rec.get('title', existing.title)
-                existing.link = rec.get('link', existing.link)
-                existing.reach = float(rec.get('reach') or 0)
-                existing.views = float(rec.get('views') or 0)
-                existing.engagement = float(rec.get('engagement') or 0)
-                existing.likes = float(rec.get('likes') or 0)
-                existing.comments = float(rec.get('comments') or 0)
-                existing.shares = float(rec.get('shares') or 0)
-                existing.favorites = float(rec.get('favorites') or 0)
-                existing.reposts = float(rec.get('reposts') or 0)
-                existing.engagement_rate = float(rec.get('engagement_rate') or 0)
-                existing.is_organic = bool(rec.get('is_organic', True))
-                updated += 1
-            else:
-                post = Post(
-                    id=str(rec['id']),
-                    platform=rec.get('platform', ''),
-                    format=rec.get('format', ''),
-                    date=date_val,
-                    title=rec.get('title', ''),
-                    link=rec.get('link', ''),
-                    reach=float(rec.get('reach') or 0),
-                    views=float(rec.get('views') or 0),
-                    engagement=float(rec.get('engagement') or 0),
-                    likes=float(rec.get('likes') or 0),
-                    comments=float(rec.get('comments') or 0),
-                    shares=float(rec.get('shares') or 0),
-                    favorites=float(rec.get('favorites') or 0),
-                    reposts=float(rec.get('reposts') or 0),
-                    engagement_rate=float(rec.get('engagement_rate') or 0),
-                    is_organic=bool(rec.get('is_organic', True)),
-                )
-                db.add(post)
-                inserted += 1
+            # db.merge() will INSERT if not exists, UPDATE if exists — no duplicate errors
+            post = Post(
+                id=str(rec['id']),
+                platform=rec.get('platform', ''),
+                format=rec.get('format', ''),
+                date=date_val,
+                title=rec.get('title', ''),
+                link=rec.get('link', ''),
+                reach=float(rec.get('reach') or 0),
+                views=float(rec.get('views') or 0),
+                engagement=float(rec.get('engagement') or 0),
+                likes=float(rec.get('likes') or 0),
+                comments=float(rec.get('comments') or 0),
+                shares=float(rec.get('shares') or 0),
+                favorites=float(rec.get('favorites') or 0),
+                reposts=float(rec.get('reposts') or 0),
+                engagement_rate=float(rec.get('engagement_rate') or 0),
+                is_organic=bool(rec.get('is_organic', True)),
+            )
+            db.merge(post)
+            synced += 1
         db.commit()
-        return {"message": f"Sync complete. {inserted} new posts added, {updated} posts updated.", "inserted": inserted, "updated": updated}
+        return {"message": f"Sync complete! {synced} posts synced to database.", "synced": synced}
     except Exception as e:
         db.rollback()
         return {"error": f"Sync failed: {str(e)}"}
