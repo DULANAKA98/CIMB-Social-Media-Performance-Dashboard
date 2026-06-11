@@ -1,9 +1,12 @@
-from fastapi import FastAPI, Query, HTTPException, Response
+from fastapi import FastAPI, Query, HTTPException, Response, Depends
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from data_processor import load_data
+from database import init_db, get_db, Post, AiReport
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 import pandas as pd
 import math
 import json
@@ -11,8 +14,9 @@ import os
 import io
 import requests as http_requests
 from dotenv import load_dotenv
+from datetime import datetime
 
-load_dotenv()  # Load GROQ_API_KEY from .env
+load_dotenv()  # Load GROQ_API_KEY and DATABASE_URL from .env
 
 app = FastAPI(title="Social Media Analytics API")
 
@@ -24,36 +28,282 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CACHE = {
-    "data": None,
-    "last_fetched": None
-}
-
-def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] = None):
-    if CACHE["data"] is None:
-        raise HTTPException(status_code=400, detail="Data not loaded. Please provide a sheet URL to load data.")
-    
-    df = pd.DataFrame(CACHE["data"])
-    df['date'] = pd.to_datetime(df['date'])
-    
-    if start_date:
-        df = df[df['date'] >= pd.to_datetime(start_date)]
-    if end_date:
-        end_dt = pd.to_datetime(end_date)
-        if end_dt.time() == pd.Timestamp('00:00:00').time():
-            end_dt = end_dt + pd.Timedelta(days=1, seconds=-1)
-        df = df[df['date'] <= end_dt]
-        
-    return df
-
-@app.get("/api/refresh")
-def refresh_data(sheet_url: str = Query(...)):
+# ── Initialize database tables on startup ─────────────────────────────────────
+@app.on_event("startup")
+def startup_event():
     try:
-        CACHE["data"] = load_data(sheet_url)
-        CACHE["last_fetched"] = pd.Timestamp.now().isoformat()
-        return {"message": "Data refreshed successfully", "last_fetched": CACHE["last_fetched"]}
+        init_db()
     except Exception as e:
-        return {"error": f"Failed to load data from sheet: {str(e)}"}
+        print(f"DB init warning: {e}")
+
+
+# ── Helper: load posts from DB into a Pandas DataFrame ────────────────────────
+def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] = None):
+    db = next(get_db())
+    try:
+        query = db.query(Post)
+        if start_date:
+            query = query.filter(Post.date >= pd.to_datetime(start_date))
+        if end_date:
+            end_dt = pd.to_datetime(end_date)
+            if end_dt.time() == pd.Timestamp('00:00:00').time():
+                end_dt = end_dt + pd.Timedelta(days=1, seconds=-1)
+            query = query.filter(Post.date <= end_dt)
+        rows = query.all()
+        if not rows:
+            raise HTTPException(status_code=400, detail="No data in database. Please sync a Google Sheet first.")
+        records = []
+        for r in rows:
+            records.append({
+                'id': r.id, 'platform': r.platform, 'format': r.format,
+                'date': r.date, 'title': r.title, 'link': r.link,
+                'reach': r.reach or 0, 'views': r.views or 0,
+                'engagement': r.engagement or 0, 'likes': r.likes or 0,
+                'comments': r.comments or 0, 'shares': r.shares or 0,
+                'favorites': r.favorites or 0, 'reposts': r.reposts or 0,
+                'engagement_rate': r.engagement_rate or 0,
+                'is_organic': r.is_organic,
+            })
+        df = pd.DataFrame(records)
+        df['date'] = pd.to_datetime(df['date'])
+        return df
+    finally:
+        db.close()
+
+
+# ── Status endpoint — lets frontend know if DB has data ───────────────────────
+@app.get("/api/status")
+def get_status():
+    db = next(get_db())
+    try:
+        count = db.query(Post).count()
+        last_post = db.query(Post).order_by(Post.created_at.desc()).first()
+        last_sync = last_post.created_at.isoformat() if last_post else None
+        return {"has_data": count > 0, "post_count": count, "last_sync": last_sync}
+    except Exception as e:
+        return {"has_data": False, "post_count": 0, "last_sync": None, "error": str(e)}
+    finally:
+        db.close()
+
+
+# ── Sync Google Sheet → DB (upsert, never delete) ─────────────────────────────
+class SyncRequest(BaseModel):
+    sheet_url: str
+
+@app.post("/api/sync-sheet")
+def sync_sheet(req: SyncRequest, db: Session = Depends(get_db)):
+    try:
+        records = load_data(req.sheet_url)
+        inserted = 0
+        updated = 0
+        for rec in records:
+            existing = db.query(Post).filter(Post.id == rec['id']).first()
+            date_val = None
+            if rec.get('date'):
+                try:
+                    date_val = pd.to_datetime(rec['date']).to_pydatetime()
+                except:
+                    date_val = None
+            if existing:
+                existing.platform = rec.get('platform', existing.platform)
+                existing.format = rec.get('format', existing.format)
+                existing.date = date_val or existing.date
+                existing.title = rec.get('title', existing.title)
+                existing.link = rec.get('link', existing.link)
+                existing.reach = float(rec.get('reach') or 0)
+                existing.views = float(rec.get('views') or 0)
+                existing.engagement = float(rec.get('engagement') or 0)
+                existing.likes = float(rec.get('likes') or 0)
+                existing.comments = float(rec.get('comments') or 0)
+                existing.shares = float(rec.get('shares') or 0)
+                existing.favorites = float(rec.get('favorites') or 0)
+                existing.reposts = float(rec.get('reposts') or 0)
+                existing.engagement_rate = float(rec.get('engagement_rate') or 0)
+                existing.is_organic = bool(rec.get('is_organic', True))
+                updated += 1
+            else:
+                post = Post(
+                    id=str(rec['id']),
+                    platform=rec.get('platform', ''),
+                    format=rec.get('format', ''),
+                    date=date_val,
+                    title=rec.get('title', ''),
+                    link=rec.get('link', ''),
+                    reach=float(rec.get('reach') or 0),
+                    views=float(rec.get('views') or 0),
+                    engagement=float(rec.get('engagement') or 0),
+                    likes=float(rec.get('likes') or 0),
+                    comments=float(rec.get('comments') or 0),
+                    shares=float(rec.get('shares') or 0),
+                    favorites=float(rec.get('favorites') or 0),
+                    reposts=float(rec.get('reposts') or 0),
+                    engagement_rate=float(rec.get('engagement_rate') or 0),
+                    is_organic=bool(rec.get('is_organic', True)),
+                )
+                db.add(post)
+                inserted += 1
+        db.commit()
+        return {"message": f"Sync complete. {inserted} new posts added, {updated} posts updated.", "inserted": inserted, "updated": updated}
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Sync failed: {str(e)}"}
+
+
+# ── Posts CRUD endpoints ───────────────────────────────────────────────────────
+@app.get("/api/posts")
+def get_posts(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    platform: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Post)
+    if platform:
+        query = query.filter(Post.platform == platform)
+    if search:
+        query = query.filter(Post.title.ilike(f"%{search}%"))
+    total = query.count()
+    posts = query.order_by(Post.date.desc()).offset((page - 1) * limit).limit(limit).all()
+    return {
+        "total": total, "page": page, "limit": limit,
+        "pages": math.ceil(total / limit),
+        "posts": [
+            {
+                "id": p.id, "platform": p.platform, "format": p.format,
+                "date": p.date.isoformat() if p.date else None,
+                "title": p.title, "link": p.link,
+                "reach": p.reach, "views": p.views, "engagement": p.engagement,
+                "likes": p.likes, "comments": p.comments, "shares": p.shares,
+                "favorites": p.favorites, "reposts": p.reposts,
+                "engagement_rate": p.engagement_rate, "is_organic": p.is_organic,
+            }
+            for p in posts
+        ]
+    }
+
+
+class PostUpdate(BaseModel):
+    platform: Optional[str] = None
+    format: Optional[str] = None
+    date: Optional[str] = None
+    title: Optional[str] = None
+    link: Optional[str] = None
+    reach: Optional[float] = None
+    views: Optional[float] = None
+    engagement: Optional[float] = None
+    likes: Optional[float] = None
+    comments: Optional[float] = None
+    shares: Optional[float] = None
+    favorites: Optional[float] = None
+    reposts: Optional[float] = None
+    engagement_rate: Optional[float] = None
+    is_organic: Optional[bool] = None
+
+@app.patch("/api/posts/{post_id}")
+def update_post(post_id: str, body: PostUpdate, db: Session = Depends(get_db)):
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    data = body.dict(exclude_unset=True)
+    if 'date' in data and data['date']:
+        try:
+            data['date'] = pd.to_datetime(data['date']).to_pydatetime()
+        except:
+            del data['date']
+    for key, val in data.items():
+        setattr(post, key, val)
+    db.commit()
+    return {"message": "Post updated successfully"}
+
+
+@app.delete("/api/posts/{post_id}")
+def delete_post(post_id: str, db: Session = Depends(get_db)):
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    db.delete(post)
+    db.commit()
+    return {"message": "Post deleted"}
+
+
+class NewPost(BaseModel):
+    platform: str = "Facebook"
+    format: str = "Video"
+    date: Optional[str] = None
+    title: str = ""
+    link: str = ""
+    reach: float = 0
+    views: float = 0
+    engagement: float = 0
+    likes: float = 0
+    comments: float = 0
+    shares: float = 0
+    favorites: float = 0
+    reposts: float = 0
+    engagement_rate: float = 0
+    is_organic: bool = True
+
+@app.post("/api/posts")
+def create_post(body: NewPost, db: Session = Depends(get_db)):
+    import uuid
+    date_val = None
+    if body.date:
+        try:
+            date_val = pd.to_datetime(body.date).to_pydatetime()
+        except:
+            date_val = None
+    post = Post(
+        id=str(uuid.uuid4()),
+        platform=body.platform, format=body.format, date=date_val,
+        title=body.title, link=body.link, reach=body.reach, views=body.views,
+        engagement=body.engagement, likes=body.likes, comments=body.comments,
+        shares=body.shares, favorites=body.favorites, reposts=body.reposts,
+        engagement_rate=body.engagement_rate, is_organic=body.is_organic,
+    )
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+    return {"message": "Post created", "id": post.id}
+
+
+# ── AI Reports cache endpoints ─────────────────────────────────────────────────
+@app.get("/api/ai-reports")
+def get_ai_report(
+    report_type: str = Query(...),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    query = db.query(AiReport).filter(AiReport.report_type == report_type)
+    if start_date:
+        query = query.filter(AiReport.start_date == start_date)
+    if end_date:
+        query = query.filter(AiReport.end_date == end_date)
+    report = query.order_by(AiReport.created_at.desc()).first()
+    if not report:
+        return {"found": False}
+    return {"found": True, "content": json.loads(report.content), "created_at": report.created_at.isoformat()}
+
+
+@app.post("/api/ai-reports")
+def save_ai_report(
+    report_type: str,
+    content: dict,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    report = AiReport(
+        report_type=report_type,
+        start_date=start_date,
+        end_date=end_date,
+        content=json.dumps(content)
+    )
+    db.add(report)
+    db.commit()
+    return {"message": "Report saved"}
+
 
 @app.get("/api/dashboard-summary")
 def get_dashboard_summary(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):

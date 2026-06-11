@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen, Database, Users } from 'lucide-react';
+import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen, Database, Users, HardDrive } from 'lucide-react';
 import ChatWidget from './ChatWidget';
+import DataHub from './DataHub';
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 const NAV_ITEMS = [
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { id: 'strategy', label: 'Platform Strategy Recommendations', icon: Target },
   { id: 'learnings', label: 'Key Learnings & Recommendations', icon: BookOpen },
   { id: 'wip', label: 'WIP Data', icon: Database },
+  { id: 'data-hub', label: 'Data Hub', icon: HardDrive },
 ];
 
 
@@ -48,7 +50,7 @@ const Dashboard = ({ onLogout }) => {
   const [strategyLoading, setStrategyLoading] = useState(false);
   // Track expanded state per platform section: { Facebook_top: true, Facebook_bottom: false, ... }
   const [expanded, setExpanded] = useState({});
-  const [dataLoaded, setDataLoaded] = useState(false); // Always start false to force user to connect data source
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [wipData, setWipData] = useState(null);
   const [wipLoading, setWipLoading] = useState(false);
   const [wipError, setWipError] = useState('');
@@ -56,27 +58,29 @@ const Dashboard = ({ onLogout }) => {
   const [followerData, setFollowerData] = useState(null);
   const [followerLoading, setFollowerLoading] = useState(false);
   const [followerError, setFollowerError] = useState('');
-  
+  const [dbStatus, setDbStatus] = useState(null); // {has_data, post_count, last_sync}
 
-  const handleLoadDataSource = async (e) => {
-    e.preventDefault();
-    if (!dataSourceUrl.trim()) return;
-    setDataSourceLoading(true);
-    setDataSourceError('');
-    try {
-      const res = await axios.get(`${API_URL}/refresh?sheet_url=${encodeURIComponent(dataSourceUrl)}`);
-      if (res.data.error) {
-        setDataSourceError(res.data.error);
-      } else {
-        setDataLoaded(true);
-        fetchData();
+
+  // ── On mount: check if DB has data, if so load immediately ──────────────────
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/status`);
+        setDbStatus(res.data);
+        if (res.data.has_data) {
+          setDataLoaded(true);
+          fetchData();
+        } else {
+          setLoading(false);
+        }
+      } catch {
+        setLoading(false);
       }
-    } catch (err) {
-      setDataSourceError(err.response?.data?.error || 'Failed to load data. Please check the URL.');
-    } finally {
-      setDataSourceLoading(false);
-    }
-  };
+    };
+    checkStatus();
+    // eslint-disable-next-line
+  }, []);
+
 
   const fetchData = async () => {
     setLoading(true);
@@ -750,10 +754,9 @@ const Dashboard = ({ onLogout }) => {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: "'Inter', 'Outfit', sans-serif", position: 'relative', overflow: 'hidden',
       }}>
-        {/* Background blobs */}
         <div style={{
           position: 'absolute', width: 500, height: 500,
-          background: 'radial-gradient(circle, rgba(185,28,28,0.12) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)',
           top: '10%', left: '5%', borderRadius: '50%', pointerEvents: 'none',
         }} />
         <div style={{
@@ -763,86 +766,46 @@ const Dashboard = ({ onLogout }) => {
         }} />
 
         <div style={{
-          width: '100%', maxWidth: 500, background: 'rgba(255,255,255,0.04)',
+          width: '100%', maxWidth: 480, background: 'rgba(255,255,255,0.04)',
           backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 20, padding: '2.8rem 2.4rem', boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
-          position: 'relative', zIndex: 10
+          position: 'relative', zIndex: 10, textAlign: 'center',
         }}>
-          <div style={{ textAlign: 'center', marginBottom: '2.2rem' }}>
-            <div style={{
-              width: 60, height: 60, borderRadius: 16, background: 'linear-gradient(135deg, #b91c1c, #7f1d1d)',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem',
-              boxShadow: '0 8px 24px rgba(185,28,28,0.4)',
-            }}>
-              <FileText size={26} color="#fff" />
-            </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px', margin: 0, marginBottom: '0.3rem' }}>
-              Connect Data Source
-            </h1>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>
-              Please provide the Google Sheet URL containing the raw analytics data to load the dashboard.
-            </p>
+          <div style={{
+            width: 64, height: 64, borderRadius: 16,
+            background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: '1.2rem', boxShadow: '0 8px 24px rgba(139,92,246,0.4)',
+          }}>
+            <HardDrive size={28} color="#fff" />
           </div>
-
-          <form onSubmit={handleLoadDataSource}>
-            <div style={{ marginBottom: '1.6rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.4rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                Google Sheet URL
-              </label>
-              <input
-                type="text"
-                value={dataSourceUrl}
-                onChange={e => { setDataSourceUrl(e.target.value); setDataSourceError(''); }}
-                placeholder="https://docs.google.com/spreadsheets/d/..."
-                style={{
-                  width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.06)',
-                  border: `1px solid ${dataSourceError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                  borderRadius: 10, padding: '0.85rem 1rem', color: '#fff', fontSize: '0.92rem',
-                  fontFamily: 'inherit', outline: 'none', transition: 'border-color 0.2s',
-                }}
-                onFocus={e => e.target.style.borderColor = 'rgba(185,28,28,0.6)'}
-                onBlur={e => e.target.style.borderColor = dataSourceError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}
-              />
-            </div>
-
-            {dataSourceError && (
-              <p style={{ color: '#f87171', fontSize: '0.83rem', margin: '-0.8rem 0 1rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                ⚠ {dataSourceError}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={dataSourceLoading || !dataSourceUrl.trim()}
-              style={{
-                width: '100%', background: dataSourceLoading || !dataSourceUrl.trim() ? 'rgba(185,28,28,0.4)' : 'linear-gradient(135deg, #b91c1c, #991b1b)',
-                color: '#fff', border: 'none', borderRadius: 10, padding: '0.85rem', fontWeight: 700, fontSize: '0.95rem',
-                cursor: dataSourceLoading || !dataSourceUrl.trim() ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                fontFamily: 'inherit', boxShadow: dataSourceLoading || !dataSourceUrl.trim() ? 'none' : '0 4px 20px rgba(185,28,28,0.4)',
-                transition: 'all 0.2s',
-              }}
-            >
-              {dataSourceLoading ? (
-                <><div style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Loading Data...</>
-              ) : (
-                <><Layers size={18} /> Load Dashboard</>
-              )}
-            </button>
-          </form>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px', margin: 0, marginBottom: '0.5rem' }}>
+            No Data Found
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.88rem', margin: '0 0 1.8rem', lineHeight: 1.6 }}>
+            The database is empty. Go to <strong style={{ color: '#fff' }}>Data Hub</strong> to sync your Google Sheet and load your analytics data.
+          </p>
+          <button
+            onClick={() => { setDataLoaded(true); setActiveTab('data-hub'); }}
+            style={{
+              width: '100%', background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+              color: '#fff', border: 'none', borderRadius: 10, padding: '0.9rem', fontWeight: 700,
+              fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: '0.5rem', fontFamily: 'inherit',
+              boxShadow: '0 4px 20px rgba(139,92,246,0.4)', transition: 'all 0.2s',
+            }}
+          >
+            <HardDrive size={18} /> Go to Data Hub
+          </button>
           {onLogout && (
-            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-               <button onClick={onLogout} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
-                 Sign Out
-               </button>
+            <div style={{ textAlign: 'center', marginTop: '1.2rem' }}>
+              <button onClick={onLogout} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
+                Sign Out
+              </button>
             </div>
           )}
         </div>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -1961,6 +1924,11 @@ const Dashboard = ({ onLogout }) => {
               </p>
               {renderWipSection()}
             </div>
+          )}
+
+          {/* ── Data Hub ── */}
+          {activeTab === 'data-hub' && (
+            <DataHub />
           )}
         </div>
       </div>
