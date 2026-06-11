@@ -1100,73 +1100,85 @@ def get_executive_summary(
     period_label = f"{start_date or 'beginning'} to {end_date or 'present'}"
 
     # ── Build prompt ────────────────────────────────────────────────────────────
-    prompt = f"""You are a senior social media strategist writing a concise executive summary for CIMB Bank Malaysia's management team.
+    prompt = f"""You are a senior social media strategist writing an executive summary for CIMB Bank Malaysia's management team.
 Period: {period_label}
 Platform ER ranking (by avg ER%): {rank_label}
 
-Per-platform data (use ONLY these numbers — do not invent any other figures):
+Per-platform data (numbers to use — do not invent figures outside this):
 {json.dumps(platform_data, indent=2)}
 
-WRITING DOCTRINE — follow every rule below precisely:
+===========================================================================
+STYLE GUIDE — read every section carefully before writing
+===========================================================================
 
-1. CAUSE-EFFECT STRUCTURE. Every sentence must explain what happened AND why, using the data.
-   Pattern: [metric/platform] [increased/decreased/held] by [number], [because/driven by/supported by] [specific data evidence].
-   Do NOT write a sentence that only reports a metric without explaining its cause.
+THIS IS THE TONE YOU MUST WRITE IN:
+  Strategic. Human. Confident. Brief.
+  Write like a sharp strategist presenting to leadership — not like a data analyst listing numbers.
+  The goal is for a CMO to read one sentence and instantly know the strategic implication.
 
-2. NO SPECULATION. You have the actual numbers — use them.
-   BANNED phrases: "likely driven by", "appears to", "may suggest", "could indicate", "seems to".
-   If you cannot prove a cause from the data provided, omit the claim entirely.
-   Exception: you may say "this pattern suggests" only if you immediately follow it with the specific data point that supports it.
+─── SECTION 1: top_platform_reason ───
+  One sentence. State the platform name, its avg ER%, and one sentence about why it led.
+  Do NOT list multiple formats with multiple percentages.
+  Good: "Instagram led the period with 4.34% avg ER, driven by strong creator-led short-form content and high audience responsiveness to relatable financial topics."
+  Bad:  "Instagram's 4.34% average engagement rate was driven by its high engagement with IG reels, which had an average engagement rate of 4.86%, supported by the fact that IG reels accounted for 30 out of 39 posts."
 
-3. NO HYPE. Do not dramatise normal performance movement.
-   BANNED words: "massive", "explosive", "remarkable", "incredible", "huge", "surge", "skyrocket", "plummet".
-   Use precise, calm language: "increased", "declined", "outperformed", "held steady".
+─── SECTION 2: key_highlights ───
+  EXACTLY 2 bullet points. Point 1 = #1 platform by ER. Point 2 = #2 platform by ER.
+  FORMAT per bullet: **PlatformName** [role/position in one short phrase], [one key metric — ER% only], [optional: note on content theme if dominant_content_type is not null].
+  RULES:
+  - ONE number only per highlight (the avg ER%). Do not list multiple format ERs.
+  - Do not say "driven by its X format which had Y% ER and Z% of posts" — too granular.
+  - Think: what is the ONE strategic thing leadership needs to know about this platform?
+  Good: "**Instagram** was the strongest all-round platform, delivering the highest content volume with above-average engagement efficiency at 4.34% ER."
+  Good: "**TikTok** remained highly efficient, recording 4.07% ER with strong reach, especially for financial literacy and marketing content."
+  Bad:  "**TikTok**, with an average engagement rate of 1.37% and total engagement of 21250, was driven by its video format, which had an average engagement rate of 1.37%."
 
-4. FORMAT OVER CONTENT TYPE. Use format_breakdown data (Video, Reel, Static, Carousel, etc.) to explain performance.
-   Only mention a content type (e.g. "Financial Literacy content") if dominant_content_type is NOT null AND its share_pct is meaningful.
-   Never mention: "Campaign Videos", "App Features", "Product Promotion" as a category — these are too vague.
+─── SECTION 3: audience_behaviour ───
+  EXACTLY 2 bullets. These are STRATEGIC OBSERVATIONS, not data citations.
+  ZERO numbers. No percentages here whatsoever.
+  Write about WHAT TYPE OF CONTENT or WHAT APPROACH audiences responded to.
+  Think: what creative mechanic, format style, or content theme drove responses?
+  Good: "Audiences responded more strongly to creator-led, culturally relevant and practical content than standard corporate announcements."
+  Good: "Short-form video remains the strongest format, especially when content uses clear hooks, relatable money moments or personality-led delivery."
+  Bad:  "The use of video formats drove consistent engagement across TikTok and YouTube, with average engagement rates of 1.37% and 1.1% respectively."
+  BANNED in this section: any %, any number, any platform name bolded.
 
-5. USE REAL NUMBERS. Every insight must cite at least one specific number from the data.
-   Use numerals (not words): "4.2% ER", "3 formats", "12 posts" — not "four point two percent".
+─── SECTION 4: recommendations ───
+  One recommendation per platform. Tell the team what CONTENT to make, not what metric to hit.
+  Think: what should the content team CREATE or SCALE on this platform?
+  Good: "Continue as the main engagement platform. Scale Reels, creator collaborations, and marketing-led campaigns with stronger episodic formats."
+  Good: "Maintain as reach-first channel and focus on financial literacy and credibility content to improve engagement quality."
+  Bad:  "Scale the use of IG carousels on Instagram, which had an average engagement rate of 2.89%, to further increase engagement."
+  Do NOT reference specific ER percentages in recommendations. Focus on content direction.
 
-6. ACTION-ORIENTED RECOMMENDATIONS. Each platform recommendation must:
-   - Start with a strong verb (Invest, Scale, Reduce, Maintain, Test, Prioritise)
-   - Reference the specific data point that justifies the action
-   - State the expected outcome in one phrase
-
-7. TITLES use cause-effect formulas:
-   Good: "Higher Reel volume supported stronger Instagram engagement"
-   Bad:  "Instagram Performance Improved"
-
-Return ONLY valid JSON (no markdown, no code blocks) in this exact structure:
+===========================================================================
+Return ONLY valid JSON (no markdown fences) in this EXACT structure:
 {{
-  "top_platform": "<name of #1 platform by Avg ER%>",
-  "top_platform_reason": "<one sentence: state its avg ER%, cite the format or pattern that drove it, cause-effect structure>",
+  "top_platform": "<#1 platform name>",
+  "top_platform_reason": "<see style guide section 1>",
   "key_highlights": [
-    "<POINT 1: #1 platform — bold **Name**, avg ER%, total engagement, which format(s) drove it and by how much. Cause-effect sentence. No post names.>",
-    "<POINT 2: #2 platform — bold **Name**, avg ER%, total engagement, key driver from format_breakdown. Cause-effect sentence. No post names.>"
+    "<see style guide section 2 — Point 1: #1 ER platform>",
+    "<see style guide section 2 — Point 2: #2 ER platform>"
   ],
   "audience_behaviour": [
-    "<Cross-platform pattern #1: what format or approach drove consistent engagement across 2+ platforms. Cite real ER numbers from both. No post names.>",
-    "<Cross-platform pattern #2: a different behavioural trend (e.g. reach vs engagement trade-off, organic vs paid pattern, format consistency). Cite real numbers.>"
+    "<see style guide section 3 — NO numbers>",
+    "<see style guide section 3 — NO numbers>"
   ],
   "recommendations": {{
-    "Facebook": "<Verb-led recommendation grounded in Facebook's data. One sentence.>",
-    "Instagram": "<Verb-led recommendation grounded in Instagram's data. One sentence.>",
-    "TikTok": "<Verb-led recommendation grounded in TikTok's data. One sentence.>",
-    "YouTube": "<Verb-led recommendation grounded in YouTube's data. One sentence.>",
-    "LinkedIn": "<Verb-led recommendation grounded in LinkedIn's data. One sentence.>"
+    "Facebook": "<content direction, not metric target>",
+    "Instagram": "<content direction, not metric target>",
+    "TikTok": "<content direction, not metric target>",
+    "YouTube": "<content direction, not metric target>",
+    "LinkedIn": "<content direction, not metric target>"
   }},
   "period": "{period_label}"
 }}
 
-Additional strict rules:
-- key_highlights: EXACTLY 2 items. Point 1 = #1 ER platform, Point 2 = #2 ER platform.
-- Bold platform names in highlights: **PlatformName**
-- NEVER mention any individual post title.
-- NEVER mention "General / Other" content type.
-- Only include platforms that appear in the data.
-- Write for senior management — every sentence must help them make a decision or understand channel performance."""
+Final rules:
+- Only include platforms that exist in the data.
+- NEVER name individual post titles.
+- NEVER say "General / Other" content type.
+- Bold platform names in key_highlights only: **PlatformName**."""
 
     # ── Call Groq ───────────────────────────────────────────────────────────────
     GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -1379,46 +1391,67 @@ Key takeaways rules — exactly 5 items, one per platform:
     # ── Prompt 2: Key Learnings ──────────────────────────────────────────────────
     prompt2 = f"""You are a senior social media strategist producing a board-level report for CIMB Bank Malaysia.
 Period: {period_label}
-Platform organic ER ranking: {er_rank_str}
+Platform ER ranking: {er_rank_str}
 
-Per-platform analytics (format breakdown + top/bottom organic post titles):
+Per-platform analytics (top/bottom post titles + format breakdown):
 {data_str}
 
-TASK: Write 4 KEY LEARNINGS that describe CROSS-PLATFORM patterns.
+TASK: Write 4 KEY LEARNINGS.
 
-WRITING DOCTRINE — apply to every field:
+===========================================================================
+STYLE GUIDE — study these examples before writing
+===========================================================================
 
-1. CAUSE-EFFECT STRUCTURE. Every description must follow: what happened → why (data evidence) → what it means.
-   Pattern: "[Metric/platform] [result], [because/supported by] [specific data evidence]. This [confirms/shows/indicates] [strategic implication]."
-   Do NOT write a sentence that only reports a metric without explaining its cause.
+You are writing for a strategist audience, not a data analyst. The goal:
+  - Title = The insight in a punchy cause-effect phrase.
+  - Description = Explain WHY the content worked. Reference the creative mechanic or content format.
+    You may cite 1-2 ER numbers to ground it, but do NOT make the description a list of numbers.
+  - Action = One bold directive the content team can execute NEXT MONTH. Specific. Concrete. No hedging.
 
-2. NO SPECULATION. You have the actual numbers.
-   BANNED: "likely driven by", "appears to", "may suggest", "could indicate", "seems to".
-   If you cannot prove a cause directly from the data, omit the claim entirely.
+─── EXAMPLE of GOOD writing ───
 
-3. NO HYPE. Do not dramatise performance.
-   BANNED: "massive", "explosive", "remarkable", "incredible", "huge", "surge", "skyrocket", "plummet".
-   Use: "increased", "declined", "outperformed", "held steady", "dropped".
+Title: "Episodic finance advice is a repeatable engagement driver"
+Description: "Content built around relatable financial situations (budgeting, spending habits, debt) performed
+  consistently across TikTok and Instagram, with ER ranging from 5.48% to 9.73% on TikTok.
+  This shows that financial literacy works when delivered through a recognisable recurring format
+  and personality-led delivery — not one-off explainers."
+Action: "Turn high-performing finance topics into recurring series covering salary, lifestyle inflation,
+  debt, savings and spending behaviour — run across TikTok and Instagram with a consistent presenter format."
 
-4. ACTION FIELD = EXECUTABLE DIRECTIVE. The action must be something a content manager can do in the NEXT planning cycle.
-   - Start with a strong imperative verb: Prioritise, Scale, Reduce, Replace, Test, Invest in, Allocate, Standardise, Limit.
-   - State the specific format, theme, or approach to act on.
-   - State the expected outcome.
-   - BANNED in action field: "should identify", "consider exploring", "look into", "the focus should be on finding", any question or open-ended statement.
-   Bad example:  "The focus for next month should be on identifying which content pillars can drive engagement."
-   Good example: "Prioritise Video format across Instagram and TikTok, targeting ≥3 posts per week, to sustain the 3.2% avg ER proven this period."
+Title: "Interactive video boosted engagement through a simple participation loop."
+Description: "Content that asked audiences to pause, interact, or share a result drove higher comment
+  and share rates across TikTok. The mechanic works because it turns passive viewing into active participation,
+  reducing scroll-past behaviour."
+Action: "Build more 'pause-to-reveal' or 'comment-your-result' interactive formats around timely money moments."
 
-5. TITLES use cause-effect or diagnostic insight format:
-   Good: "Video-led content drove consistent ER across platforms"
-   Bad:  "Engagement Improved"
+Title: "Promotional content needs utility or a mechanic to work"
+Description: "Generic promotional posts consistently underperformed across Facebook, Instagram and TikTok,
+  falling below 1% ER, while promo posts with a reward mechanic, challenge or explainer element performed significantly better."
+Action: "Turn product posts into tutorials, challenges, contests or creator-led use cases.
+  Generic product pushes should be reduced or rebuilt with a participation hook."
 
-6. CROSS-PLATFORM RULE: Each learning MUST reference 2+ platforms with real ER% numbers.
-   Do not write a learning about a single platform.
+─── EXAMPLE of BAD writing ───
 
-STRUCTURE per learning:
-- title: Short cause-effect phrase (8 words or less)
-- description: 2–3 sentences. Reference 2+ platforms. Use real ER% numbers. Explain the cause.
-- action: One concrete imperative directive. Starts with a strong verb. Platform-agnostic where possible.
+Title: "Video-led content outperforms" (too vague)
+Description: "Instagram and TikTok showed higher engagement rates (2.16% and 1.37% avg ER) compared to other
+  platforms, supported by video content performance (3.7% avg ER on Instagram and 1.37% avg ER on TikTok).
+  This confirms the effectiveness of video-led content in driving engagement. The strong performance of video
+  content on these platforms is likely due to the high engagement rates of video posts (1.86% avg ER on
+  Instagram and 1.37% avg ER on TikTok)." → TOO MANY NUMBERS. REPEATS THE SAME STAT. NO MECHANIC EXPLAINED.
+Action: "Prioritise Video format across Instagram and TikTok, targeting ≥3 posts per week, to sustain the
+  3.2% avg ER proven this period." → TOO MECHANICAL. Does not describe a content mechanic or creative approach.
+
+===========================================================================
+HOW TO USE THE DATA:
+  - Look at top5_posts titles across ALL platforms to infer WHAT CONTENT THEMES or CREATIVE MECHANICS worked.
+    (Do not quote post titles directly — describe the format or mechanic you can infer from them.)
+  - Look at bot5_posts to infer what execution approaches failed.
+  - Use format_performance to understand which format types drove the patterns you're describing.
+  - Use ER numbers SPARINGLY — one or two per description to ground the insight, not to fill sentences.
+===========================================================================
+
+CROSS-PLATFORM RULE: Each learning MUST reference 2+ platforms. Not a single-platform observation.
+TOPIC VARIETY: Cover 4 different themes — e.g. content mechanic, format type, content theme, organic vs paid, reach vs engagement.
 
 Return ONLY valid JSON, no markdown, no code fences:
 {{
@@ -1430,12 +1463,14 @@ Return ONLY valid JSON, no markdown, no code fences:
   ]
 }}
 
-Additional rules:
-- Exactly 4 learnings, each on a DIFFERENT cross-platform theme.
-- Vary the topics: content format patterns, audience engagement mechanics, reach vs ER trade-offs, organic vs paid behaviour.
-- DO NOT write a learning that only talks about one platform.
-- DO NOT mention specific post titles — describe the theme generically.
-- The action field must always close the learning with what the team WILL DO, not what they should investigate."""
+Rules:
+- Exactly 4 learnings on 4 different themes.
+- Description: 2-3 sentences. Explain the creative mechanic or content approach. Max 2 ER numbers cited.
+- Action: ONE directive. Strong imperative verb. Describes what content to make, not what metric to hit.
+- DO NOT name specific post titles.
+- DO NOT write a learning about only one platform.
+- BANNED in action: 'should identify', 'consider exploring', 'look into', 'the focus should be on finding'.
+- BANNED in description: hype words (massive, explosive, incredible), excessive number repetition."""
 
     # ── Call Groq (with pause between calls to avoid free-tier TPM rate limit) ───
     import time
