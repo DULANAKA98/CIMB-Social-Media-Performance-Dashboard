@@ -4,7 +4,7 @@ import { MessageCircle, X, Send, Sparkles } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
-const ChatWidget = ({ startDate, endDate }) => {
+const ChatWidget = ({ startDate, endDate, activeTab, executiveSummary, strategyData }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hi! I am your AI Data Analyst. Ask me anything about the currently selected dataset!' }
@@ -37,6 +37,9 @@ const ChatWidget = ({ startDate, endDate }) => {
         history: messages.filter(m => m.role !== 'system'), // Exclude local system prompts if any
         start_date: startDate || null,
         end_date: endDate || null,
+        active_tab: activeTab || null,
+        executive_summary: executiveSummary || null,
+        strategy_data: strategyData || null,
       };
 
       const res = await axios.post(`${API_URL}/chat`, payload);

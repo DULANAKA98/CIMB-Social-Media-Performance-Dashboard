@@ -1966,7 +1966,15 @@ const Dashboard = ({ onLogout }) => {
       </div>
       
       {/* AI Chat Widget */}
-      {dataLoaded && <ChatWidget startDate={startDate} endDate={endDate} />}
+      {dataLoaded && (
+        <ChatWidget 
+          startDate={startDate} 
+          endDate={endDate} 
+          activeTab={activeTab}
+          executiveSummary={executiveSummary}
+          strategyData={strategyData}
+        />
+      )}
     </div>
   );
 };

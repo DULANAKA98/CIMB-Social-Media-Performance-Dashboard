@@ -1659,7 +1659,9 @@ class ChatRequest(BaseModel):
     history: List[ChatMessage] = []
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-
+    active_tab: Optional[str] = None
+    executive_summary: Optional[Dict[str, Any]] = None
+    strategy_data: Optional[Dict[str, Any]] = None
 
 @app.post("/api/chat")
 def chat_with_data(request: ChatRequest):
@@ -1725,7 +1727,18 @@ Period: {period_label}
 
 DATASET CONTEXT (Aggregated Stats and Top/Bottom Posts):
 {data_str}
+"""
 
+    if request.active_tab:
+        system_prompt += f"\nCURRENT DASHBOARD SECTION: The user is currently looking at the '{request.active_tab}' tab.\n"
+        if request.active_tab == 'executive' and request.executive_summary:
+            system_prompt += f"Here is the AI-generated Executive Summary currently on their screen:\n{json.dumps(request.executive_summary, indent=2)}\n"
+            system_prompt += "If the user asks to rewrite, adjust, or change the executive summary, provide the revised version in your response.\n"
+        elif request.active_tab in ['strategy', 'learnings'] and request.strategy_data:
+            system_prompt += f"Here is the AI-generated Strategy/Learnings data currently on their screen:\n{json.dumps(request.strategy_data, indent=2)}\n"
+            system_prompt += "If the user asks to modify these strategies or learnings, provide the revised version in your response.\n"
+
+    system_prompt += """
 Guidelines:
 - Be concise, professional, and helpful.
 - When referencing posts, describe them based on their titles.
