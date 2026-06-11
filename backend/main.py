@@ -1119,7 +1119,7 @@ THIS IS THE TONE YOU MUST WRITE IN:
 ─── SECTION 1: top_platform_reason ───
   One sentence. State the platform name, its avg ER%, and one sentence about why it led.
   Do NOT list multiple formats with multiple percentages.
-  Good: "Instagram led the period with 4.34% avg ER, driven by strong creator-led short-form content and high audience responsiveness to relatable financial topics."
+  Good: "[Platform] led the period with [X]% avg ER, driven by strong [Format Type] content and high audience responsiveness to [Specific content theme inferred from data]."
   Bad:  "Instagram's 4.34% average engagement rate was driven by its high engagement with IG reels, which had an average engagement rate of 4.86%, supported by the fact that IG reels accounted for 30 out of 39 posts."
 
 ─── SECTION 2: key_highlights ───
@@ -1129,8 +1129,8 @@ THIS IS THE TONE YOU MUST WRITE IN:
   - ONE number only per highlight (the avg ER%). Do not list multiple format ERs.
   - Do not say "driven by its X format which had Y% ER and Z% of posts" — too granular.
   - Think: what is the ONE strategic thing leadership needs to know about this platform?
-  Good: "**Instagram** was the strongest all-round platform, delivering the highest content volume with above-average engagement efficiency at 4.34% ER."
-  Good: "**TikTok** remained highly efficient, recording 4.07% ER with strong reach, especially for financial literacy and marketing content."
+  Good: "**[Platform A]** was the strongest all-round platform, delivering the highest content volume with above-average engagement efficiency at [X]% ER."
+  Good: "**[Platform B]** remained highly efficient, recording [Y]% ER with strong reach, especially for [Theme 1] and [Theme 2] content."
   Bad:  "**TikTok**, with an average engagement rate of 1.37% and total engagement of 21250, was driven by its video format, which had an average engagement rate of 1.37%."
 
 ─── SECTION 3: audience_behaviour ───
@@ -1138,16 +1138,16 @@ THIS IS THE TONE YOU MUST WRITE IN:
   ZERO numbers. No percentages here whatsoever.
   Write about WHAT TYPE OF CONTENT or WHAT APPROACH audiences responded to.
   Think: what creative mechanic, format style, or content theme drove responses?
-  Good: "Audiences responded more strongly to creator-led, culturally relevant and practical content than standard corporate announcements."
-  Good: "Short-form video remains the strongest format, especially when content uses clear hooks, relatable money moments or personality-led delivery."
+  Good: "Audiences responded more strongly to [Specific engaging execution style] than [Specific underperforming execution style]."
+  Good: "[Format type] remains the strongest format, especially when content uses [Specific mechanic] or [Specific delivery style]."
   Bad:  "The use of video formats drove consistent engagement across TikTok and YouTube, with average engagement rates of 1.37% and 1.1% respectively."
   BANNED in this section: any %, any number, any platform name bolded.
 
 ─── SECTION 4: recommendations ───
   One recommendation per platform. Tell the team what CONTENT to make, not what metric to hit.
   Think: what should the content team CREATE or SCALE on this platform?
-  Good: "Continue as the main engagement platform. Scale Reels, creator collaborations, and marketing-led campaigns with stronger episodic formats."
-  Good: "Maintain as reach-first channel and focus on financial literacy and credibility content to improve engagement quality."
+  Good: "Continue as the main engagement platform. Scale [Format A], [Format B], and [Theme]-led campaigns with stronger [Mechanic] formats."
+  Good: "Maintain as reach-first channel and focus on [Theme 1] and [Theme 2] content to improve engagement quality."
   Bad:  "Scale the use of IG carousels on Instagram, which had an average engagement rate of 2.89%, to further increase engagement."
   Do NOT reference specific ER percentages in recommendations. Focus on content direction.
 
