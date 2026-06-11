@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen, Database, Users } from 'lucide-react';
-
+import ChatWidget from './ChatWidget';
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 const NAV_ITEMS = [
@@ -1309,7 +1309,7 @@ const Dashboard = ({ onLogout }) => {
       return (
         <div className="glass-panel" style={{ marginBottom: '3rem', textAlign: 'center', padding: '3rem' }}>
           <div className="spinner" style={{ margin: '0 auto 1rem', width: 40, height: 40, borderTopColor: 'var(--accent-purple)' }} />
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Gemini is analysing your data…</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Groq is analysing your data…</p>
         </div>
       );
     }
@@ -1964,6 +1964,9 @@ const Dashboard = ({ onLogout }) => {
           )}
         </div>
       </div>
+      
+      {/* AI Chat Widget */}
+      {dataLoaded && <ChatWidget startDate={startDate} endDate={endDate} />}
     </div>
   );
 };

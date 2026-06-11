@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Query, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
 from data_processor import load_data
 import pandas as pd
 import math
@@ -1617,9 +1618,123 @@ def get_wip_data(
             "impressions": round(total_imp),
             "watch_time_hours": round(total_wt, 1),
         }
+            payload = {
+                "model": model, 
+                "messages": messages,
+                "temperature": 0.3, 
+                "max_tokens": max_tokens
+            }
+            resp = http_requests.post(GROQ_URL, headers=headers, json=payload, timeout=90)
+            if resp.status_code == 200:
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+                return raw
+            elif resp.status_code in (404, 400):
+                last_error = resp.text
+                continue
+            else:
+                return {"error": f"Groq API error {resp.status_code}: {resp.text}"}
+        except Exception as e:
+            last_error = str(e)
+            continue
+    return {"error": f"No Groq model succeeded. Last error: {last_error}"}
 
-    return result
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    message: str
+    history: List[ChatMessage] = []
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 
+@app.post("/api/chat")
+def chat_with_data(request: ChatRequest):
+    api_key = os.getenv("GROQ_API_KEY", "")
+    if not api_key:
+        return {"error": "GROQ_API_KEY not set."}
 
+    df = get_filtered_data(request.start_date, request.end_date)
+    if df.empty:
+        return {"error": "No data available for the selected period."}
 
+    # Build a summarized context of the dataset for the AI
+    # Reusing logic from the strategy endpoint for a rich context
+    PLATS = ["Facebook", "Instagram", "TikTok", "YouTube", "LinkedIn"]
+    plat_stats = {}
+    
+    def _r(v, n=2): return round(float(v), n) if v is not None else 0
+    
+    for plat in PLATS:
+        pdf = df[df["platform"] == plat]
+        if pdf.empty: continue
+        
+        all_er = _r(pdf["engagement_rate"].mean())
+        
+        fmt_rows = []
+        if "format" in pdf.columns:
+            for fmt, grp in pdf.groupby("format"):
+                fmt = str(fmt).strip()
+                if not fmt or fmt == "nan" or len(grp) == 0: continue
+                fmt_rows.append({
+                    "format": fmt,
+                    "posts": len(grp),
+                    "avg_er": _r(grp["engagement_rate"].mean()),
+                })
+                
+        # Top 5 and bottom 5 posts for context
+        title_col = "title" if "title" in pdf.columns else None
+        def _title(row):
+            t = str(row.get(title_col, "") or "").strip() if title_col else ""
+            return t[:100] if t and t != "nan" else "(no title)"
+            
+        top5 = pdf.sort_values("engagement_rate", ascending=False).head(5)
+        bot5 = pdf[pdf["engagement_rate"] > 0].sort_values("engagement_rate").head(5)
+        
+        plat_stats[plat] = {
+            "total_posts": len(pdf),
+            "avg_er": all_er,
+            "avg_reach": int(pdf["reach"].mean()) if not pdf.empty else 0,
+            "format_performance": fmt_rows,
+            "top5_posts": [{"er": _r(r["engagement_rate"]), "title": _title(r)} for _, r in top5.iterrows()],
+            "bot5_posts": [{"er": _r(r["engagement_rate"]), "title": _title(r)} for _, r in bot5.iterrows()],
+        }
+
+    data_str = json.dumps(plat_stats, indent=2)
+    
+    period_label = f"{request.start_date or 'the beginning'} to {request.end_date or 'present'}"
+
+    system_prompt = f"""You are an expert Social Media Data Analyst for CIMB Bank Malaysia. 
+Your job is to answer the user's questions accurately based ONLY on the data provided below.
+If the data does not contain the answer, say "I don't have enough data to answer that."
+
+Period: {period_label}
+
+DATASET CONTEXT (Aggregated Stats and Top/Bottom Posts):
+{data_str}
+
+Guidelines:
+- Be concise, professional, and helpful.
+- When referencing posts, describe them based on their titles.
+- Use markdown for formatting (bolding, lists).
+"""
+
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    # Add history
+    for msg in request.history:
+        # Groq allows role: 'user' or 'assistant' (or 'system')
+        if msg.role in ["user", "assistant"]:
+            messages.append({"role": msg.role, "content": msg.content})
+            
+    # Add current message
+    messages.append({"role": "user", "content": request.message})
+    
+    response = _call_groq_chat(api_key, messages)
+    
+    if isinstance(response, dict) and "error" in response:
+        return {"error": response["error"]}
+        
+    return {"reply": response}
