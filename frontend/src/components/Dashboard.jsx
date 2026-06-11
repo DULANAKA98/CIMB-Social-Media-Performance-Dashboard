@@ -647,6 +647,10 @@ const Dashboard = ({ onLogout }) => {
   };
 
   const exportPlatformHighlights = async () => {
+    if (!startDate || !endDate) {
+      alert("Please select a date range (e.g. May 1 to May 31) first! The AI needs a specific time period to calculate 'previous period' trends.");
+      return;
+    }
     try {
       let query = `?start_date=${startDate}&end_date=${endDate}`;
       const res = await axios.get(`${API_URL}/export-platform-highlights${query}`, { responseType: 'blob' });
@@ -660,7 +664,7 @@ const Dashboard = ({ onLogout }) => {
       link.remove();
     } catch (error) {
       console.error("Error exporting slides:", error);
-      alert("Failed to export slides. See console.");
+      alert("Failed to generate slide. Did you select a valid date range?");
     }
   };
 
