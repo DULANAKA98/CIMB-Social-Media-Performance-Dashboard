@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen, Database } from 'lucide-react';
+import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen, Database, Users } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { id: 'engagement', label: 'Total Engagement', icon: TrendingUp },
   { id: 'content', label: 'All Organic Content Performance', icon: FileText },
   { id: 'formats', label: 'Organic Content Types & Format Performance', icon: Layers },
+  { id: 'followers', label: 'Monthly Followers Data', icon: Users },
   { id: 'download', label: 'Download All Contents', icon: Download },
   { id: 'pillar', label: 'Content Mix & Pillar Alignment', icon: PieChart },
   { id: 'strategy', label: 'Platform Strategy Recommendations', icon: Target },
@@ -52,6 +53,9 @@ const Dashboard = ({ onLogout }) => {
   const [wipLoading, setWipLoading] = useState(false);
   const [wipError, setWipError] = useState('');
   const [wipTrigger, setWipTrigger] = useState(0);
+  const [followerData, setFollowerData] = useState(null);
+  const [followerLoading, setFollowerLoading] = useState(false);
+  const [followerError, setFollowerError] = useState('');
   
 
   const handleLoadDataSource = async (e) => {
@@ -145,6 +149,34 @@ const Dashboard = ({ onLogout }) => {
       fetchWip();
     }
   }, [activeTab, dataSourceUrl, startDate, endDate, wipTrigger]);
+
+  // Fetch follower data whenever the followers tab is active or filters change
+  useEffect(() => {
+    if (activeTab === 'followers' && dataSourceUrl) {
+      const fetchFollowers = async () => {
+        setFollowerLoading(true);
+        setFollowerError('');
+        try {
+          let query = `?sheet_url=${encodeURIComponent(dataSourceUrl)}`;
+          if (startDate) query += `&start_date=${startDate}`;
+          if (endDate)   query += `&end_date=${endDate}`;
+          const res = await axios.get(`${API_URL}/follower-growth${query}`);
+          if (res.data.error) {
+            setFollowerError(res.data.error);
+            setFollowerData(null);
+          } else {
+            setFollowerData(res.data);
+          }
+        } catch (err) {
+          setFollowerError('Failed to load follower data. Check the sheet URL and tab names.');
+          setFollowerData(null);
+        } finally {
+          setFollowerLoading(false);
+        }
+      };
+      fetchFollowers();
+    }
+  }, [activeTab, dataSourceUrl, startDate, endDate]);
 
   const handleRefresh = async () => {
     setLoading(true);
@@ -336,6 +368,249 @@ const Dashboard = ({ onLogout }) => {
             </div>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // ── Monthly Followers renderer ──────────────────────────────────────────────
+  const renderFollowersSection = () => {
+    const PLAT_META = {
+      Facebook:  { color: '#1877f2', emoji: '📘' },
+      Instagram: { color: '#e1306c', emoji: '📸' },
+      TikTok:    { color: '#00f2fe', emoji: '🎵' },
+      YouTube:   { color: '#ff0000', emoji: '▶️' },
+      LinkedIn:  { color: '#0a66c2', emoji: '💼' },
+    };
+
+    if (followerLoading) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0' }}>
+          <div className="spinner" style={{ width: 40, height: 40, borderTopColor: 'var(--accent-purple)', marginBottom: '1rem' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Loading follower data from sheet…</p>
+        </div>
+      );
+    }
+
+    if (followerError) {
+      return (
+        <div className="glass-panel" style={{ borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', padding: '2rem', textAlign: 'center' }}>
+          <p style={{ color: '#f87171', fontWeight: 600, marginBottom: '0.5rem' }}>⚠ Error Loading Follower Data</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{followerError}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', opacity: 0.7 }}>
+            Expected sheet tabs: [FB] Followers · [IG] Followers · [TT] Followers · [YT] Followers · [LI] Followers
+          </p>
+        </div>
+      );
+    }
+
+    if (!followerData || Object.keys(followerData).length === 0) {
+      return (
+        <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', borderStyle: 'dashed' }}>
+          <Users size={36} style={{ color: 'var(--text-secondary)', margin: '0 auto 1rem', display: 'block', opacity: 0.5 }} />
+          <p style={{ color: 'var(--text-secondary)' }}>No follower data loaded yet. Ensure the data source is connected.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '0.5rem', opacity: 0.7 }}>
+            Expected sheet tabs: [FB] Followers · [IG] Followers · [TT] Followers · [YT] Followers · [LI] Followers
+          </p>
+        </div>
+      );
+    }
+
+    // Render one combo chart per platform
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem' }}>
+        {Object.entries(followerData).map(([platform, rows]) => {
+          if (!rows || rows.length === 0) return null;
+          const meta = PLAT_META[platform] || { color: '#8b5cf6', emoji: '📊' };
+          const color = meta.color;
+
+          // Chart dimensions
+          const W = 460, H = 200, PAD = { top: 20, right: 50, bottom: 40, left: 60 };
+          const innerW = W - PAD.left - PAD.right;
+          const innerH = H - PAD.top - PAD.bottom;
+          const n = rows.length;
+          const barWidth = Math.max(8, Math.min(36, innerW / n - 6));
+
+          // Follower scale (left axis)
+          const maxF = Math.max(...rows.map(r => r.followers));
+          const minF = Math.min(...rows.map(r => r.followers));
+          const fRange = maxF - minF || 1;
+          const fY = (v) => PAD.top + innerH - ((v - minF) / fRange) * innerH;
+
+          // Growth % scale (right axis)
+          const growthVals = rows.map(r => r.growth_pct).filter(v => v != null);
+          const maxG = growthVals.length ? Math.max(Math.abs(Math.max(...growthVals)), Math.abs(Math.min(...growthVals)), 1) : 1;
+          const gY = (v) => PAD.top + innerH / 2 - (v / maxG) * (innerH / 2);
+
+          // Bar x positions
+          const xPos = (i) => PAD.left + (i / n) * innerW + (innerW / n - barWidth) / 2;
+
+          // Line path for growth %
+          const linePoints = rows
+            .map((r, i) => r.growth_pct != null ? `${xPos(i) + barWidth / 2},${gY(r.growth_pct)}` : null)
+            .filter(Boolean);
+          const linePath = linePoints.length > 1
+            ? 'M ' + linePoints.join(' L ')
+            : null;
+
+          // Format follower number for axis labels
+          const fmtF = (v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v);
+
+          // Latest stats
+          const latest = rows[rows.length - 1];
+          const first   = rows[0];
+          const totalGrowth = latest.followers - first.followers;
+          const totalGrowthPct = first.followers > 0 ? ((totalGrowth / first.followers) * 100).toFixed(1) : null;
+
+          return (
+            <div key={platform} className="glass-panel" style={{ borderTop: `3px solid ${color}`, padding: '1.5rem' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '1.4rem' }}>{meta.emoji}</span>
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', margin: 0 }}>{platform}</h3>
+                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0, marginTop: '0.15rem' }}>Monthly Follower Growth</p>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: '1.4rem', fontWeight: 800, color, margin: 0, lineHeight: 1 }}>
+                    {latest.followers.toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>{latest.month_label}</p>
+                  {totalGrowthPct != null && (
+                    <p style={{ fontSize: '0.75rem', fontWeight: 700, color: totalGrowth >= 0 ? '#10b981' : '#f87171', margin: 0 }}>
+                      {totalGrowth >= 0 ? '+' : ''}{totalGrowth.toLocaleString()} ({totalGrowthPct}%) in period
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Combo chart */}
+              <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', overflow: 'visible' }}>
+                {/* Gridlines */}
+                {[0, 0.25, 0.5, 0.75, 1].map(t => (
+                  <line key={t}
+                    x1={PAD.left} x2={PAD.left + innerW}
+                    y1={PAD.top + innerH * (1 - t)} y2={PAD.top + innerH * (1 - t)}
+                    stroke="rgba(255,255,255,0.06)" strokeWidth={1}
+                  />
+                ))}
+
+                {/* Zero line for growth */}
+                <line
+                  x1={PAD.left} x2={PAD.left + innerW}
+                  y1={gY(0)} y2={gY(0)}
+                  stroke="rgba(255,255,255,0.15)" strokeWidth={1} strokeDasharray="4 3"
+                />
+
+                {/* Bars */}
+                {rows.map((r, i) => {
+                  const barH = Math.max(2, ((r.followers - minF) / fRange) * innerH);
+                  return (
+                    <g key={i}>
+                      <rect
+                        x={xPos(i)} y={fY(r.followers)}
+                        width={barWidth} height={barH}
+                        rx={3}
+                        fill={`${color}55`}
+                        stroke={color}
+                        strokeWidth={1.2}
+                      />
+                    </g>
+                  );
+                })}
+
+                {/* Growth line */}
+                {linePath && (
+                  <path d={linePath} fill="none" stroke="#f59e0b" strokeWidth={2} strokeLinejoin="round" />
+                )}
+
+                {/* Growth dots + tooltips */}
+                {rows.map((r, i) => r.growth_pct != null && (
+                  <g key={i}>
+                    <circle
+                      cx={xPos(i) + barWidth / 2} cy={gY(r.growth_pct)}
+                      r={3.5} fill="#f59e0b" stroke="#1e293b" strokeWidth={1.5}
+                    />
+                    <title>{r.month_label}: {r.growth_pct > 0 ? '+' : ''}{r.growth_pct}% MoM</title>
+                  </g>
+                ))}
+
+                {/* Left axis labels (followers) */}
+                {[0, 0.5, 1].map(t => {
+                  const val = minF + t * fRange;
+                  return (
+                    <text key={t}
+                      x={PAD.left - 6} y={fY(val) + 4}
+                      textAnchor="end" fontSize={9} fill="rgba(255,255,255,0.45)"
+                    >
+                      {fmtF(Math.round(val))}
+                    </text>
+                  );
+                })}
+
+                {/* X axis labels (month) */}
+                {rows.map((r, i) => {
+                  // Show every label if ≤6 months, else every other
+                  if (n > 6 && i % 2 !== 0) return null;
+                  return (
+                    <text key={i}
+                      x={xPos(i) + barWidth / 2} y={H - 6}
+                      textAnchor="middle" fontSize={8.5} fill="rgba(255,255,255,0.45)"
+                    >
+                      {r.month_label}
+                    </text>
+                  );
+                })}
+
+                {/* Right axis label */}
+                <text x={W - 4} y={PAD.top + innerH / 2} textAnchor="middle" fontSize={8} fill="#f59e0b"
+                  transform={`rotate(-90, ${W - 4}, ${PAD.top + innerH / 2})`}
+                >MoM %</text>
+              </svg>
+
+              {/* Legend */}
+              <div style={{ display: 'flex', gap: '1.2rem', marginTop: '0.6rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, background: `${color}88`, border: `1.5px solid ${color}`, borderRadius: 2 }} />
+                  Followers
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ display: 'inline-block', width: 14, height: 2.5, background: '#f59e0b', borderRadius: 2 }} />
+                  MoM Growth %
+                </span>
+              </div>
+
+              {/* Monthly table */}
+              <div style={{ marginTop: '1rem', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Month</th>
+                      <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Followers</th>
+                      <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>MoM Change</th>
+                      <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>MoM %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding: '0.35rem 0.6rem', color: 'var(--text-primary)' }}>{r.month_label}</td>
+                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color, fontWeight: 700 }}>{r.followers.toLocaleString()}</td>
+                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: r.growth_abs == null ? 'var(--text-secondary)' : r.growth_abs >= 0 ? '#10b981' : '#f87171' }}>
+                          {r.growth_abs == null ? '—' : `${r.growth_abs >= 0 ? '+' : ''}${r.growth_abs.toLocaleString()}`}
+                        </td>
+                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: r.growth_pct == null ? 'var(--text-secondary)' : r.growth_pct >= 0 ? '#10b981' : '#f87171' }}>
+                          {r.growth_pct == null ? '—' : `${r.growth_pct >= 0 ? '+' : ''}${r.growth_pct}%`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -1378,6 +1653,16 @@ const Dashboard = ({ onLogout }) => {
             <div>
               <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Organic Content Types & Format Performance</h2>
               {renderFormatPerformanceSection()}
+            </div>
+          )}
+
+          {activeTab === 'followers' && (
+            <div>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Monthly Followers Data</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.8rem' }}>
+                Month-by-month follower counts and growth rates per platform. Bars show total followers (left axis); the amber line shows month-on-month growth % (right axis).
+              </p>
+              {renderFollowersSection()}
             </div>
           )}
 

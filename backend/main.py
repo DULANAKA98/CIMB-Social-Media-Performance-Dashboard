@@ -173,7 +173,8 @@ CONTENT_TYPE_RULES = [
     ("Raya / Festive",         ["raya", "hari raya", "aidilfitri", "aidiladha", "ramadan", "festive", "cny", "chinese new year", "deepavali", "diwali", "christmas", "new year", "merdeka", "hari kebangsaan"]),
     ("Creator Collaboration",  ["collab", "collaboration", "creator", "influencer", "x ", "feat.", "featuring", "bersama", "ft."]),
     ("Security / Fraud Alert", ["scam", "fraud", "phishing", "jangan mudah", "protect", "security", "selamat", "secure", "alert", "penipuan", "beware", "warning"]),
-    ("App Features",           ["app", "cimb clicks", "mobile banking", "digital banking", "online banking", "feature", "fitur", "clicks app"]),
+    # NOTE: "App Features" removed — "app" keyword was too broad and was misclassifying unrelated posts.
+    # App Tutorial kept with tighter keywords that imply instructional content.
     ("App Tutorial",           ["tutorial", "how to", "how-to", "cara ", "step by step", "panduan", "guide", "langkah", "learn how"]),
     ("Financial Literacy",     ["financial literacy", "kewangan", "money tip", "tip kewangan", "budgeting", "bajet", "savings", "simpanan", "investment", "pelaburan", "financial planning", "wealth", "unit trust", "amanah saham", "finance tip", "financial tip", "did you know", "tahukah anda"]),
     ("Product Promotion",      ["promo", "promotion", "offer", "deal", "discount", "cashback", "reward", "kredit", "credit card", "kad kredit", "loan", "pinjaman", "mortgage", "home loan", "personal loan", "rate", "kadar", "apply now", "daftar sekarang", "special rate"]),
@@ -903,12 +904,125 @@ def export_cross_platform(
     )
 
 
+@app.get("/api/follower-growth")
+def get_follower_growth(
+    sheet_url: str = Query(..., description="Public Google Sheet URL"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+):
+    """
+    Read follower count tabs from the Google Sheet and return month-by-month
+    follower data per platform, filtered to the requested date range.
+
+    Expected sheet tabs: [FB] Followers, [IG] Followers, [TT] Followers,
+                         [YT] Followers, [LI] Followers
+    Expected columns:    Month (date-like) + Followers (numeric)
+    """
+    import re as _re
+    match = _re.search(r'/spreadsheets/d/([a-zA-Z0-9_-]+)', sheet_url)
+    if not match:
+        return {"error": "Invalid Google Sheet URL."}
+    export_url = f"https://docs.google.com/spreadsheets/d/{match.group(1)}/export?format=xlsx"
+
+    try:
+        xl = pd.ExcelFile(export_url)
+    except Exception as e:
+        return {"error": f"Could not download sheet: {e}"}
+
+    # Map: platform → possible sheet tab names
+    PLATFORM_SHEETS = {
+        "Facebook":  ["[FB] Followers", "FB Followers", "Facebook Followers"],
+        "Instagram": ["[IG] Followers", "IG Followers", "Instagram Followers"],
+        "TikTok":    ["[TT] Followers", "TT Followers", "TikTok Followers"],
+        "YouTube":   ["[YT] Followers", "YT Followers", "YouTube Followers"],
+        "LinkedIn":  ["[LI] Followers", "LI Followers", "LinkedIn Followers"],
+    }
+
+    result = {}
+
+    # Parse date filter bounds
+    start_dt = pd.to_datetime(start_date) if start_date else None
+    end_dt   = pd.to_datetime(end_date)   if end_date   else None
+    # Expand end to end-of-day so month comparisons work correctly
+    if end_dt is not None and end_dt.time() == pd.Timestamp('00:00:00').time():
+        end_dt = end_dt + pd.Timedelta(days=1, seconds=-1)
+
+    for platform, candidates in PLATFORM_SHEETS.items():
+        tab = next((c for c in candidates if c in xl.sheet_names), None)
+        if tab is None:
+            continue
+
+        try:
+            df_f = xl.parse(tab)
+        except Exception:
+            continue
+
+        df_f.columns = [str(c).strip() for c in df_f.columns]
+
+        # Find the month column (first column that looks date-like)
+        month_col = None
+        for col in df_f.columns:
+            sample = df_f[col].dropna().head(5)
+            try:
+                pd.to_datetime(sample)
+                month_col = col
+                break
+            except Exception:
+                continue
+        if month_col is None:
+            # Fallback: first column
+            month_col = df_f.columns[0]
+
+        # Find the followers column (first numeric column after month)
+        follower_col = None
+        for col in df_f.columns:
+            if col == month_col:
+                continue
+            if pd.to_numeric(df_f[col], errors='coerce').notna().sum() > 0:
+                follower_col = col
+                break
+        if follower_col is None:
+            continue
+
+        df_f[month_col] = pd.to_datetime(df_f[month_col], errors='coerce')
+        df_f[follower_col] = pd.to_numeric(df_f[follower_col], errors='coerce')
+        df_f = df_f.dropna(subset=[month_col, follower_col])
+        df_f = df_f.sort_values(month_col)
+
+        # Apply date filter — keep rows whose month falls within the range
+        if start_dt is not None:
+            # Include months whose start is on or after the filter start
+            df_f = df_f[df_f[month_col] >= start_dt.replace(day=1)]
+        if end_dt is not None:
+            df_f = df_f[df_f[month_col] <= end_dt]
+
+        rows = []
+        prev_followers = None
+        for _, row in df_f.iterrows():
+            month_ts = row[month_col]
+            followers = int(row[follower_col])
+            growth_abs  = followers - prev_followers if prev_followers is not None else None
+            growth_pct  = round((growth_abs / prev_followers * 100), 2) if (prev_followers and prev_followers > 0 and growth_abs is not None) else None
+            rows.append({
+                "month":      month_ts.strftime("%Y-%m"),
+                "month_label": month_ts.strftime("%b %Y"),
+                "followers":  followers,
+                "growth_abs": growth_abs,
+                "growth_pct": growth_pct,
+            })
+            prev_followers = followers
+
+        result[platform] = rows
+
+    return result
+
+
 @app.get("/api/executive-summary")
 def get_executive_summary(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
 ):
-    """Generate an AI executive summary for the selected date range using Gemini."""
+    """Generate an AI executive summary for the selected date range using Groq."""
     api_key = os.getenv("GROQ_API_KEY", "")
     if not api_key:
         return {"error": "GROQ_API_KEY environment variable is not set. Get a free key at https://console.groq.com"}
@@ -926,89 +1040,136 @@ def get_executive_summary(
         if pdf.empty:
             continue
 
-        posts = len(pdf)
-        total_eng = float(pdf['engagement'].sum())
-        avg_reach = float(pdf['reach'].mean())
-        avg_er = round(float(pdf['engagement_rate'].mean()), 2)
+        posts        = len(pdf)
+        total_eng    = float(pdf['engagement'].sum())
+        total_reach  = float(pdf['reach'].sum())
+        avg_reach    = float(pdf['reach'].mean())
+        max_reach    = float(pdf['reach'].max())
+        avg_er       = round(float(pdf['engagement_rate'].mean()), 2)
+        max_er       = round(float(pdf['engagement_rate'].max()), 2)
+        min_er       = round(float(pdf['engagement_rate'].min()), 2)
 
-        # Top 3 posts
-        top3 = pdf.sort_values('engagement', ascending=False).head(3)
-        top_posts = [
-            {"title": str(r['title'])[:80], "engagement": int(r['engagement']), "er": round(float(r['engagement_rate']), 2)}
-            for _, r in top3.iterrows()
-        ]
+        # Format breakdown — counts and avg ER per format
+        fmt_data = {}
+        if 'format' in pdf.columns:
+            for fmt, grp in pdf.groupby('format'):
+                fmt = str(fmt).strip()
+                if not fmt or fmt == 'nan':
+                    continue
+                fmt_data[fmt] = {
+                    "posts": len(grp),
+                    "avg_er": round(float(grp['engagement_rate'].mean()), 2),
+                }
 
-        # Content type distribution — exclude "General / Other"
+        # Content-type distribution — only pass if a category clearly dominates
+        # (≥40% of posts), so the AI only mentions it when genuinely notable.
         ct_counts: dict = {}
         for title in pdf['title'].fillna(''):
             ct = classify_content_type(str(title))
             if ct == FALLBACK_TYPE:
-                continue  # skip General / Other
+                continue
             ct_counts[ct] = ct_counts.get(ct, 0) + 1
-        top_content_types = [t for t, _ in sorted(ct_counts.items(), key=lambda x: x[1], reverse=True)[:5]]
+        # Only surface the top content type if it accounts for ≥40% of classified posts
+        total_classified = sum(ct_counts.values())
+        dominant_content_type = None
+        if total_classified > 0:
+            top_ct, top_ct_count = max(ct_counts.items(), key=lambda x: x[1])
+            if top_ct_count / total_classified >= 0.4:
+                dominant_content_type = {"type": top_ct, "share_pct": round(top_ct_count / posts * 100, 1)}
 
-        # NOTE: top_posts deliberately excluded — no post names reach the AI
         platform_data[platform] = {
-            "posts": posts,
-            "total_engagement": int(total_eng),
-            "avg_reach": int(avg_reach),
-            "avg_er_pct": avg_er,
-            "top_content_types": top_content_types,
+            "posts":              posts,
+            "total_engagement":   int(total_eng),
+            "total_reach":        int(total_reach),
+            "avg_reach":          int(avg_reach),
+            "peak_reach":         int(max_reach),
+            "avg_er_pct":         avg_er,
+            "max_er_pct":         max_er,
+            "min_er_pct":         min_er,
+            "format_breakdown":   fmt_data,
+            "dominant_content_type": dominant_content_type,  # None if no clear majority
         }
 
-    # Pre-rank platforms by avg ER so AI gets explicit ordering
+    # Pre-rank platforms by avg ER
     er_ranking = sorted(
         [(p, d["avg_er_pct"]) for p, d in platform_data.items()],
         key=lambda x: x[1], reverse=True
     )
-    rank_label = ", ".join([f"#{i+1} {p} ({er}% ER)" for i, (p, er) in enumerate(er_ranking)])
+    rank_label = ", ".join([f"#{i+1} {p} ({er}% avg ER)" for i, (p, er) in enumerate(er_ranking)])
 
     period_label = f"{start_date or 'beginning'} to {end_date or 'present'}"
 
     # ── Build prompt ────────────────────────────────────────────────────────────
-    prompt = f"""You are a senior social media strategist writing an executive summary for CIMB Bank Malaysia's management team.
-The summary covers the period: {period_label}.
+    prompt = f"""You are a senior social media strategist writing a concise executive summary for CIMB Bank Malaysia's management team.
+Period: {period_label}
+Platform ER ranking (by avg ER%): {rank_label}
 
-Platform ER Ranking (by Avg ER%): {rank_label}
-
-Platform Performance Data:
+Per-platform data (use ONLY these numbers — do not invent any other figures):
 {json.dumps(platform_data, indent=2)}
 
-Return ONLY valid JSON (no markdown, no code blocks) with this exact structure:
+WRITING DOCTRINE — follow every rule below precisely:
+
+1. CAUSE-EFFECT STRUCTURE. Every sentence must explain what happened AND why, using the data.
+   Pattern: [metric/platform] [increased/decreased/held] by [number], [because/driven by/supported by] [specific data evidence].
+   Do NOT write a sentence that only reports a metric without explaining its cause.
+
+2. NO SPECULATION. You have the actual numbers — use them.
+   BANNED phrases: "likely driven by", "appears to", "may suggest", "could indicate", "seems to".
+   If you cannot prove a cause from the data provided, omit the claim entirely.
+   Exception: you may say "this pattern suggests" only if you immediately follow it with the specific data point that supports it.
+
+3. NO HYPE. Do not dramatise normal performance movement.
+   BANNED words: "massive", "explosive", "remarkable", "incredible", "huge", "surge", "skyrocket", "plummet".
+   Use precise, calm language: "increased", "declined", "outperformed", "held steady".
+
+4. FORMAT OVER CONTENT TYPE. Use format_breakdown data (Video, Reel, Static, Carousel, etc.) to explain performance.
+   Only mention a content type (e.g. "Financial Literacy content") if dominant_content_type is NOT null AND its share_pct is meaningful.
+   Never mention: "Campaign Videos", "App Features", "Product Promotion" as a category — these are too vague.
+
+5. USE REAL NUMBERS. Every insight must cite at least one specific number from the data.
+   Use numerals (not words): "4.2% ER", "3 formats", "12 posts" — not "four point two percent".
+
+6. ACTION-ORIENTED RECOMMENDATIONS. Each platform recommendation must:
+   - Start with a strong verb (Invest, Scale, Reduce, Maintain, Test, Prioritise)
+   - Reference the specific data point that justifies the action
+   - State the expected outcome in one phrase
+
+7. TITLES use cause-effect formulas:
+   Good: "Higher Reel volume supported stronger Instagram engagement"
+   Bad:  "Instagram Performance Improved"
+
+Return ONLY valid JSON (no markdown, no code blocks) in this exact structure:
 {{
   "top_platform": "<name of #1 platform by Avg ER%>",
-  "top_platform_reason": "<one concise sentence — state its Avg ER% and why it led>",
+  "top_platform_reason": "<one sentence: state its avg ER%, cite the format or pattern that drove it, cause-effect structure>",
   "key_highlights": [
-    "<POINT 1 — The #1 platform by Avg ER%. State: platform name in bold (**Name**), its Avg ER%, total engagement, and top content types that drove it. One clear sentence. No post names.>",
-    "<POINT 2 — The #2 platform by Avg ER%. Same format: platform name bold, Avg ER%, total engagement, top content types. One clear sentence. No post names.>"
+    "<POINT 1: #1 platform — bold **Name**, avg ER%, total engagement, which format(s) drove it and by how much. Cause-effect sentence. No post names.>",
+    "<POINT 2: #2 platform — bold **Name**, avg ER%, total engagement, key driver from format_breakdown. Cause-effect sentence. No post names.>"
   ],
   "audience_behaviour": [
-    "<Insight 1 — A broad, strategic observation about what type of content or format audiences responded to across platforms this period. No post names. Management-level language.>",
-    "<Insight 2 — Another strategic behavioural trend, e.g. about format preferences (short-form vs long-form), content themes, or engagement patterns. No post names.>"
+    "<Cross-platform pattern #1: what format or approach drove consistent engagement across 2+ platforms. Cite real ER numbers from both. No post names.>",
+    "<Cross-platform pattern #2: a different behavioural trend (e.g. reach vs engagement trade-off, organic vs paid pattern, format consistency). Cite real numbers.>"
   ],
   "recommendations": {{
-    "Facebook": "<One concise strategic recommendation for the management team. Action-oriented. No post names.>",
-    "Instagram": "<One concise strategic recommendation. Action-oriented. No post names.>",
-    "TikTok": "<One concise strategic recommendation. Action-oriented. No post names.>",
-    "YouTube": "<One concise strategic recommendation. Action-oriented. No post names.>",
-    "LinkedIn": "<One concise strategic recommendation. Action-oriented. No post names.>"
+    "Facebook": "<Verb-led recommendation grounded in Facebook's data. One sentence.>",
+    "Instagram": "<Verb-led recommendation grounded in Instagram's data. One sentence.>",
+    "TikTok": "<Verb-led recommendation grounded in TikTok's data. One sentence.>",
+    "YouTube": "<Verb-led recommendation grounded in YouTube's data. One sentence.>",
+    "LinkedIn": "<Verb-led recommendation grounded in LinkedIn's data. One sentence.>"
   }},
   "period": "{period_label}"
 }}
 
-Strict rules you must follow:
-1. key_highlights must have EXACTLY 2 items.
-2. Point 1 = #1 platform by Avg ER. Point 2 = #2 platform by Avg ER.
-3. Bold platform names in highlights using **PlatformName** markdown.
-4. NEVER mention any individual post title or post name anywhere in the entire response.
-5. NEVER mention the content type "General / Other".
-6. Only include in recommendations the platforms that appear in the data.
-7. Write for a senior management audience — be concise, strategic, and data-grounded.
-8. Use real numbers from the data (ER%, engagement counts, reach)."""
+Additional strict rules:
+- key_highlights: EXACTLY 2 items. Point 1 = #1 ER platform, Point 2 = #2 ER platform.
+- Bold platform names in highlights: **PlatformName**
+- NEVER mention any individual post title.
+- NEVER mention "General / Other" content type.
+- Only include platforms that appear in the data.
+- Write for senior management — every sentence must help them make a decision or understand channel performance."""
 
-    # ── Call Groq (free, no credit card needed) ─────────────────────────────────
+    # ── Call Groq ───────────────────────────────────────────────────────────────
     GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-    # Try models in order — all free on Groq
     GROQ_MODELS = [
         "llama-3.3-70b-versatile",
         "llama-3.1-70b-versatile",
@@ -1025,20 +1186,19 @@ Strict rules you must follow:
             payload = {
                 "model": model_name,
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.3,
+                "temperature": 0.2,
                 "max_tokens": 2048,
             }
             resp = http_requests.post(GROQ_URL, headers=headers, json=payload, timeout=60)
             if resp.status_code == 200:
                 raw = resp.json()["choices"][0]["message"]["content"].strip()
-                # Strip markdown fences if present
                 if raw.startswith("```"):
                     raw = raw.split("\n", 1)[-1]
                     raw = raw.rsplit("```", 1)[0].strip()
                 return json.loads(raw)
             elif resp.status_code in (404, 400):
                 last_error = resp.text
-                continue  # try next model
+                continue
             else:
                 return {"error": f"Groq API error {resp.status_code}: {resp.text}"}
         except json.JSONDecodeError as e:
@@ -1171,23 +1331,28 @@ Per-platform analytics (format breakdown + top/bottom post titles for theme cont
 
 TASK: Write a STOP / PAUSE / CONTINUE / ENHANCE strategy for each platform.
 
+WRITING DOCTRINE — apply to every cell:
+1. CAUSE-EFFECT ONLY. Every recommendation must state what the data shows AND what the team should do about it.
+   Pattern: [what the data shows] → [specific action]
+   Example: "Static posts averaged 0.4% ER vs Reels at 1.8% ER → reduce Static-only weeks"
+2. NO VAGUE LANGUAGE. Phrases like "consider reviewing", "explore opportunities", "look into" are banned.
+   Every phrase must be a clear instruction or a specific observation.
+3. NO HYPE. Do not use: "massive", "explosive", "incredible", "amazing", "huge surge".
+4. CONSERVATIVE ON STOP. For a bank, promotions, product content, brand campaigns are mandatory.
+   Only recommend STOP for a very specific FORMAT or EXECUTION STYLE with clear data evidence of underperformance
+   AND a proven better alternative in the data. If unsure, write: "No change, monitor performance".
+5. CELL FORMAT: short phrases only (max 15 words per cell). Not full paragraphs.
+
 HOW TO READ THE DATA:
-- "top5_posts" gives you the titles of the BEST performing content — use these to infer CONTENT THEMES (e.g. "Security/fraud awareness", "Financial literacy tips", "Lifestyle/festive content", "CIMB Heroes stories", "Employer brand", "Sustainability content")
-- "bot5_posts" gives you the WORST performing content — use these to infer what specific approaches to STOP or PAUSE
-- "format_performance" tells you which FORMATS (Reel, Video, Static, Carousel, etc.) drove the highest vs lowest ER
+- top5_posts: titles of BEST performing content → infer themes (e.g. "security/fraud tips", "financial literacy explainers", "festive storytelling")
+- bot5_posts: titles of WORST performing content → infer what execution styles to STOP or PAUSE
+- format_performance: which formats (Reel, Video, Static, Carousel) drove highest vs lowest avg ER
 
 HOW TO WRITE EACH CELL:
-- STOP: VERY CONSERVATIVE. For a bank, standard content categories (promotions, product announcements, brand campaigns) are mandatory and must NEVER be listed here. Only recommend STOP for a very specific FORMAT or EXECUTION STYLE that is consistently the lowest performer AND has a clearly better alternative already proven in the data. If no such clear case exists, write "No change, to monitor performance". Default to this unless the evidence is overwhelming.
-- PAUSE: Themes or formats that showed inconsistent results (high er_spread) — currently working sometimes but need refinement before scaling. E.g. "Carousel-format campaign posts" or "Link-based posts". If no clear PAUSE needed, write "No pause required".
-- CONTINUE: The THEMES and FORMATS with proven consistently high ER. Infer from top5 post titles. E.g. "Financial literacy tips, Security/fraud awareness", "Creator-led storytelling reels", "CIMB Heroes stories, Financial literacy explainers"
-- ENHANCE: High-potential themes/formats that appeared in top performers but are underutilised (few posts, high best_er). E.g. "Collaborations with creators", "Series-based educational content", "UGC-style community stories", "Collaborations with industry leaders"
-
-CRITICAL STOP GUIDANCE:
-- "Generic promotional posts" is NOT an acceptable STOP recommendation for a bank — promotions are core business content.
-- Only flag a very specific, narrow execution style (e.g. "Static single-image product launches with no hook") if the data clearly supports it.
-- When in doubt, write "No change, to monitor performance".
-
-Each cell = SHORT PHRASES only (max 15 words). Can list 2-3 themes separated by commas if relevant. NOT full sentences.
+- STOP: Specific underperforming FORMAT or EXECUTION STYLE only. Default: "No change, monitor performance"
+- PAUSE: Formats/themes with inconsistent ER (high er_spread). If none, write: "No pause required"
+- CONTINUE: Proven high-ER themes and formats inferred from top5. Short phrases, comma-separated.
+- ENHANCE: High-potential themes/formats in top performers but underused (few posts, high best_er).
 
 Return ONLY valid JSON, no markdown, no code fences:
 {{
@@ -1201,18 +1366,15 @@ Return ONLY valid JSON, no markdown, no code fences:
   "key_takeaways": ["...", "...", "...", "...", "..."]
 }}
 
-Additional rules:
-- STOP defaults to "No change, to monitor performance" unless there is overwhelming data evidence of a specific underperforming execution style that is NOT a core bank content category.
-- If no clear PAUSE needed, write "No pause required".
-- Key takeaways: exactly 5 items, one per platform (Facebook, Instagram, TikTok, YouTube, LinkedIn). Each takeaway must:
-  (a) Start with the platform name (e.g. "Instagram should...", "TikTok continues to be...", "Facebook remains...")
-  (b) Describe what the platform is currently doing well and what the NEXT strategic move should be — forward-looking, not just a data observation
-  (c) Reference the platform's avg ER% and at least one specific content theme proven in the data
-  (d) Be ONE complete professional sentence, written for a senior management audience
-  Example style: "Instagram should double down on its strengths in lifestyle, festive, and financial literacy explainers, using deep collaborations with creators to maintain its status as a primary engagement driver."
-  Example style: "TikTok continues to be a highly effective channel for bite-sized, practical knowledge — content should shift from pure corporate delivery toward authentic, UGC-style community stories to maximise its X.XX% avg ER."
-  DO NOT write takeaways that just describe a single post's ER or name a specific post.
-- Think like a strategist — what TOPICS and APPROACHES worked, and what should the team do MORE of?"""
+Key takeaways rules — exactly 5 items, one per platform:
+- Each takeaway MUST follow cause-effect structure:
+  [What the data showed for this platform this period] + [therefore, the specific next action]
+- Formula: "[Platform]'s [format/theme] [performed at X% ER / declined / outperformed], [because/supported by] [data evidence]; the next step is to [specific action]."
+- Reference the platform's avg ER% and at least one format or theme proven in the data.
+- ONE complete professional sentence per takeaway. Written for senior management.
+- BANNED: vague directives like "should explore", "consider investing", "look into possibilities".
+- BANNED: takeaways that only describe a metric without a forward-looking action.
+- DO NOT name specific post titles."""
 
     # ── Prompt 2: Key Learnings ──────────────────────────────────────────────────
     prompt2 = f"""You are a senior social media strategist producing a board-level report for CIMB Bank Malaysia.
@@ -1224,24 +1386,39 @@ Per-platform analytics (format breakdown + top/bottom organic post titles):
 
 TASK: Write 4 KEY LEARNINGS that describe CROSS-PLATFORM patterns.
 
-CRITICAL RULE: Each learning MUST observe a pattern that appears ACROSS MULTIPLE PLATFORMS — not a single platform's performance. The insight should be something the ENTIRE content team can act on regardless of which platform they manage.
+WRITING DOCTRINE — apply to every field:
 
-Good examples of cross-platform learnings (from real reports):
-- "Episodic finance advice is a repeatable engagement driver" → TikTok AND Instagram AND YouTube all showed high ER for financial education content delivered in a series format
-- "Interactive or participatory content mechanics boost comments and shares" → Multiple platforms benefited from posts that asked audiences to do something (pause, comment, choose)
-- "Promotional content needs utility or a mechanic to work" → Generic product posts underperformed across Facebook, Instagram and TikTok unless they had a reward, challenge or explainer element
-- "Cultural and festive content creates spikes when personalised" → Raya/festive content spiked ER on both TikTok and Instagram when it was specific and relatable
+1. CAUSE-EFFECT STRUCTURE. Every description must follow: what happened → why (data evidence) → what it means.
+   Pattern: "[Metric/platform] [result], [because/supported by] [specific data evidence]. This [confirms/shows/indicates] [strategic implication]."
+   Do NOT write a sentence that only reports a metric without explaining its cause.
 
-HOW TO USE THE DATA:
-- Look at top5_organic_posts across ALL platforms — what COMMON THEMES appear in the highest-performing content?
-- Look at bot5_organic_posts across ALL platforms — what COMMON WEAKNESSES appear?
-- Look at format_performance across platforms — are there formats that consistently outperform or underperform?
-- Use real ER% numbers from the data to support each insight
+2. NO SPECULATION. You have the actual numbers.
+   BANNED: "likely driven by", "appears to", "may suggest", "could indicate", "seems to".
+   If you cannot prove a cause directly from the data, omit the claim entirely.
+
+3. NO HYPE. Do not dramatise performance.
+   BANNED: "massive", "explosive", "remarkable", "incredible", "huge", "surge", "skyrocket", "plummet".
+   Use: "increased", "declined", "outperformed", "held steady", "dropped".
+
+4. ACTION FIELD = EXECUTABLE DIRECTIVE. The action must be something a content manager can do in the NEXT planning cycle.
+   - Start with a strong imperative verb: Prioritise, Scale, Reduce, Replace, Test, Invest in, Allocate, Standardise, Limit.
+   - State the specific format, theme, or approach to act on.
+   - State the expected outcome.
+   - BANNED in action field: "should identify", "consider exploring", "look into", "the focus should be on finding", any question or open-ended statement.
+   Bad example:  "The focus for next month should be on identifying which content pillars can drive engagement."
+   Good example: "Prioritise Video format across Instagram and TikTok, targeting ≥3 posts per week, to sustain the 3.2% avg ER proven this period."
+
+5. TITLES use cause-effect or diagnostic insight format:
+   Good: "Video-led content drove consistent ER across platforms"
+   Bad:  "Engagement Improved"
+
+6. CROSS-PLATFORM RULE: Each learning MUST reference 2+ platforms with real ER% numbers.
+   Do not write a learning about a single platform.
 
 STRUCTURE per learning:
-- title: Short punchy phrase (the insight in 8 words or less)
-- description: 2-3 sentences. Reference 2+ platforms. Include real ER% numbers. Explain WHY the pattern works.
-- action: One concrete directive for the content team. Start with a strong verb. Apply across platforms.
+- title: Short cause-effect phrase (8 words or less)
+- description: 2–3 sentences. Reference 2+ platforms. Use real ER% numbers. Explain the cause.
+- action: One concrete imperative directive. Starts with a strong verb. Platform-agnostic where possible.
 
 Return ONLY valid JSON, no markdown, no code fences:
 {{
@@ -1255,9 +1432,10 @@ Return ONLY valid JSON, no markdown, no code fences:
 
 Additional rules:
 - Exactly 4 learnings, each on a DIFFERENT cross-platform theme.
-- Vary the topics: content theme patterns, format effectiveness, audience engagement mechanics, organic vs paid behaviour.
+- Vary the topics: content format patterns, audience engagement mechanics, reach vs ER trade-offs, organic vs paid behaviour.
 - DO NOT write a learning that only talks about one platform.
-- DO NOT mention specific post titles — infer the content theme and describe it generically."""
+- DO NOT mention specific post titles — describe the theme generically.
+- The action field must always close the learning with what the team WILL DO, not what they should investigate."""
 
     # ── Call Groq (with pause between calls to avoid free-tier TPM rate limit) ───
     import time
