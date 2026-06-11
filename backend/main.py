@@ -1408,26 +1408,26 @@ You are writing for a strategist audience, not a data analyst. The goal:
     You may cite 1-2 ER numbers to ground it, but do NOT make the description a list of numbers.
   - Action = One bold directive the content team can execute NEXT MONTH. Specific. Concrete. No hedging.
 
-─── EXAMPLE of GOOD writing ───
+─── EXAMPLE of GOOD writing (Use as structure template, DO NOT copy these themes) ───
 
-Title: "Episodic finance advice is a repeatable engagement driver"
-Description: "Content built around relatable financial situations (budgeting, spending habits, debt) performed
-  consistently across TikTok and Instagram, with ER ranging from 5.48% to 9.73% on TikTok.
-  This shows that financial literacy works when delivered through a recognisable recurring format
-  and personality-led delivery — not one-off explainers."
-Action: "Turn high-performing finance topics into recurring series covering salary, lifestyle inflation,
-  debt, savings and spending behaviour — run across TikTok and Instagram with a consistent presenter format."
+Title: "[Content Theme/Mechanic] is a repeatable engagement driver"
+Description: "Content built around [Specific execution style inferred from top posts] performed
+  consistently across [Platform A] and [Platform B], with ER ranging from [X]% to [Y]% on [Platform A].
+  This shows that [Audience Insight] works when delivered through a recognisable recurring format
+  and [Specific delivery style] — not one-off posts."
+Action: "Turn high-performing [Theme] topics into recurring series covering [Sub-topic 1], [Sub-topic 2],
+  and [Sub-topic 3] — run across [Platform A] and [Platform B] with a consistent format."
 
-Title: "Interactive video boosted engagement through a simple participation loop."
-Description: "Content that asked audiences to pause, interact, or share a result drove higher comment
-  and share rates across TikTok. The mechanic works because it turns passive viewing into active participation,
+Title: "[Creative Format] boosted engagement through a simple participation loop."
+Description: "Content that asked audiences to [Specific action, e.g., interact, vote, or share] drove higher comment
+  and share rates across [Platform]. The mechanic works because it turns passive viewing into active participation,
   reducing scroll-past behaviour."
-Action: "Build more 'pause-to-reveal' or 'comment-your-result' interactive formats around timely money moments."
+Action: "Build more [Specific interactive format] around timely moments or [Specific theme]."
 
 Title: "Promotional content needs utility or a mechanic to work"
-Description: "Generic promotional posts consistently underperformed across Facebook, Instagram and TikTok,
-  falling below 1% ER, while promo posts with a reward mechanic, challenge or explainer element performed significantly better."
-Action: "Turn product posts into tutorials, challenges, contests or creator-led use cases.
+Description: "Generic promotional posts consistently underperformed across [Platform A], [Platform B] and [Platform C],
+  falling below [X]% ER, while promo posts with a [Specific element, e.g., reward mechanic, challenge] performed significantly better."
+Action: "Turn product posts into [Specific engaging format].
   Generic product pushes should be reduced or rebuilt with a participation hook."
 
 ─── EXAMPLE of BAD writing ───
