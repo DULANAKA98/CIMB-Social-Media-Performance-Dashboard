@@ -92,6 +92,7 @@ class SyncRequest(BaseModel):
 
 @app.post("/api/sync-sheet")
 def sync_sheet(req: SyncRequest, db: Session = Depends(get_db)):
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
     try:
         records = load_data(req.sheet_url)
         synced = 0
@@ -102,27 +103,35 @@ def sync_sheet(req: SyncRequest, db: Session = Depends(get_db)):
                     date_val = pd.to_datetime(rec['date']).to_pydatetime()
                 except:
                     date_val = None
-            # db.merge() will INSERT if not exists, UPDATE if exists — no duplicate errors
-            post = Post(
-                id=str(rec['id']),
-                platform=rec.get('platform', ''),
-                format=rec.get('format', ''),
-                date=date_val,
-                title=rec.get('title', ''),
-                link=rec.get('link', ''),
-                reach=float(rec.get('reach') or 0),
-                views=float(rec.get('views') or 0),
-                engagement=float(rec.get('engagement') or 0),
-                likes=float(rec.get('likes') or 0),
-                comments=float(rec.get('comments') or 0),
-                shares=float(rec.get('shares') or 0),
-                favorites=float(rec.get('favorites') or 0),
-                reposts=float(rec.get('reposts') or 0),
-                engagement_rate=float(rec.get('engagement_rate') or 0),
-                is_organic=bool(rec.get('is_organic', True)),
+
+            values = {
+                "id":              str(rec['id']),
+                "platform":        rec.get('platform', ''),
+                "format":          rec.get('format', ''),
+                "date":            date_val,
+                "title":           rec.get('title', ''),
+                "link":            rec.get('link', ''),
+                "reach":           float(rec.get('reach') or 0),
+                "views":           float(rec.get('views') or 0),
+                "engagement":      float(rec.get('engagement') or 0),
+                "likes":           float(rec.get('likes') or 0),
+                "comments":        float(rec.get('comments') or 0),
+                "shares":          float(rec.get('shares') or 0),
+                "favorites":       float(rec.get('favorites') or 0),
+                "reposts":         float(rec.get('reposts') or 0),
+                "engagement_rate": float(rec.get('engagement_rate') or 0),
+                "is_organic":      bool(rec.get('is_organic', True)),
+            }
+
+            # Native PostgreSQL UPSERT — works with connection poolers, never throws duplicate errors
+            stmt = pg_insert(Post).values(**values)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["id"],
+                set_={k: v for k, v in values.items() if k != "id"}
             )
-            db.merge(post)
+            db.execute(stmt)
             synced += 1
+
         db.commit()
         return {"message": f"Sync complete! {synced} posts synced to database.", "synced": synced}
     except Exception as e:
