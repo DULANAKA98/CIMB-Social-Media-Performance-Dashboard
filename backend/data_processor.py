@@ -161,7 +161,7 @@ def process_data(fb, ig, yt, tt, li=None):
                 'date': date_str,
                 'title': str(row.get('Video title', ''))[:150],
                 'link': link,
-                'reach': get_val(row, 'Impressions'),
+                'reach': views,
                 'views': views,
                 'engagement': total_eng,
                 'likes': likes,
