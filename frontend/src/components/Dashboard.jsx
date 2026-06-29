@@ -753,68 +753,10 @@ const Dashboard = ({ onLogout }) => {
     }
   };
 
-  if (!dataLoaded) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0a0c14 0%, #0d1117 50%, #0a0e18 100%)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'Inter', 'Outfit', sans-serif", position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute', width: 500, height: 500,
-          background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)',
-          top: '10%', left: '5%', borderRadius: '50%', pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', width: 400, height: 400,
-          background: 'radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)',
-          bottom: '10%', right: '10%', borderRadius: '50%', pointerEvents: 'none',
-        }} />
-
-        <div style={{
-          width: '100%', maxWidth: 480, background: 'rgba(255,255,255,0.04)',
-          backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 20, padding: '2.8rem 2.4rem', boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
-          position: 'relative', zIndex: 10, textAlign: 'center',
-        }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: 16,
-            background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: '1.2rem', boxShadow: '0 8px 24px rgba(139,92,246,0.4)',
-          }}>
-            <HardDrive size={28} color="#fff" />
-          </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.3px', margin: 0, marginBottom: '0.5rem' }}>
-            No Data Found
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.88rem', margin: '0 0 1.8rem', lineHeight: 1.6 }}>
-            The database is empty. Go to <strong style={{ color: '#fff' }}>Data Hub</strong> to sync your Google Sheet and load your analytics data.
-          </p>
-          <button
-            onClick={() => { setDataLoaded(true); setActiveTab('data-hub'); }}
-            style={{
-              width: '100%', background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
-              color: '#fff', border: 'none', borderRadius: 10, padding: '0.9rem', fontWeight: 700,
-              fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', gap: '0.5rem', fontFamily: 'inherit',
-              boxShadow: '0 4px 20px rgba(139,92,246,0.4)', transition: 'all 0.2s',
-            }}
-          >
-            <HardDrive size={18} /> Go to Data Hub
-          </button>
-          {onLogout && (
-            <div style={{ textAlign: 'center', marginTop: '1.2rem' }}>
-              <button onClick={onLogout} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+  if (!dataLoaded && !loading) {
+    // No data in DB yet — skip straight to dashboard on the Data Hub tab
+    setDataLoaded(true);
+    setActiveTab('data-hub');
   }
 
   if (loading && !summary) {
