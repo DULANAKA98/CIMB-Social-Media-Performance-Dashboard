@@ -303,7 +303,7 @@ const Dashboard = ({ onLogout }) => {
                 <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
                   <span style={{ fontSize: '1.4rem' }}>{meta.emoji}</span> {platform} WIP Data
                 </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="metric-box">
                     <span>Total Views</span>
                     <strong>{formatNumber(data.total_views)}</strong>
@@ -315,6 +315,10 @@ const Dashboard = ({ onLogout }) => {
                   <div className="metric-box">
                     <span>Watch Time (hours)</span>
                     <strong style={{ color: 'var(--accent-green)' }}>{data.watch_time_hours?.toLocaleString()}h</strong>
+                  </div>
+                  <div className="metric-box">
+                    <span>No. of Posts</span>
+                    <strong>{data.posts_count}</strong>
                   </div>
                 </div>
               </div>
