@@ -119,6 +119,8 @@ def sync_sheet(req: SyncRequest, db: Session = Depends(get_db)):
                 "shares":          float(rec.get('shares') or 0),
                 "favorites":       float(rec.get('favorites') or 0),
                 "reposts":         float(rec.get('reposts') or 0),
+                "impressions":     float(rec.get('impressions') or 0),
+                "watch_time_hours": float(rec.get('watch_time_hours') or 0),
                 "engagement_rate": float(rec.get('engagement_rate') or 0),
                 "is_organic":      bool(rec.get('is_organic', True)),
             }
