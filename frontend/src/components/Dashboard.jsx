@@ -127,16 +127,16 @@ const Dashboard = ({ onLogout }) => {
   }, [startDate, endDate]);
 
   useEffect(() => {
-    if (dataSourceUrl) {
+    if (dataLoaded && activeTab === 'wip') {
       const fetchWip = async () => {
         setWipLoading(true);
         setWipError('');
         try {
-          let query = `?sheet_url=${encodeURIComponent(dataSourceUrl)}`;
-          if (startDate) query += `&start_date=${startDate}`;
-          if (endDate) query += `&end_date=${endDate}`;
+          let query = '';
+          if (startDate) query += `?start_date=${startDate}`;
+          if (endDate) query += `${query ? '&' : '?'}end_date=${endDate}`;
           
-          const res = await axios.get(`${API_URL}/wip-data${query}`);
+          const res = await axios.get(`${API_URL}/wip-summary${query}`);
           if (res.data.error) {
             setWipError(res.data.error);
             setWipData(null);
@@ -144,7 +144,7 @@ const Dashboard = ({ onLogout }) => {
             setWipData(res.data);
           }
         } catch (err) {
-          setWipError('Failed to fetch WIP Data. Please ensure the data source is loaded.');
+          setWipError('Failed to fetch WIP Data.');
           setWipData(null);
         } finally {
           setWipLoading(false);
@@ -152,7 +152,7 @@ const Dashboard = ({ onLogout }) => {
       };
       fetchWip();
     }
-  }, [activeTab, dataSourceUrl, startDate, endDate, wipTrigger]);
+  }, [activeTab, dataLoaded, startDate, endDate, wipTrigger]);
 
   // Fetch follower data whenever the followers tab is active or filters change
   useEffect(() => {
@@ -259,7 +259,7 @@ const Dashboard = ({ onLogout }) => {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0' }}>
           <div className="spinner" style={{ width: 40, height: 40, borderTopColor: 'var(--accent-purple)', marginBottom: '1rem' }} />
-          <p style={{ color: 'var(--text-secondary)' }}>Aggregating raw sheet metrics... Please wait.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading WIP data…</p>
         </div>
       );
     }
@@ -276,102 +276,87 @@ const Dashboard = ({ onLogout }) => {
       );
     }
 
-    if (!wipData) {
+    if (!wipData || Object.keys(wipData).length === 0) {
       return (
         <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', transition: 'none' }}>
-          <p style={{ color: 'var(--text-secondary)' }}>No WIP data loaded. Check if the sheet URL is correct.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>No WIP data available for the selected date range.</p>
         </div>
       );
     }
 
-    const { Facebook, Instagram, YouTube } = wipData;
+    const PLAT_META = {
+      Facebook:  { color: 'var(--fb-color, #1877f2)', emoji: '📘' },
+      Instagram: { color: 'var(--ig-color, #e1306c)', emoji: '📸' },
+      TikTok:    { color: '#00f2fe',                   emoji: '🎵' },
+      YouTube:   { color: 'var(--yt-color, #ff0000)',  emoji: '▶️' },
+      LinkedIn:  { color: '#0a66c2',                   emoji: '💼' },
+    };
 
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-        {/* Facebook Card */}
-        {Facebook && (
-          <div className="glass-panel" style={{ borderTop: '4px solid var(--fb-color)' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
-              <span style={{ fontSize: '1.4rem' }}>📘</span> Facebook WIP Data
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div className="metric-box" style={{ gridColumn: 'span 2' }}>
-                <span>Total Reach</span>
-                <strong>{formatNumber(Facebook.total_reach)}</strong>
+        {Object.entries(wipData).map(([platform, data]) => {
+          const meta = PLAT_META[platform] || { color: '#8b5cf6', emoji: '📊' };
+          return (
+            <div key={platform} className="glass-panel" style={{ borderTop: `4px solid ${meta.color}` }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
+                <span style={{ fontSize: '1.4rem' }}>{meta.emoji}</span> {platform} WIP Data
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="metric-box" style={{ gridColumn: 'span 2' }}>
+                  <span>Total Reach</span>
+                  <strong>{formatNumber(data.total_reach)}</strong>
+                </div>
+                <div className="metric-box">
+                  <span>Avg. Engagement Rate</span>
+                  <strong style={{ color: 'var(--accent-pink)' }}>{data.avg_engagement_rate?.toFixed(2)}%</strong>
+                </div>
+                <div className="metric-box">
+                  <span>Total Engagement</span>
+                  <strong style={{ color: 'var(--accent-purple)' }}>{formatNumber(data.total_engagement)}</strong>
+                </div>
+                <div className="metric-box">
+                  <span>Total Views</span>
+                  <strong>{formatNumber(data.total_views)}</strong>
+                </div>
+                <div className="metric-box">
+                  <span>No. of Posts</span>
+                  <strong>{data.posts_count}</strong>
+                </div>
               </div>
-              <div className="metric-box">
-                <span>Avg. Engagement Rate</span>
-                <strong style={{ color: 'var(--accent-pink)' }}>{Facebook.avg_engagement_rate?.toFixed(2)}%</strong>
-              </div>
-              <div className="metric-box">
-                <span>Total Engagement</span>
-                <strong style={{ color: 'var(--accent-purple)' }}>{formatNumber(Facebook.total_engagement)}</strong>
-              </div>
-              <div className="metric-box">
-                <span>Total Video Views</span>
-                <strong>{formatNumber(Facebook.total_video_views)}</strong>
-              </div>
-              <div className="metric-box">
-                <span>No. of Posts</span>
-                <strong>{Facebook.posts_count}</strong>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Instagram Card */}
-        {Instagram && (
-          <div className="glass-panel" style={{ borderTop: '4px solid var(--ig-color)' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
-              <span style={{ fontSize: '1.4rem' }}>📸</span> Instagram WIP Data
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div className="metric-box" style={{ gridColumn: 'span 2' }}>
-                <span>Total Reach</span>
-                <strong>{formatNumber(Instagram.total_reach)}</strong>
-              </div>
-              <div className="metric-box">
-                <span>Avg. Engagement Rate</span>
-                <strong style={{ color: 'var(--accent-pink)' }}>{Instagram.avg_engagement_rate?.toFixed(2)}%</strong>
-              </div>
-              <div className="metric-box">
-                <span>Total Engagement</span>
-                <strong style={{ color: 'var(--accent-purple)' }}>{formatNumber(Instagram.total_engagement)}</strong>
-              </div>
-              <div className="metric-box">
-                <span>Video Views</span>
-                <strong>{formatNumber(Instagram.video_views)}</strong>
-              </div>
-              <div className="metric-box">
-                <span>No. of Posts</span>
-                <strong>{Instagram.posts_count}</strong>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* YouTube Card */}
-        {YouTube && (
-          <div className="glass-panel" style={{ borderTop: '4px solid var(--yt-color)' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
-              <span style={{ fontSize: '1.4rem' }}>▶️</span> YouTube WIP Data
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="metric-box">
-                <span>Total Views</span>
-                <strong>{formatNumber(YouTube.total_views)}</strong>
-              </div>
-              <div className="metric-box">
-                <span>Impressions</span>
-                <strong>{formatNumber(YouTube.impressions)}</strong>
-              </div>
-              <div className="metric-box">
-                <span>Watch Time (hours)</span>
-                <strong style={{ color: 'var(--accent-green)' }}>{YouTube.watch_time_hours?.toLocaleString()}h</strong>
+              {/* Engagement breakdown */}
+              <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Engagement Breakdown</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                  {data.total_likes > 0 && (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      ❤️ {formatNumber(data.total_likes)}
+                    </span>
+                  )}
+                  {data.total_comments > 0 && (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      💬 {formatNumber(data.total_comments)}
+                    </span>
+                  )}
+                  {data.total_shares > 0 && (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      🔗 {formatNumber(data.total_shares)}
+                    </span>
+                  )}
+                  {data.total_favorites > 0 && (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      ⭐ {formatNumber(data.total_favorites)}
+                    </span>
+                  )}
+                  {data.total_reposts > 0 && (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      🔄 {formatNumber(data.total_reposts)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })}
       </div>
     );
   };
@@ -1965,7 +1950,7 @@ const Dashboard = ({ onLogout }) => {
             <div>
               <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>WIP Data</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-                Live aggregated metrics calculated directly from raw sheets.
+                Aggregated metrics from the database for the selected date range.
               </p>
               {renderWipSection()}
             </div>

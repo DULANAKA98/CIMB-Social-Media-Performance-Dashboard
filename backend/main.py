@@ -1861,6 +1861,49 @@ def get_wip_data(
     return result
 
 
+@app.get("/api/wip-summary")
+def get_wip_summary(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+):
+    """Return WIP-style aggregated metrics from the database for each platform."""
+    df = get_filtered_data(start_date, end_date)
+
+    result = {}
+    platforms = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']
+
+    for platform in platforms:
+        pdf = df[df['platform'] == platform]
+        if pdf.empty:
+            continue
+
+        posts_count = len(pdf)
+        total_reach = float(pdf['reach'].sum())
+        total_engagement = float(pdf['engagement'].sum())
+        total_views = float(pdf['views'].sum())
+        avg_er = float(pdf['engagement_rate'].mean()) if posts_count > 0 else 0.0
+        total_likes = float(pdf['likes'].sum())
+        total_comments = float(pdf['comments'].sum())
+        total_shares = float(pdf['shares'].sum())
+        total_favorites = float(pdf['favorites'].sum())
+        total_reposts = float(pdf['reposts'].sum())
+
+        result[platform] = {
+            "posts_count": posts_count,
+            "total_reach": round(total_reach),
+            "total_engagement": round(total_engagement),
+            "total_views": round(total_views),
+            "avg_engagement_rate": round(avg_er, 2),
+            "total_likes": round(total_likes),
+            "total_comments": round(total_comments),
+            "total_shares": round(total_shares),
+            "total_favorites": round(total_favorites),
+            "total_reposts": round(total_reposts),
+        }
+
+    return result
+
+
 # ── Helper: call Groq for chat with history ───────────────────────────────────
 def _call_groq_chat(api_key: str, messages: List[Dict[str, str]], max_tokens: int = 3000):
     GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
