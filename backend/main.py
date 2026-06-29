@@ -1870,7 +1870,7 @@ def get_wip_summary(
     df = get_filtered_data(start_date, end_date)
 
     result = {}
-    platforms = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']
+    platforms = ['Facebook', 'Instagram', 'TikTok', 'YouTube']
 
     for platform in platforms:
         pdf = df[df['platform'] == platform]
