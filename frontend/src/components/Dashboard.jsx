@@ -21,7 +21,7 @@ const NAV_ITEMS = [
 ];
 
 
-const Dashboard = () => {
+const Dashboard = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -1501,6 +1501,25 @@ const Dashboard = () => {
 
         <div className="sidebar-footer">
           <p>Dulanaka Siriwardana © {new Date().getFullYear()}</p>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              style={{
+                marginTop: '0.6rem', width: '100%',
+                background: 'rgba(185,28,28,0.15)',
+                border: '1px solid rgba(185,28,28,0.35)',
+                borderRadius: '8px', padding: '0.5rem 1rem',
+                color: '#fca5a5', fontSize: '0.8rem', fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: '0.4rem', fontFamily: 'inherit',
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(185,28,28,0.28)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(185,28,28,0.15)'}
+            >
+              ⎋ Sign Out
+            </button>
+          )}
         </div>
       </aside>
 
