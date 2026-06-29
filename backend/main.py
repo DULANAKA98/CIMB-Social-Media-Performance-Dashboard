@@ -61,6 +61,8 @@ def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] 
                 'engagement': r.engagement or 0, 'likes': r.likes or 0,
                 'comments': r.comments or 0, 'shares': r.shares or 0,
                 'favorites': r.favorites or 0, 'reposts': r.reposts or 0,
+                'impressions': getattr(r, 'impressions', 0) or 0,
+                'watch_time_hours': getattr(r, 'watch_time_hours', 0) or 0,
                 'engagement_rate': r.engagement_rate or 0,
                 'is_organic': r.is_organic,
             })
