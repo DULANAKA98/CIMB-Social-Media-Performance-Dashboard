@@ -313,8 +313,8 @@ const Dashboard = ({ onLogout }) => {
                     <strong>{formatNumber(data.impressions)}</strong>
                   </div>
                   <div className="metric-box">
-                    <span>Watch Time (hours)</span>
-                    <strong style={{ color: 'var(--accent-green)' }}>{data.watch_time_hours?.toLocaleString()}h</strong>
+                    <span>Watch Time (seconds)</span>
+                    <strong style={{ color: 'var(--accent-green)' }}>{data.watch_time_seconds?.toLocaleString()}s</strong>
                   </div>
                   <div className="metric-box">
                     <span>No. of Posts</span>

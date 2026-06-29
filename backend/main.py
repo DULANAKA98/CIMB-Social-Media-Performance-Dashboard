@@ -1906,7 +1906,7 @@ def get_wip_summary(
             "total_favorites": round(total_favorites),
             "total_reposts": round(total_reposts),
             "impressions": round(total_impressions),
-            "watch_time_hours": round(total_watch_time, 2),
+            "watch_time_seconds": round(total_watch_time * 3600),
         }
 
     return result
