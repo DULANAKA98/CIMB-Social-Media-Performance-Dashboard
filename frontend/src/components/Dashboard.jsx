@@ -296,6 +296,31 @@ const Dashboard = ({ onLogout }) => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
         {Object.entries(wipData).map(([platform, data]) => {
           const meta = PLAT_META[platform] || { color: '#8b5cf6', emoji: '📊' };
+          
+          if (platform === 'YouTube') {
+            return (
+              <div key={platform} className="glass-panel" style={{ borderTop: `4px solid ${meta.color}` }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
+                  <span style={{ fontSize: '1.4rem' }}>{meta.emoji}</span> {platform} WIP Data
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="metric-box">
+                    <span>Total Views</span>
+                    <strong>{formatNumber(data.total_views)}</strong>
+                  </div>
+                  <div className="metric-box">
+                    <span>Impressions</span>
+                    <strong>{formatNumber(data.impressions)}</strong>
+                  </div>
+                  <div className="metric-box">
+                    <span>Watch Time (hours)</span>
+                    <strong style={{ color: 'var(--accent-green)' }}>{data.watch_time_hours?.toLocaleString()}h</strong>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          
           return (
             <div key={platform} className="glass-panel" style={{ borderTop: `4px solid ${meta.color}` }}>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>

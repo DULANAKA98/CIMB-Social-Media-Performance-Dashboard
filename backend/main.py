@@ -1883,10 +1883,12 @@ def get_wip_summary(
         total_views = float(pdf['views'].sum())
         avg_er = float(pdf['engagement_rate'].mean()) if posts_count > 0 else 0.0
         total_likes = float(pdf['likes'].sum())
-        total_comments = float(pdf['comments'].sum())
-        total_shares = float(pdf['shares'].sum())
-        total_favorites = float(pdf['favorites'].sum())
-        total_reposts = float(pdf['reposts'].sum())
+        total_comments = float(pdf['comments'].sum()) if 'comments' in pdf else 0.0
+        total_shares = float(pdf['shares'].sum()) if 'shares' in pdf else 0.0
+        total_favorites = float(pdf['favorites'].sum()) if 'favorites' in pdf else 0.0
+        total_reposts = float(pdf['reposts'].sum()) if 'reposts' in pdf else 0.0
+        total_impressions = float(pdf['impressions'].sum()) if 'impressions' in pdf else 0.0
+        total_watch_time = float(pdf['watch_time_hours'].sum()) if 'watch_time_hours' in pdf else 0.0
 
         result[platform] = {
             "posts_count": posts_count,
@@ -1899,6 +1901,8 @@ def get_wip_summary(
             "total_shares": round(total_shares),
             "total_favorites": round(total_favorites),
             "total_reposts": round(total_reposts),
+            "impressions": round(total_impressions),
+            "watch_time_hours": round(total_watch_time, 2),
         }
 
     return result

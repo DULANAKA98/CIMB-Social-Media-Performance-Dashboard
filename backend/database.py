@@ -34,6 +34,8 @@ class Post(Base):
     shares       = Column(Float, default=0)
     favorites    = Column(Float, default=0)
     reposts      = Column(Float, default=0)
+    impressions  = Column(Float, default=0)
+    watch_time_hours = Column(Float, default=0)
     engagement_rate = Column(Float, default=0)
     is_organic   = Column(Boolean, default=True)
     created_at   = Column(DateTime, default=datetime.utcnow)

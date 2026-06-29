@@ -146,6 +146,8 @@ def process_data(fb, ig, yt, tt, li=None):
             likes = get_val(row, 'Likes')
             comments = get_val(row, 'Comments added')
             shares = get_val(row, 'Shares')
+            impressions = get_val(row, 'Impressions')
+            watch_time = get_val(row, 'Watch time (hours)')
             total_eng = likes + comments + shares
             
             organic_paid_val = str(row.get('Organic/ Paid', row.get('Organic/Paid', ''))).strip().lower()
@@ -169,6 +171,8 @@ def process_data(fb, ig, yt, tt, li=None):
                 'shares': shares,
                 'favorites': 0,
                 'reposts': 0,
+                'impressions': impressions,
+                'watch_time_hours': watch_time,
                 'engagement_rate': (total_eng / views * 100) if views > 0 else 0,
                 'is_organic': is_organic
             })
