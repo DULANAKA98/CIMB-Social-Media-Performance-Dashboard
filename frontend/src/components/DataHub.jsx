@@ -23,7 +23,7 @@ const COLUMNS = [
   { key: 'link', label: 'Link', width: '70px' },
 ];
 
-const DataHub = () => {
+const DataHub = ({ startDate, endDate }) => {
   const [posts, setPosts] = useState([]);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
@@ -56,6 +56,8 @@ const DataHub = () => {
       const params = { page, limit: 50 };
       if (filterPlatform) params.platform = filterPlatform;
       if (search) params.search = search;
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
       const res = await axios.get(`${API_URL}/posts`, { params });
       setPosts(res.data.posts || []);
       setTotal(res.data.total || 0);
@@ -65,9 +67,11 @@ const DataHub = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, filterPlatform, search]);
+  }, [page, filterPlatform, search, startDate, endDate]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  useEffect(() => { setPage(1); }, [startDate, endDate]);
 
   // Fetch last sync time
   useEffect(() => {

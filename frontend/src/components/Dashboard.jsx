@@ -1929,7 +1929,7 @@ const Dashboard = ({ onLogout }) => {
 
           {/* ── Data Hub ── */}
           {activeTab === 'data-hub' && (
-            <DataHub />
+            <DataHub startDate={startDate} endDate={endDate} />
           )}
         </div>
       </div>

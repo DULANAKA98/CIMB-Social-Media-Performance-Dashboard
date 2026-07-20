@@ -150,6 +150,8 @@ def get_posts(
     limit: int = Query(50, ge=1, le=200),
     platform: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     query = db.query(Post)
@@ -157,6 +159,11 @@ def get_posts(
         query = query.filter(Post.platform == platform)
     if search:
         query = query.filter(Post.title.ilike(f"%{search}%"))
+    if start_date:
+        query = query.filter(Post.date >= pd.to_datetime(start_date))
+    if end_date:
+        end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1, seconds=-1)
+        query = query.filter(Post.date <= end_dt)
     total = query.count()
     posts = query.order_by(Post.date.desc()).offset((page - 1) * limit).limit(limit).all()
     return {
