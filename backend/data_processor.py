@@ -47,7 +47,6 @@ def process_data(fb, ig, yt, tt, li=None):
             title = str(row.get('Description', row.get('Post message', '')))
             if not title or title.strip() == 'nan':
                 title = str(row.get('Title', ''))
-            title = title[:150]
             
             format_val = str(row.get('Post type', ''))
             if format_val == 'nan': format_val = 'Unknown'
@@ -101,7 +100,7 @@ def process_data(fb, ig, yt, tt, li=None):
                 'platform': 'Instagram',
                 'format': format_val,
                 'date': date_str,
-                'title': str(row.get('Description', ''))[:150],
+                'title': str(row.get('Description', '')),
                 'link': link,
                 'reach': reach,
                 'views': views,
@@ -139,7 +138,7 @@ def process_data(fb, ig, yt, tt, li=None):
                 'platform': 'YouTube',
                 'format': 'Video',
                 'date': date_str,
-                'title': str(row.get('Video title', ''))[:150],
+                'title': str(row.get('Video title', '')),
                 'link': link,
                 'reach': views,
                 'views': views,
@@ -180,7 +179,7 @@ def process_data(fb, ig, yt, tt, li=None):
                 'platform': 'TikTok',
                 'format': 'Video',
                 'date': date_str,
-                'title': str(row.get('Video title', ''))[:150],
+                'title': str(row.get('Video title', '')),
                 'link': link,
                 'reach': views, # TikTok Reach is essentially views
                 'views': views,
@@ -220,7 +219,7 @@ def process_data(fb, ig, yt, tt, li=None):
                 'platform': 'LinkedIn',
                 'format': format_val,
                 'date': date_str,
-                'title': str(row.get('Post title', ''))[:150],
+                'title': str(row.get('Post title', '')),
                 'link': link,
                 'reach': impressions,
                 'views': views,
