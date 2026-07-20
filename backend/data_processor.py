@@ -92,7 +92,7 @@ def process_data(fb, ig, yt, tt, li=None):
                 'shares': shares,
                 'favorites': 0,
                 'reposts': 0,
-                'engagement_rate': (total_eng / views * 100) if views > 0 else 0,
+                'engagement_rate': (total_eng / reach * 100) if reach > 0 else 0,
                 'is_organic': is_organic
             })
             
@@ -133,7 +133,7 @@ def process_data(fb, ig, yt, tt, li=None):
                 'shares': shares,
                 'favorites': saves,
                 'reposts': 0,
-                'engagement_rate': (total_eng / views * 100) if views > 0 else 0,
+                'engagement_rate': (total_eng / reach * 100) if reach > 0 else 0,
                 'is_organic': is_organic
             })
             
@@ -259,4 +259,3 @@ def process_data(fb, ig, yt, tt, li=None):
     df = pd.DataFrame(unified_data)
     df = df.replace({np.nan: None})
     return df.to_dict(orient='records')
-

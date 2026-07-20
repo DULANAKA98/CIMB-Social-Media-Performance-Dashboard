@@ -643,7 +643,7 @@ def export_all_contents(
             shares = _num(row, 'Shares')
             likes = max(0, reactions - comments - shares)
             total_eng = reactions
-            er = round(total_eng / views * 100, 2) if views > 0 else 0
+            er = round(total_eng / reach * 100, 2) if reach > 0 else 0
             rows.append({
                 'Date(Publish)': dt.date(),
                 'Platform': 'Facebook',
@@ -679,7 +679,7 @@ def export_all_contents(
             shares = _num(row, 'Shares')
             saves = _num(row, 'Saves')
             total_eng = likes + comments + shares + saves
-            er = round(total_eng / views * 100, 2) if views > 0 else 0
+            er = round(total_eng / reach * 100, 2) if reach > 0 else 0
             rows.append({
                 'Date(Publish)': dt.date(),
                 'Platform': 'Instagram',
