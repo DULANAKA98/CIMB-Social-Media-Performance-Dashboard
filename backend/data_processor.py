@@ -18,12 +18,17 @@ def get_val(row, col, default=0):
     except:
         return default
 
+
+def parse_platform_dates(values):
+    """Parse raw platform export dates in month/day/year or ISO order."""
+    return pd.to_datetime(values, errors='coerce', dayfirst=False, format='mixed')
+
 def process_data(fb, ig, yt, tt, li=None):
     unified_data = []
     
     # Facebook
     if not fb.empty:
-        fb_dates = pd.to_datetime(fb.get('Publish time'), errors='coerce', dayfirst=True, format='mixed')
+        fb_dates = parse_platform_dates(fb.get('Publish time'))
         for idx, row in fb.iterrows():
             if pd.isna(row.get('Publish time')): continue
             reach = get_val(row, 'Reach', get_val(row, 'Lifetime Post Total Reach'))
@@ -75,7 +80,7 @@ def process_data(fb, ig, yt, tt, li=None):
             
     # Instagram
     if not ig.empty:
-        ig_dates = pd.to_datetime(ig.get('Publish time'), errors='coerce', dayfirst=True, format='mixed')
+        ig_dates = parse_platform_dates(ig.get('Publish time'))
         for idx, row in ig.iterrows():
             if pd.isna(row.get('Publish time')): continue
             reach = get_val(row, 'Reach')
@@ -116,7 +121,7 @@ def process_data(fb, ig, yt, tt, li=None):
             
     # YouTube
     if not yt.empty:
-        yt_dates = pd.to_datetime(yt.get('Video publish time'), errors='coerce', dayfirst=True, format='mixed')
+        yt_dates = parse_platform_dates(yt.get('Video publish time'))
         for idx, row in yt.iterrows():
             if pd.isna(row.get('Video publish time')): continue
             views = get_val(row, 'Views')
@@ -156,7 +161,7 @@ def process_data(fb, ig, yt, tt, li=None):
             
     # TikTok
     if not tt.empty:
-        tt_dates = pd.to_datetime(tt.get('Post time'), errors='coerce', dayfirst=True, format='mixed')
+        tt_dates = parse_platform_dates(tt.get('Post time'))
         for idx, row in tt.iterrows():
             if pd.isna(row.get('Post time')): continue
             views = get_val(row, 'Video views')
@@ -195,7 +200,7 @@ def process_data(fb, ig, yt, tt, li=None):
             
     # LinkedIn
     if li is not None and not li.empty:
-        li_dates = pd.to_datetime(li.get('Created date'), errors='coerce', dayfirst=True, format='mixed')
+        li_dates = parse_platform_dates(li.get('Created date'))
         for idx, row in li.iterrows():
             if pd.isna(row.get('Created date')): continue
             impressions = get_val(row, 'Impressions')
