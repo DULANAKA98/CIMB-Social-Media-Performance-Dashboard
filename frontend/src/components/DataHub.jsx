@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { RefreshCw, Plus, Trash2, Check, AlertCircle, ChevronLeft, ChevronRight, Search, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Check, AlertCircle, ChevronLeft, ChevronRight, Search, ExternalLink, UploadCloud } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn'];
+const PLATFORM_UPLOADS = [
+  { field: 'fb_file', label: 'Facebook' },
+  { field: 'ig_file', label: 'Instagram' },
+  { field: 'tt_file', label: 'TikTok' },
+  { field: 'yt_file', label: 'YouTube' },
+  { field: 'li_file', label: 'LinkedIn' },
+];
 const FORMATS = ['Video', 'Static', 'Carousel', 'Reel', 'Story', 'Article', 'Unknown'];
 const NUMERIC_COLS = ['reach', 'views', 'engagement', 'likes', 'comments', 'shares', 'favorites', 'reposts', 'engagement_rate'];
 
@@ -32,8 +39,9 @@ const DataHub = ({ startDate, endDate }) => {
   const [filterPlatform, setFilterPlatform] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Sync panel
-  const [sheetUrl, setSheetUrl] = useState('');
+  // Upload panel
+  const [platformFiles, setPlatformFiles] = useState({});
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState(null); // {type: 'success'|'error', text}
   const [lastSync, setLastSync] = useState(null);
@@ -82,20 +90,24 @@ const DataHub = ({ startDate, endDate }) => {
 
   const handleSync = async (e) => {
     e.preventDefault();
-    if (!sheetUrl.trim()) return;
+    const selectedFiles = Object.entries(platformFiles).filter(([, file]) => file);
+    if (!selectedFiles.length) return;
     setSyncing(true);
     setSyncMsg(null);
     try {
-      const res = await axios.post(`${API_URL}/sync-sheet`, { sheet_url: sheetUrl });
+      const formData = new FormData();
+      selectedFiles.forEach(([field, file]) => formData.append(field, file));
+      const res = await axios.post(`${API_URL}/upload-platform-files`, formData);
       if (res.data.error) {
         setSyncMsg({ type: 'error', text: res.data.error });
       } else {
         setSyncMsg({ type: 'success', text: res.data.message });
-        setSheetUrl('');
+        setPlatformFiles({});
+        setFileInputKey(key => key + 1);
         fetchPosts();
       }
     } catch (err) {
-      setSyncMsg({ type: 'error', text: 'Sync failed. Please check the URL and try again.' });
+      setSyncMsg({ type: 'error', text: 'Upload failed. Please check the Excel files and try again.' });
     } finally {
       setSyncing(false);
     }
@@ -236,32 +248,47 @@ const DataHub = ({ startDate, endDate }) => {
     <div>
       <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Data Hub</h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-        Sync your Google Sheet to the database and manage all posts records directly here.
+        Upload raw platform Excel files to the database and manage all post records directly here.
       </p>
 
-      {/* Sync Panel */}
+      {/* Upload Panel */}
       <div className="glass-panel" style={{ marginBottom: '1.5rem', padding: '1.2rem 1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
-          <RefreshCw size={16} color="var(--accent-purple)" />
-          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Sync from Google Sheet</span>
+          <UploadCloud size={17} color="var(--accent-purple)" />
+          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Upload Platform Excel Files</span>
           {lastSync && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last synced: {lastSync}</span>}
         </div>
-        <form onSubmit={handleSync} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            value={sheetUrl}
-            onChange={e => setSheetUrl(e.target.value)}
-            placeholder="Paste your Google Sheet URL here..."
-            style={{
-              flex: 1, minWidth: '280px', background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px',
-              padding: '0.7rem 1rem', color: 'white', fontFamily: 'inherit', fontSize: '0.88rem', outline: 'none',
-            }}
-            disabled={syncing}
-          />
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: '0.9rem' }}>
+          Select one or more files. If a workbook contains a matching Raw_* sheet it will be used; otherwise the first worksheet is imported.
+        </p>
+        <form onSubmit={handleSync}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+            {PLATFORM_UPLOADS.map(({ field, label }) => (
+              <label
+                key={`${field}-${fileInputKey}`}
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: '0.35rem', cursor: syncing ? 'default' : 'pointer',
+                  background: 'rgba(255,255,255,0.04)', border: `1px solid ${platformFiles[field] ? 'rgba(16,185,129,0.45)' : 'rgba(255,255,255,0.12)'}`,
+                  borderRadius: '10px', padding: '0.75rem 0.85rem', minWidth: 0,
+                }}
+              >
+                <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{label}</span>
+                <span style={{ fontSize: '0.72rem', color: platformFiles[field] ? '#10b981' : 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {platformFiles[field]?.name || 'Choose Excel file'}
+                </span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xlsm"
+                  disabled={syncing}
+                  onChange={e => setPlatformFiles(files => ({ ...files, [field]: e.target.files?.[0] || null }))}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            ))}
+          </div>
           <button
             type="submit"
-            disabled={!sheetUrl.trim() || syncing}
+            disabled={!Object.values(platformFiles).some(Boolean) || syncing}
             style={{
               background: syncing ? 'rgba(139,92,246,0.4)' : 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
               color: 'white', border: 'none', borderRadius: '10px', padding: '0.7rem 1.4rem',
@@ -271,8 +298,8 @@ const DataHub = ({ startDate, endDate }) => {
             }}
           >
             {syncing
-              ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: '2px', borderTopColor: 'white' }} /> Syncing…</>
-              : <><RefreshCw size={15} /> Sync Data</>
+              ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: '2px', borderTopColor: 'white' }} /> Uploading…</>
+              : <><UploadCloud size={15} /> Upload &amp; Sync</>
             }
           </button>
         </form>

@@ -185,7 +185,6 @@ const Dashboard = ({ onLogout }) => {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      await axios.get(`${API_URL}/refresh?sheet_url=${encodeURIComponent(dataSourceUrl)}`);
       await fetchData();
       if (activeTab === 'wip') {
         setWipTrigger(prev => prev + 1);
@@ -1523,7 +1522,7 @@ const Dashboard = ({ onLogout }) => {
 
             <button className="refresh-btn" onClick={handleRefresh} disabled={loading} style={{ padding: '0.6rem 1.1rem', fontSize: '0.85rem' }}>
               {loading ? <div className="spinner" style={{ width: 16, height: 16 }}></div> : <RefreshCw size={15} />}
-              {loading ? 'Syncing…' : 'Sync Data'}
+              {loading ? 'Refreshing…' : 'Refresh Data'}
             </button>
 
             <button

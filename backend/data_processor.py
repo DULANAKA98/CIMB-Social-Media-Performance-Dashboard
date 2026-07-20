@@ -10,28 +10,6 @@ def generate_id(platform_prefix, row, link, title, date, idx):
     hash_val = hashlib.md5(str(unique_str).encode('utf-8')).hexdigest()[:16]
     return f"{platform_prefix}_{hash_val}"
 
-def load_data(sheet_url: str):
-    # Convert standard Google Sheet URL to export URL if needed
-    if "/edit" in sheet_url:
-        sheet_url = sheet_url.split("/edit")[0] + "/export?format=xlsx"
-    elif not sheet_url.endswith("export?format=xlsx"):
-        # Append export format if it's a base URL without edit
-        if sheet_url.endswith("/"):
-            sheet_url += "export?format=xlsx"
-        else:
-            sheet_url += "/export?format=xlsx"
-
-    xl = pd.ExcelFile(sheet_url)
-    
-    # Load raw sheets
-    fb = xl.parse("Raw_FB", dtype=str) if "Raw_FB" in xl.sheet_names else pd.DataFrame()
-    ig = xl.parse("Raw_IG", dtype=str) if "Raw_IG" in xl.sheet_names else pd.DataFrame()
-    yt = xl.parse("Raw_Youtube", dtype=str) if "Raw_Youtube" in xl.sheet_names else pd.DataFrame()
-    tt = xl.parse("Raw_Tiktok", dtype=str) if "Raw_Tiktok" in xl.sheet_names else pd.DataFrame()
-    li = xl.parse("Raw_LI", dtype=str) if "Raw_LI" in xl.sheet_names else pd.DataFrame()
-    
-    return process_data(fb, ig, yt, tt, li)
-
 def get_val(row, col, default=0):
     val = row.get(col)
     if pd.isna(val): return default

@@ -1,9 +1,9 @@
-from fastapi import FastAPI, Query, HTTPException, Response, Depends
+from fastapi import FastAPI, Query, HTTPException, Response, Depends, File, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from data_processor import load_data
+from data_processor import process_data
 from database import init_db, get_db, Post, AiReport
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -51,7 +51,7 @@ def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] 
             query = query.filter(Post.date <= end_dt)
         rows = query.all()
         if not rows:
-            raise HTTPException(status_code=400, detail="No data in database. Please sync a Google Sheet first.")
+            raise HTTPException(status_code=400, detail="No data in database. Please upload platform Excel files first.")
         records = []
         for r in rows:
             records.append({
@@ -88,15 +88,83 @@ def get_status():
         db.close()
 
 
-# ── Sync Google Sheet → DB (upsert, never delete) ─────────────────────────────
-class SyncRequest(BaseModel):
-    sheet_url: str
+# ── Upload platform Excel files → DB (upsert, never delete) ──────────────────
+PLATFORM_UPLOADS = {
+    "fb": {"sheet": "Raw_FB", "label": "Facebook"},
+    "ig": {"sheet": "Raw_IG", "label": "Instagram"},
+    "tt": {"sheet": "Raw_Tiktok", "label": "TikTok"},
+    "yt": {"sheet": "Raw_Youtube", "label": "YouTube"},
+    "li": {"sheet": "Raw_LI", "label": "LinkedIn"},
+}
 
-@app.post("/api/sync-sheet")
-def sync_sheet(req: SyncRequest, db: Session = Depends(get_db)):
+
+def _read_platform_excel(contents: bytes, expected_sheet: str) -> pd.DataFrame:
+    xl = pd.ExcelFile(io.BytesIO(contents))
+    if not xl.sheet_names:
+        raise ValueError("The workbook does not contain any worksheets.")
+    sheet_name = expected_sheet if expected_sheet in xl.sheet_names else xl.sheet_names[0]
+    return xl.parse(sheet_name, dtype=str)
+
+
+@app.post("/api/upload-platform-files")
+async def upload_platform_files(
+    fb_file: Optional[UploadFile] = File(None),
+    ig_file: Optional[UploadFile] = File(None),
+    tt_file: Optional[UploadFile] = File(None),
+    yt_file: Optional[UploadFile] = File(None),
+    li_file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
     from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    uploads = {
+        "fb": fb_file,
+        "ig": ig_file,
+        "tt": tt_file,
+        "yt": yt_file,
+        "li": li_file,
+    }
+    selected_uploads = {key: upload for key, upload in uploads.items() if upload is not None}
+    if not selected_uploads:
+        return {"error": "Please select at least one platform Excel file."}
+
     try:
-        records = load_data(req.sheet_url)
+        frames = {key: pd.DataFrame() for key in PLATFORM_UPLOADS}
+        uploaded_platforms = []
+
+        for key, upload in selected_uploads.items():
+            filename = upload.filename or ""
+            if not filename.lower().endswith((".xlsx", ".xlsm")):
+                return {
+                    "error": (
+                        f"{PLATFORM_UPLOADS[key]['label']}: unsupported file type. "
+                        "Please upload an .xlsx or .xlsm file."
+                    )
+                }
+
+            contents = await upload.read()
+            if not contents:
+                return {"error": f"{PLATFORM_UPLOADS[key]['label']}: the selected file is empty."}
+            if len(contents) > 50 * 1024 * 1024:
+                return {"error": f"{PLATFORM_UPLOADS[key]['label']}: the file exceeds the 50 MB limit."}
+
+            try:
+                frames[key] = _read_platform_excel(contents, PLATFORM_UPLOADS[key]["sheet"])
+            except Exception as exc:
+                return {"error": f"{PLATFORM_UPLOADS[key]['label']}: could not read the Excel file ({exc})."}
+
+            uploaded_platforms.append(PLATFORM_UPLOADS[key]["label"])
+
+        records = process_data(
+            frames["fb"],
+            frames["ig"],
+            frames["yt"],
+            frames["tt"],
+            frames["li"],
+        )
+        if not records:
+            return {"error": "No valid post records were found in the uploaded files."}
+
         synced = 0
         for rec in records:
             date_val = None
@@ -137,10 +205,14 @@ def sync_sheet(req: SyncRequest, db: Session = Depends(get_db)):
             synced += 1
 
         db.commit()
-        return {"message": f"Sync complete! {synced} posts synced to database.", "synced": synced}
+        return {
+            "message": f"Upload complete! {synced} posts synced to the database.",
+            "synced": synced,
+            "platforms": uploaded_platforms,
+        }
     except Exception as e:
         db.rollback()
-        return {"error": f"Sync failed: {str(e)}"}
+        return {"error": f"Upload failed: {str(e)}"}
 
 
 # ── Posts CRUD endpoints ───────────────────────────────────────────────────────
