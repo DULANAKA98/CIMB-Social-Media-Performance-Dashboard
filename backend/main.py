@@ -73,6 +73,19 @@ def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] 
         db.close()
 
 
+def get_post_story_counts(df: pd.DataFrame, platform: str) -> tuple[int, int]:
+    """Return regular-post and Instagram Story counts for a platform frame."""
+    if df.empty:
+        return 0, 0
+    if platform != 'Instagram' or 'format' not in df:
+        return len(df), 0
+
+    story_formats = {'ig story', 'instagram story', 'story'}
+    normalized_formats = df['format'].fillna('').astype(str).str.strip().str.lower()
+    stories_count = int(normalized_formats.isin(story_formats).sum())
+    return len(df) - stories_count, stories_count
+
+
 # ── Status endpoint — lets frontend know if DB has data ───────────────────────
 @app.get("/api/status")
 def get_status():
@@ -92,6 +105,7 @@ def get_status():
 PLATFORM_UPLOADS = {
     "fb": {"sheet": "Raw_FB", "label": "Facebook"},
     "ig": {"sheet": "Raw_IG", "label": "Instagram"},
+    "ig_story": {"sheet": "Raw_IG_Story", "label": "Instagram Stories"},
     "tt": {"sheet": "Raw_Tiktok", "label": "TikTok"},
     "yt": {"sheet": "Raw_Youtube", "label": "YouTube"},
     "li": {"sheet": "Raw_LI", "label": "LinkedIn"},
@@ -113,6 +127,7 @@ def _read_platform_file(contents: bytes, filename: str, expected_sheet: str) -> 
 async def upload_platform_files(
     fb_file: Optional[UploadFile] = File(None),
     ig_file: Optional[UploadFile] = File(None),
+    ig_story_file: Optional[UploadFile] = File(None),
     tt_file: Optional[UploadFile] = File(None),
     yt_file: Optional[UploadFile] = File(None),
     li_file: Optional[UploadFile] = File(None),
@@ -123,6 +138,7 @@ async def upload_platform_files(
     uploads = {
         "fb": fb_file,
         "ig": ig_file,
+        "ig_story": ig_story_file,
         "tt": tt_file,
         "yt": yt_file,
         "li": li_file,
@@ -164,9 +180,10 @@ async def upload_platform_files(
             frames["yt"],
             frames["tt"],
             frames["li"],
+            ig_story=frames["ig_story"],
         )
         if not records:
-            return {"error": "No valid post records were found in the uploaded files."}
+            return {"error": "No valid content records were found in the uploaded files."}
 
         synced = 0
         for rec in records:
@@ -209,7 +226,7 @@ async def upload_platform_files(
 
         db.commit()
         return {
-            "message": f"Upload complete! {synced} posts synced to the database.",
+            "message": f"Upload complete! {synced} content records synced to the database.",
             "synced": synced,
             "platforms": uploaded_platforms,
         }
@@ -412,12 +429,15 @@ def get_platform_stats(start_date: Optional[str] = Query(None), end_date: Option
             stats[platform] = None
             continue
         
-        posts_count = len(pdf)
-        avg_reach = float(pdf['reach'].mean()) if posts_count > 0 else 0
-        avg_er = float(pdf['engagement_rate'].mean()) if posts_count > 0 else 0
+        posts_count, stories_count = get_post_story_counts(pdf, platform)
+        content_count = len(pdf)
+        avg_reach = float(pdf['reach'].mean()) if content_count > 0 else 0
+        avg_er = float(pdf['engagement_rate'].mean()) if content_count > 0 else 0
             
         stats[platform] = {
             "posts_count": posts_count,
+            "stories_count": stories_count,
+            "content_count": content_count,
             "avg_reach": avg_reach,
             "avg_engagement_rate": avg_er
         }
@@ -466,20 +486,27 @@ def get_engagement_summary(start_date: Optional[str] = Query(None), end_date: Op
     platform_data = []
     overall_total = 0
     overall_posts = 0
+    overall_stories = 0
+    overall_content = 0
 
     for platform in platforms:
         pdf = df[df['platform'] == platform]
         if pdf.empty:
             continue
         total_eng = float(pdf['engagement'].sum())
-        posts = len(pdf)
-        avg_eng = total_eng / posts if posts > 0 else 0
+        posts, stories = get_post_story_counts(pdf, platform)
+        content_count = len(pdf)
+        avg_eng = total_eng / content_count if content_count > 0 else 0
         overall_total += total_eng
         overall_posts += posts
+        overall_stories += stories
+        overall_content += content_count
         platform_data.append({
             "platform": platform,
             "total_engagement": total_eng,
             "posts_count": posts,
+            "stories_count": stories,
+            "content_count": content_count,
             "avg_engagement_per_post": avg_eng,
         })
 
@@ -488,7 +515,9 @@ def get_engagement_summary(start_date: Optional[str] = Query(None), end_date: Op
         "overall": {
             "total_engagement": overall_total,
             "posts_count": overall_posts,
-            "avg_engagement_per_post": overall_total / overall_posts if overall_posts > 0 else 0,
+            "stories_count": overall_stories,
+            "content_count": overall_content,
+            "avg_engagement_per_post": overall_total / overall_content if overall_content > 0 else 0,
         }
     }
 
@@ -614,34 +643,40 @@ def get_format_performance(start_date: Optional[str] = Query(None), end_date: Op
         formats = pdf['format'].unique()
         for fmt in sorted(formats):
             fdf = pdf[pdf['format'] == fmt]
-            posts = len(fdf)
-            if posts == 0: continue
+            content_count = len(fdf)
+            if content_count == 0: continue
+            posts, stories = get_post_story_counts(fdf, platform)
             
             reach_sum = fdf['reach'].sum()
             eng_sum = fdf['engagement'].sum()
             er_mean = fdf['engagement_rate'].mean()
             
-            platform_posts += posts
+            platform_posts += content_count
             platform_reach += reach_sum
             platform_eng += eng_sum
-            platform_er_sum += er_mean * posts
+            platform_er_sum += er_mean * content_count
             
             result.append({
                 "platform": platform,
                 "format": fmt,
                 "is_total": False,
-                "posts": posts,
-                "avg_reach": reach_sum / posts,
-                "avg_engagement": eng_sum / posts,
+                "posts": content_count,
+                "posts_count": posts,
+                "stories_count": stories,
+                "avg_reach": reach_sum / content_count,
+                "avg_engagement": eng_sum / content_count,
                 "avg_er": er_mean
             })
             
         if platform_posts > 0:
+            platform_regular_posts, platform_stories = get_post_story_counts(pdf, platform)
             result.append({
                 "platform": platform,
                 "format": f"{platform} Total",
                 "is_total": True,
                 "posts": platform_posts,
+                "posts_count": platform_regular_posts,
+                "stories_count": platform_stories,
                 "avg_reach": platform_reach / platform_posts,
                 "avg_engagement": platform_eng / platform_posts,
                 "avg_er": platform_er_sum / platform_posts
@@ -653,12 +688,16 @@ def get_format_performance(start_date: Optional[str] = Query(None), end_date: Op
             grand_er_sum += platform_er_sum
             
     if grand_posts > 0:
+        grand_regular_posts = sum(row.get('posts_count', 0) for row in result if not row.get('is_total'))
+        grand_stories = sum(row.get('stories_count', 0) for row in result if not row.get('is_total'))
         result.append({
             "platform": "Grand Total",
             "format": "",
             "is_total": True,
             "is_grand_total": True,
             "posts": grand_posts,
+            "posts_count": grand_regular_posts,
+            "stories_count": grand_stories,
             "avg_reach": grand_reach / grand_posts,
             "avg_engagement": grand_eng / grand_posts,
             "avg_er": grand_er_sum / grand_posts
@@ -1963,11 +2002,12 @@ def get_wip_summary(
         if pdf.empty:
             continue
 
-        posts_count = len(pdf)
+        posts_count, stories_count = get_post_story_counts(pdf, platform)
+        content_count = len(pdf)
         total_reach = float(pdf['reach'].sum())
         total_engagement = float(pdf['engagement'].sum())
         total_views = float(pdf['views'].sum())
-        avg_er = float(pdf['engagement_rate'].mean()) if posts_count > 0 else 0.0
+        avg_er = float(pdf['engagement_rate'].mean()) if content_count > 0 else 0.0
         total_likes = float(pdf['likes'].sum())
         total_comments = float(pdf['comments'].sum()) if 'comments' in pdf else 0.0
         total_shares = float(pdf['shares'].sum()) if 'shares' in pdf else 0.0
@@ -1978,6 +2018,8 @@ def get_wip_summary(
 
         result[platform] = {
             "posts_count": posts_count,
+            "stories_count": stories_count,
+            "content_count": content_count,
             "total_reach": round(total_reach),
             "total_engagement": round(total_engagement),
             "total_views": round(total_views),
@@ -2172,18 +2214,22 @@ def export_platform_highlights(start_date: str = Query(""), end_date: str = Quer
         curr_pdf = df_curr[df_curr['platform'] == platform]
         prev_pdf = df_prev[df_prev['platform'] == platform]
         
-        c_posts = len(curr_pdf)
-        p_posts = len(prev_pdf)
-        
-        c_reach = float(curr_pdf['reach'].mean()) if c_posts > 0 else 0
-        p_reach = float(prev_pdf['reach'].mean()) if p_posts > 0 else 0
-        
-        c_er = float(curr_pdf['engagement_rate'].mean()) if c_posts > 0 else 0
-        p_er = float(prev_pdf['engagement_rate'].mean()) if p_posts > 0 else 0
+        c_posts, c_stories = get_post_story_counts(curr_pdf, platform)
+        p_posts, p_stories = get_post_story_counts(prev_pdf, platform)
+        c_content = len(curr_pdf)
+        p_content = len(prev_pdf)
+
+        c_reach = float(curr_pdf['reach'].mean()) if c_content > 0 else 0
+        p_reach = float(prev_pdf['reach'].mean()) if p_content > 0 else 0
+
+        c_er = float(curr_pdf['engagement_rate'].mean()) if c_content > 0 else 0
+        p_er = float(prev_pdf['engagement_rate'].mean()) if p_content > 0 else 0
         
         platforms_data[platform] = {
             "posts": c_posts,
             "prev_posts": p_posts,
+            "stories": c_stories,
+            "prev_stories": p_stories,
             "avg_reach": c_reach,
             "prev_avg_reach": p_reach,
             "avg_er": c_er,
@@ -2191,10 +2237,15 @@ def export_platform_highlights(start_date: str = Query(""), end_date: str = Quer
             "insight": "No data available."
         }
         
-        if c_posts > 0 or p_posts > 0:
+        if c_content > 0 or p_content > 0:
+            current_count = f"{c_posts} posts"
+            previous_count = f"{p_posts} posts"
+            if platform == 'Instagram':
+                current_count += f", {c_stories} stories"
+                previous_count += f", {p_stories} stories"
             prompt_data += f"- {platform}:\n"
-            prompt_data += f"  Current: {c_posts} posts, {c_reach:,.0f} avg reach, {c_er:.2f}% avg ER\n"
-            prompt_data += f"  Previous: {p_posts} posts, {p_reach:,.0f} avg reach, {p_er:.2f}% avg ER\n\n"
+            prompt_data += f"  Current: {current_count}, {c_reach:,.0f} avg reach, {c_er:.2f}% avg ER\n"
+            prompt_data += f"  Previous: {previous_count}, {p_reach:,.0f} avg reach, {p_er:.2f}% avg ER\n\n"
 
     if api_key and prompt_data:
         prompt = f"""You are a professional social media analyst. Based on the following data, write exactly 1 to 2 sentences summarizing the performance for EACH platform. 

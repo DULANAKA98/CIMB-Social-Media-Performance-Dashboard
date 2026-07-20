@@ -7,12 +7,13 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn'];
 const PLATFORM_UPLOADS = [
   { field: 'fb_file', label: 'Facebook' },
-  { field: 'ig_file', label: 'Instagram' },
+  { field: 'ig_file', label: 'Instagram Posts' },
+  { field: 'ig_story_file', label: 'Instagram Stories' },
   { field: 'tt_file', label: 'TikTok' },
   { field: 'yt_file', label: 'YouTube' },
   { field: 'li_file', label: 'LinkedIn' },
 ];
-const FORMATS = ['Video', 'Static', 'Carousel', 'Reel', 'Story', 'Article', 'Unknown'];
+const FORMATS = ['Video', 'Static', 'Carousel', 'Reel', 'IG Story', 'Story', 'Article', 'Unknown'];
 const NUMERIC_COLS = ['reach', 'views', 'engagement', 'likes', 'comments', 'shares', 'favorites', 'reposts', 'engagement_rate'];
 
 const COLUMNS = [
@@ -248,7 +249,7 @@ const DataHub = ({ startDate, endDate }) => {
     <div>
       <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Data Hub</h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-        Upload raw platform Excel or CSV files to the database and manage all post records directly here.
+        Upload raw platform Excel or CSV files to the database and manage all content records directly here.
       </p>
 
       {/* Upload Panel */}
@@ -319,7 +320,7 @@ const DataHub = ({ startDate, endDate }) => {
         <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
           <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
           <input
-            type="text" placeholder="Search posts..."
+            type="text" placeholder="Search content..."
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             style={{
               width: '100%', paddingLeft: '34px', padding: '0.6rem 0.9rem 0.6rem 34px',
@@ -389,7 +390,7 @@ const DataHub = ({ startDate, endDate }) => {
                 </td></tr>
               ) : posts.length === 0 ? (
                 <tr><td colSpan={COLUMNS.length + 1} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  No posts found. Sync a Google Sheet to get started.
+                  No content found. Upload a platform file to get started.
                 </td></tr>
               ) : posts.map((post, idx) => (
                 <tr

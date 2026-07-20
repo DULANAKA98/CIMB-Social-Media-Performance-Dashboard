@@ -98,7 +98,7 @@ def generate_platform_highlights_slide(platforms_data, prev_month_label):
     for i in range(1, 6):
         table.rows[i].height = Inches(1.0)
     
-    headers = ["Platform", "Followers", "Posts", "Avg Reach", "Avg ER", "Key Notes/Findings"]
+    headers = ["Platform", "Followers", "Posts / Stories", "Avg Reach", "Avg ER", "Key Notes/Findings"]
     for i, h in enumerate(headers):
         cell = table.cell(0, i)
         cell.fill.solid()
@@ -132,8 +132,13 @@ def generate_platform_highlights_slide(platforms_data, prev_month_label):
         _set_cell_text(table.cell(row_idx, 1), "N/A", size=Pt(12))
         
         if data:
-            _set_cell_text(table.cell(row_idx, 2), f"{data.get('posts', 0):,}", size=Pt(12))
-            _add_subtext(table.cell(row_idx, 2), f"({data.get('prev_posts', 0):,} in {prev_month_label})")
+            current_count = f"{data.get('posts', 0):,} posts"
+            previous_count = f"{data.get('prev_posts', 0):,} posts"
+            if platform == "Instagram":
+                current_count += f" / {data.get('stories', 0):,} stories"
+                previous_count += f" / {data.get('prev_stories', 0):,} stories"
+            _set_cell_text(table.cell(row_idx, 2), current_count, size=Pt(10))
+            _add_subtext(table.cell(row_idx, 2), f"({previous_count} in {prev_month_label})", size=Pt(8))
             
             _set_cell_text(table.cell(row_idx, 3), f"{data.get('avg_reach', 0):,.0f}", size=Pt(12))
             _add_subtext(table.cell(row_idx, 3), f"({data.get('prev_avg_reach', 0):,.0f} in {prev_month_label})")

@@ -23,7 +23,7 @@ def parse_platform_dates(values):
     """Parse raw platform export dates in month/day/year or ISO order."""
     return pd.to_datetime(values, errors='coerce', dayfirst=False, format='mixed')
 
-def process_data(fb, ig, yt, tt, li=None):
+def process_data(fb, ig, yt, tt, li=None, ig_story=None):
     unified_data = []
     
     # Facebook
@@ -114,6 +114,47 @@ def process_data(fb, ig, yt, tt, li=None):
                 'comments': comments,
                 'shares': shares,
                 'favorites': saves,
+                'reposts': 0,
+                'engagement_rate': (total_eng / reach * 100) if reach > 0 else 0,
+                'is_organic': is_organic
+            })
+
+    # Instagram Stories (uploaded separately from Instagram posts)
+    if ig_story is not None and not ig_story.empty:
+        ig_story_dates = parse_platform_dates(ig_story.get('Publish time'))
+        for idx, row in ig_story.iterrows():
+            if pd.isna(row.get('Publish time')): continue
+            reach = get_val(row, 'Reach')
+            views = get_val(row, 'Views')
+            likes = get_val(row, 'Likes')
+            shares = get_val(row, 'Shares')
+            replies = get_val(row, 'Replies')
+            total_eng = likes + shares + replies
+
+            organic_paid_val = str(row.get('Organic/Paid', '')).strip().lower()
+            is_organic = (organic_paid_val == 'organic') if organic_paid_val else True
+
+            date_str = ig_story_dates[idx].isoformat() if pd.notna(ig_story_dates[idx]) else None
+            link = str(row.get('Permalink', ''))
+            title_val = row.get('Description', '')
+            title = '' if pd.isna(title_val) else str(title_val)
+            source_format = str(row.get('Post type', '')).strip()
+            format_val = 'IG Story' if source_format.lower() == 'ig story' else (source_format or 'IG Story')
+
+            unified_data.append({
+                'id': generate_id('ig_story', row, link, title, date_str, idx),
+                'platform': 'Instagram',
+                'format': format_val,
+                'date': date_str,
+                'title': title,
+                'link': link,
+                'reach': reach,
+                'views': views,
+                'engagement': total_eng,
+                'likes': likes,
+                'comments': replies,
+                'shares': shares,
+                'favorites': 0,
                 'reposts': 0,
                 'engagement_rate': (total_eng / reach * 100) if reach > 0 else 0,
                 'is_organic': is_organic
