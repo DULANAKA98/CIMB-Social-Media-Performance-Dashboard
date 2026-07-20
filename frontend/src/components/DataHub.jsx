@@ -107,7 +107,7 @@ const DataHub = ({ startDate, endDate }) => {
         fetchPosts();
       }
     } catch (err) {
-      setSyncMsg({ type: 'error', text: 'Upload failed. Please check the Excel files and try again.' });
+      setSyncMsg({ type: 'error', text: 'Upload failed. Please check the spreadsheet files and try again.' });
     } finally {
       setSyncing(false);
     }
@@ -248,18 +248,18 @@ const DataHub = ({ startDate, endDate }) => {
     <div>
       <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Data Hub</h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-        Upload raw platform Excel files to the database and manage all post records directly here.
+        Upload raw platform Excel or CSV files to the database and manage all post records directly here.
       </p>
 
       {/* Upload Panel */}
       <div className="glass-panel" style={{ marginBottom: '1.5rem', padding: '1.2rem 1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
           <UploadCloud size={17} color="var(--accent-purple)" />
-          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Upload Platform Excel Files</span>
+          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Upload Platform Files</span>
           {lastSync && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last synced: {lastSync}</span>}
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: '0.9rem' }}>
-          Select one or more files. If a workbook contains a matching Raw_* sheet it will be used; otherwise the first worksheet is imported.
+          Select one or more Excel or CSV files. Excel uses a matching Raw_* sheet when available; CSV is read directly.
         </p>
         <form onSubmit={handleSync}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -274,11 +274,11 @@ const DataHub = ({ startDate, endDate }) => {
               >
                 <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{label}</span>
                 <span style={{ fontSize: '0.72rem', color: platformFiles[field] ? '#10b981' : 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {platformFiles[field]?.name || 'Choose Excel file'}
+                  {platformFiles[field]?.name || 'Choose Excel or CSV file'}
                 </span>
                 <input
                   type="file"
-                  accept=".xlsx,.xlsm"
+                  accept=".xlsx,.xlsm,.csv,text/csv"
                   disabled={syncing}
                   onChange={e => setPlatformFiles(files => ({ ...files, [field]: e.target.files?.[0] || null }))}
                   style={{ display: 'none' }}

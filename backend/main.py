@@ -98,7 +98,10 @@ PLATFORM_UPLOADS = {
 }
 
 
-def _read_platform_excel(contents: bytes, expected_sheet: str) -> pd.DataFrame:
+def _read_platform_file(contents: bytes, filename: str, expected_sheet: str) -> pd.DataFrame:
+    if filename.lower().endswith(".csv"):
+        return pd.read_csv(io.BytesIO(contents), dtype=str)
+
     xl = pd.ExcelFile(io.BytesIO(contents))
     if not xl.sheet_names:
         raise ValueError("The workbook does not contain any worksheets.")
@@ -134,11 +137,11 @@ async def upload_platform_files(
 
         for key, upload in selected_uploads.items():
             filename = upload.filename or ""
-            if not filename.lower().endswith((".xlsx", ".xlsm")):
+            if not filename.lower().endswith((".xlsx", ".xlsm", ".csv")):
                 return {
                     "error": (
                         f"{PLATFORM_UPLOADS[key]['label']}: unsupported file type. "
-                        "Please upload an .xlsx or .xlsm file."
+                        "Please upload an .xlsx, .xlsm, or .csv file."
                     )
                 }
 
@@ -149,9 +152,9 @@ async def upload_platform_files(
                 return {"error": f"{PLATFORM_UPLOADS[key]['label']}: the file exceeds the 50 MB limit."}
 
             try:
-                frames[key] = _read_platform_excel(contents, PLATFORM_UPLOADS[key]["sheet"])
+                frames[key] = _read_platform_file(contents, filename, PLATFORM_UPLOADS[key]["sheet"])
             except Exception as exc:
-                return {"error": f"{PLATFORM_UPLOADS[key]['label']}: could not read the Excel file ({exc})."}
+                return {"error": f"{PLATFORM_UPLOADS[key]['label']}: could not read the uploaded file ({exc})."}
 
             uploaded_platforms.append(PLATFORM_UPLOADS[key]["label"])
 
