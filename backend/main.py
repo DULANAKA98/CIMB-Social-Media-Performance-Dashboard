@@ -244,6 +244,7 @@ def get_posts(
     search: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db)
 ):
     query = db.query(Post)
@@ -257,7 +258,8 @@ def get_posts(
         end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1, seconds=-1)
         query = query.filter(Post.date <= end_dt)
     total = query.count()
-    posts = query.order_by(Post.date.desc()).offset((page - 1) * limit).limit(limit).all()
+    date_sort = Post.date.asc().nullslast() if sort_order == "asc" else Post.date.desc().nullslast()
+    posts = query.order_by(date_sort, Post.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return {
         "total": total, "page": page, "limit": limit,
         "pages": math.ceil(total / limit),

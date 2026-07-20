@@ -38,6 +38,7 @@ const DataHub = ({ startDate, endDate }) => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [filterPlatform, setFilterPlatform] = useState('');
+  const [dateSort, setDateSort] = useState('desc');
   const [loading, setLoading] = useState(false);
 
   // Upload panel
@@ -67,6 +68,7 @@ const DataHub = ({ startDate, endDate }) => {
       if (search) params.search = search;
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
+      params.sort_order = dateSort;
       const res = await axios.get(`${API_URL}/posts`, { params });
       setPosts(res.data.posts || []);
       setTotal(res.data.total || 0);
@@ -76,7 +78,7 @@ const DataHub = ({ startDate, endDate }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, filterPlatform, search, startDate, endDate]);
+  }, [page, filterPlatform, search, startDate, endDate, dateSort]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
@@ -340,6 +342,20 @@ const DataHub = ({ startDate, endDate }) => {
         >
           <option value="">All Platforms</option>
           {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+
+        <select
+          value={dateSort}
+          onChange={e => { setDateSort(e.target.value); setPage(1); }}
+          aria-label="Sort records by date"
+          style={{
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '8px', color: 'white', padding: '0.6rem 0.9rem', fontFamily: 'inherit',
+            fontSize: '0.85rem', cursor: 'pointer', outline: 'none',
+          }}
+        >
+          <option value="desc">Date: Newest first</option>
+          <option value="asc">Date: Oldest first</option>
         </select>
 
         <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginLeft: 'auto' }}>
