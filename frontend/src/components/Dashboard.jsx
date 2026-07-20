@@ -1207,7 +1207,6 @@ const Dashboard = ({ onLogout }) => {
                 <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Platform</th>
                 <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Format</th>
                 <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>No. of Posts</th>
-                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>No. of Stories</th>
                 <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Avg. Reach</th>
                 <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Avg. Engagements</th>
                 <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Avg. Engagement Rate</th>
@@ -1247,10 +1246,7 @@ const Dashboard = ({ onLogout }) => {
                       {isGrandTotal || isPlatformTotal ? '' : row.format}
                     </td>
                     <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem', color: isPlatformTotal ? color : 'var(--text-primary)' }}>
-                      {formatNumber(row.posts_count ?? row.posts)}
-                    </td>
-                    <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem', color: isPlatformTotal ? color : 'var(--text-primary)' }}>
-                      {formatNumber(row.stories_count || 0)}
+                      {formatNumber(row.posts)}
                     </td>
                     <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem', color: isPlatformTotal ? color : 'var(--text-primary)' }}>
                       {formatNumber(row.avg_reach)}
