@@ -713,13 +713,79 @@ def get_format_performance(start_date: Optional[str] = Query(None), end_date: Op
     return result
 
 
+ALL_CONTENT_EXPORT_COLUMNS = [
+    'Date(Publish)', 'Platform', 'Format', 'Pillar', 'Organic/Paid',
+    'Collab', 'Title', 'Caption', 'Reach', 'Views', 'Interaction',
+    'ER%', 'Likes', 'Comments', 'Shares', 'Saves', 'Reposts', 'URL', 'Year Month'
+]
+
+
+def build_all_contents_export(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert database content records to the established All Contents layout."""
+    rows = []
+    for row in df.sort_values('date', ascending=True).to_dict(orient='records'):
+        dt = pd.to_datetime(row.get('date'), errors='coerce')
+        if pd.isna(dt):
+            continue
+
+        platform = str(row.get('platform') or '')
+        rows.append({
+            'Date(Publish)': dt.date(),
+            'Platform': platform,
+            'Format': str(row.get('format') or ''),
+            'Pillar': '',
+            'Organic/Paid': 'Organic' if row.get('is_organic') is not False else 'Paid',
+            'Collab': str(row.get('collab') or ''),
+            'Title': '',
+            'Caption': str(row.get('title') or ''),
+            'Reach': float(row.get('reach') or 0),
+            'Views': float(row.get('views') or 0),
+            'Interaction': float(row.get('engagement') or 0),
+            'ER%': round(float(row.get('engagement_rate') or 0), 2),
+            'Likes': float(row.get('likes') or 0),
+            'Comments': float(row.get('comments') or 0),
+            'Shares': '' if platform == 'LinkedIn' else float(row.get('shares') or 0),
+            'Saves': float(row.get('favorites') or 0) if platform in ('Instagram', 'TikTok') else '',
+            'Reposts': float(row.get('reposts') or 0) if platform == 'LinkedIn' else '',
+            'URL': str(row.get('link') or ''),
+            'Year Month': dt.strftime('%Y %B'),
+        })
+
+    return pd.DataFrame(rows, columns=ALL_CONTENT_EXPORT_COLUMNS)
+
+
 @app.get("/api/export-all-contents")
 def export_all_contents(
-    sheet_url: str = Query(..., description="Public Google Sheet URL"),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
 ):
-    """Return an Excel file with all contents (organic + paid) for the given date range."""
+    """Export all database contents (organic + paid) for the selected date range."""
+    df_export = build_all_contents_export(get_filtered_data(start_date, end_date))
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_export.to_excel(writer, index=False, sheet_name='All Contents')
+        ws = writer.sheets['All Contents']
+        for col in ws.columns:
+            max_len = max((len(str(cell.value)) if cell.value else 0) for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
+    output.seek(0)
+
+    period = f"{start_date or 'all'}_{end_date or 'present'}"
+    filename = f"CIMB_All_Contents_{period}.xlsx"
+    return Response(
+        content=output.getvalue(),
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
+def export_all_contents_from_sheet_legacy(
+    sheet_url: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """Legacy Google Sheet exporter retained for reference; it is no longer routed."""
     import re
     match = re.search(r'/spreadsheets/d/([a-zA-Z0-9_-]+)', sheet_url)
     if not match:

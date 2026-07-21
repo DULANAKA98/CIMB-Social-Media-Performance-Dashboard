@@ -196,19 +196,12 @@ const Dashboard = ({ onLogout }) => {
   };
 
   const handleDownloadExcel = async () => {
-    let currentUrl = dataSourceUrl;
-    if (!currentUrl) {
-      currentUrl = prompt("Please enter the Google Sheet URL to download:");
-      if (!currentUrl) return;
-      setDataSourceUrl(currentUrl);
-    }
-
     setDownloadLoading(true);
     try {
-      let query = `?sheet_url=${encodeURIComponent(currentUrl)}`;
-      if (startDate && endDate) query += `&start_date=${startDate}&end_date=${endDate}`;
-      else if (startDate) query += `&start_date=${startDate}`;
-      else if (endDate) query += `&end_date=${endDate}`;
+      let query = '';
+      if (startDate && endDate) query = `?start_date=${startDate}&end_date=${endDate}`;
+      else if (startDate) query = `?start_date=${startDate}`;
+      else if (endDate) query = `?end_date=${endDate}`;
 
       const res = await axios.get(`${API_URL}/export-all-contents${query}`, {
         responseType: 'blob',
@@ -1723,7 +1716,7 @@ const Dashboard = ({ onLogout }) => {
                 </button>
 
                 <p style={{ marginTop: '1.2rem', fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.55 }}>
-                  The file is generated fresh from Google Sheets each time
+                  The file is generated fresh from the Data Hub database each time
                 </p>
               </div>
             </div>
