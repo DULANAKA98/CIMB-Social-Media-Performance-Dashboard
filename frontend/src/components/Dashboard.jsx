@@ -343,12 +343,6 @@ const Dashboard = ({ onLogout }) => {
                   <span>No. of Posts</span>
                   <strong>{data.posts_count}</strong>
                 </div>
-                {platform === 'Instagram' && (
-                  <div className="metric-box">
-                    <span>No. of Stories</span>
-                    <strong>{data.stories_count || 0}</strong>
-                  </div>
-                )}
               </div>
               {/* Engagement breakdown */}
               <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -797,24 +791,17 @@ const Dashboard = ({ onLogout }) => {
 
   const renderPlatformCard = (platformName, stats) => {
     if (!stats) return null;
-    const isInstagram = platformName === 'Instagram';
-    
+
     return (
       <div className="glass-panel" key={platformName} style={{ marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
           {platformName} Analytics
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isInstagram ? 4 : 3}, 1fr)`, gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
           <div className="metric-box">
             <span>Posts</span>
             <strong>{stats.posts_count}</strong>
           </div>
-          {isInstagram && (
-            <div className="metric-box">
-              <span>Stories</span>
-              <strong>{stats.stories_count || 0}</strong>
-            </div>
-          )}
           <div className="metric-box">
             <span>Avg. Reach</span>
             <strong>{formatNumber(stats.avg_reach)}</strong>
@@ -929,14 +916,7 @@ const Dashboard = ({ onLogout }) => {
     if (!data || (data.top.length === 0 && data.bottom.length === 0)) return null;
     const allData = allContent?.[platformName] ?? [];
     const allExpanded = expanded[`${platformName}_all`];
-    const isInstagram = platformName === 'Instagram';
-    const storyCount = isInstagram
-      ? allData.filter(item => ['ig story', 'instagram story', 'story'].includes(String(item.format || '').trim().toLowerCase())).length
-      : 0;
-    const postCount = allData.length - storyCount;
-    const contentCountLabel = isInstagram
-      ? `${postCount} post${postCount !== 1 ? 's' : ''}, ${storyCount} stor${storyCount !== 1 ? 'ies' : 'y'}`
-      : `${allData.length} post${allData.length !== 1 ? 's' : ''}`;
+    const postCountLabel = `${allData.length} post${allData.length !== 1 ? 's' : ''}`;
 
     const showAllBtn = (key, label) => (
       <button
@@ -969,7 +949,7 @@ const Dashboard = ({ onLogout }) => {
         {allExpanded ? (
           // Full sorted list view
           <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ marginBottom: '1rem' }}>All Organic {isInstagram ? 'Content' : 'Posts'} — Sorted by Total Engagement ({contentCountLabel})</h3>
+            <h3 style={{ marginBottom: '1rem' }}>All Organic Posts — Sorted by Total Engagement ({postCountLabel})</h3>
             <div className="table-container">
               <table>
                 <thead>{getTableHeaders(platformName)}</thead>
@@ -1001,7 +981,7 @@ const Dashboard = ({ onLogout }) => {
               </div>
             </div>
 
-            {allData.length > 0 && showAllBtn(`${platformName}_all`, `▼ Show All ${contentCountLabel}`)}
+            {allData.length > 0 && showAllBtn(`${platformName}_all`, `▼ Show All ${postCountLabel}`)}
           </>
         )}
       </div>
@@ -1052,21 +1032,17 @@ const Dashboard = ({ onLogout }) => {
             }}>⚡</span>
             <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>Overall Across All Platforms</h3>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
             <div className="metric-box" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
               <span>Total Posts</span>
               <strong>{formatNumber(overall.posts_count)}</strong>
-            </div>
-            <div className="metric-box" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
-              <span>Total Stories</span>
-              <strong>{formatNumber(overall.stories_count || 0)}</strong>
             </div>
             <div className="metric-box" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
               <span>Total Engagements</span>
               <strong style={{ color: 'var(--accent-purple)' }}>{formatNumber(overall.total_engagement)}</strong>
             </div>
             <div className="metric-box" style={{ borderColor: 'rgba(236,72,153,0.25)' }}>
-              <span>Avg. Eng. / Content</span>
+              <span>Avg. Eng. / Post</span>
               <strong style={{ color: 'var(--accent-pink)' }}>{formatNumber(overall.avg_engagement_per_post)}</strong>
             </div>
           </div>
@@ -1103,7 +1079,7 @@ const Dashboard = ({ onLogout }) => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.2rem' }}>
-          {platforms.map(({ platform, total_engagement, posts_count, stories_count = 0, avg_engagement_per_post }) => {
+          {platforms.map(({ platform, total_engagement, posts_count, avg_engagement_per_post }) => {
             const color = PLATFORM_COLORS[platform] || 'var(--accent-blue)';
             const types = contentTypes?.[platform] || [];
             const typeText = types.map(({ type }) => type).join(', ');
@@ -1143,7 +1119,7 @@ const Dashboard = ({ onLogout }) => {
                     <strong style={{ fontSize: '1.4rem', color }}>{formatNumber(total_engagement)}</strong>
                   </div>
                   <div className="metric-box" style={{ borderColor: `${color}22` }}>
-                    <span>Avg. Eng. / {platform === 'Instagram' ? 'Content' : 'Post'}</span>
+                    <span>Avg. Eng. / Post</span>
                     <strong style={{ fontSize: '1.4rem' }}>{formatNumber(avg_engagement_per_post)}</strong>
                   </div>
                 </div>
@@ -1176,7 +1152,7 @@ const Dashboard = ({ onLogout }) => {
                   </div>
                 )}
                 <div style={{ marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'right' }}>
-                  {posts_count} post{posts_count !== 1 ? 's' : ''}{platform === 'Instagram' ? ` · ${stories_count} stor${stories_count !== 1 ? 'ies' : 'y'}` : ''} in period
+                  {posts_count} post{posts_count !== 1 ? 's' : ''} in period
                 </div>
               </div>
             );

@@ -3,10 +3,10 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from data_processor import process_data
+from data_processor import calculate_fb_ig_engagement_rate, process_data
 from database import init_db, get_db, Post, AiReport
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import func, text
 import pandas as pd
 import math
 import json
@@ -38,10 +38,46 @@ def startup_event():
 
 
 # ── Helper: load posts from DB into a Pandas DataFrame ────────────────────────
+INSTAGRAM_STORY_FORMATS = ('ig story', 'instagram story', 'story')
+
+
+def is_instagram_story(platform, content_format) -> bool:
+    return (
+        str(platform or '').strip().lower() == 'instagram'
+        and str(content_format or '').strip().lower() in INSTAGRAM_STORY_FORMATS
+    )
+
+
+def effective_engagement_rate(platform, content_format, engagement, reach, views, stored_rate=0):
+    """Return the authoritative per-post ER shown throughout the tool."""
+    normalized_platform = str(platform or '').strip().lower()
+    if normalized_platform in ('facebook', 'instagram') and not is_instagram_story(platform, content_format):
+        return calculate_fb_ig_engagement_rate(
+            float(engagement or 0), float(reach or 0), float(views or 0)
+        )
+    return float(stored_rate or 0)
+
+
+def without_instagram_stories(query):
+    """Exclude Instagram Story rows from every analytics query."""
+    platform = func.lower(func.trim(func.coalesce(Post.platform, '')))
+    content_format = func.lower(func.trim(func.coalesce(Post.format, '')))
+    return query.filter(~((platform == 'instagram') & content_format.in_(INSTAGRAM_STORY_FORMATS)))
+
+
+def exclude_instagram_stories_from_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Exclude Instagram Stories from legacy sheet-backed analytics paths."""
+    if df.empty or 'Platform' not in df.columns or 'Format' not in df.columns:
+        return df
+    platform = df['Platform'].fillna('').astype(str).str.strip().str.lower()
+    content_format = df['Format'].fillna('').astype(str).str.strip().str.lower()
+    return df[~((platform == 'instagram') & content_format.isin(INSTAGRAM_STORY_FORMATS))].copy()
+
+
 def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] = None):
     db = next(get_db())
     try:
-        query = db.query(Post)
+        query = without_instagram_stories(db.query(Post))
         if start_date:
             query = query.filter(Post.date >= pd.to_datetime(start_date))
         if end_date:
@@ -64,27 +100,17 @@ def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] 
                 'favorites': r.favorites or 0, 'reposts': r.reposts or 0,
                 'impressions': getattr(r, 'impressions', 0) or 0,
                 'watch_time_hours': getattr(r, 'watch_time_hours', 0) or 0,
-                'engagement_rate': r.engagement_rate or 0,
+                'engagement_rate': effective_engagement_rate(
+                    r.platform, r.format, r.engagement, r.reach, r.views, r.engagement_rate
+                ),
                 'is_organic': r.is_organic,
             })
         df = pd.DataFrame(records)
         df['date'] = pd.to_datetime(df['date'])
+
         return df
     finally:
         db.close()
-
-
-def get_post_story_counts(df: pd.DataFrame, platform: str) -> tuple[int, int]:
-    """Return regular-post and Instagram Story counts for a platform frame."""
-    if df.empty:
-        return 0, 0
-    if platform != 'Instagram' or 'format' not in df:
-        return len(df), 0
-
-    story_formats = {'ig story', 'instagram story', 'story'}
-    normalized_formats = df['format'].fillna('').astype(str).str.strip().str.lower()
-    stories_count = int(normalized_formats.isin(story_formats).sum())
-    return len(df) - stories_count, stories_count
 
 
 # ── Status endpoint — lets frontend know if DB has data ───────────────────────
@@ -92,7 +118,7 @@ def get_post_story_counts(df: pd.DataFrame, platform: str) -> tuple[int, int]:
 def get_status():
     db = next(get_db())
     try:
-        count = db.query(Post).count()
+        count = without_instagram_stories(db.query(Post)).count()
         last_post = db.query(Post).order_by(Post.created_at.desc()).first()
         last_sync = last_post.created_at.isoformat() if last_post else None
         return {"has_data": count > 0, "post_count": count, "last_sync": last_sync}
@@ -274,7 +300,10 @@ def get_posts(
                 "reach": p.reach, "views": p.views, "engagement": p.engagement,
                 "likes": p.likes, "comments": p.comments, "shares": p.shares,
                 "favorites": p.favorites, "reposts": p.reposts,
-                "engagement_rate": p.engagement_rate, "is_organic": p.is_organic,
+                "engagement_rate": effective_engagement_rate(
+                    p.platform, p.format, p.engagement, p.reach, p.views, p.engagement_rate
+                ),
+                "is_organic": p.is_organic,
             }
             for p in posts
         ]
@@ -312,8 +341,18 @@ def update_post(post_id: str, body: PostUpdate, db: Session = Depends(get_db)):
             del data['date']
     for key, val in data.items():
         setattr(post, key, val)
+    er_inputs = {'platform', 'format', 'engagement', 'reach', 'views'}
+    if er_inputs.intersection(data) and 'engagement_rate' not in data:
+        post.engagement_rate = effective_engagement_rate(
+            post.platform, post.format, post.engagement, post.reach, post.views, post.engagement_rate
+        )
     db.commit()
-    return {"message": "Post updated successfully"}
+    return {
+        "message": "Post updated successfully",
+        "engagement_rate": effective_engagement_rate(
+            post.platform, post.format, post.engagement, post.reach, post.views, post.engagement_rate
+        ),
+    }
 
 
 @app.delete("/api/posts/{post_id}")
@@ -353,13 +392,16 @@ def create_post(body: NewPost, db: Session = Depends(get_db)):
             date_val = pd.to_datetime(body.date).to_pydatetime()
         except:
             date_val = None
+    engagement_rate = effective_engagement_rate(
+        body.platform, body.format, body.engagement, body.reach, body.views, body.engagement_rate
+    )
     post = Post(
         id=str(uuid.uuid4()),
         platform=body.platform, format=body.format, collab=body.collab, date=date_val,
         title=body.title, link=body.link, reach=body.reach, views=body.views,
         engagement=body.engagement, likes=body.likes, comments=body.comments,
         shares=body.shares, favorites=body.favorites, reposts=body.reposts,
-        engagement_rate=body.engagement_rate, is_organic=body.is_organic,
+        engagement_rate=engagement_rate, is_organic=body.is_organic,
     )
     db.add(post)
     db.commit()
@@ -408,10 +450,14 @@ def save_ai_report(
 @app.get("/api/dashboard-summary")
 def get_dashboard_summary(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
     df = get_filtered_data(start_date, end_date)
-    
+
     total_reach = df['reach'].sum()
     total_engagement = df['engagement'].sum()
-    avg_engagement_rate = (total_engagement / total_reach * 100) if total_reach > 0 else 0
+    er_denominator = df['reach'].copy()
+    fb_ig_without_reach = df['platform'].isin(['Facebook', 'Instagram']) & (df['reach'] <= 0)
+    er_denominator.loc[fb_ig_without_reach] = df.loc[fb_ig_without_reach, 'views']
+    total_er_denominator = er_denominator.sum()
+    avg_engagement_rate = (total_engagement / total_er_denominator * 100) if total_er_denominator > 0 else 0
     
     platform_group = df.groupby('platform').agg({'engagement': 'sum'}).reset_index()
     top_platform = platform_group.sort_values(by='engagement', ascending=False).iloc[0]['platform'] if not platform_group.empty else "N/A"
@@ -436,15 +482,12 @@ def get_platform_stats(start_date: Optional[str] = Query(None), end_date: Option
             stats[platform] = None
             continue
         
-        posts_count, stories_count = get_post_story_counts(pdf, platform)
-        content_count = len(pdf)
-        avg_reach = float(pdf['reach'].mean()) if content_count > 0 else 0
-        avg_er = float(pdf['engagement_rate'].mean()) if content_count > 0 else 0
+        posts_count = len(pdf)
+        avg_reach = float(pdf['reach'].mean()) if posts_count > 0 else 0
+        avg_er = float(pdf['engagement_rate'].mean()) if posts_count > 0 else 0
             
         stats[platform] = {
             "posts_count": posts_count,
-            "stories_count": stories_count,
-            "content_count": content_count,
             "avg_reach": avg_reach,
             "avg_engagement_rate": avg_er
         }
@@ -493,27 +536,20 @@ def get_engagement_summary(start_date: Optional[str] = Query(None), end_date: Op
     platform_data = []
     overall_total = 0
     overall_posts = 0
-    overall_stories = 0
-    overall_content = 0
 
     for platform in platforms:
         pdf = df[df['platform'] == platform]
         if pdf.empty:
             continue
         total_eng = float(pdf['engagement'].sum())
-        posts, stories = get_post_story_counts(pdf, platform)
-        content_count = len(pdf)
-        avg_eng = total_eng / content_count if content_count > 0 else 0
+        posts = len(pdf)
+        avg_eng = total_eng / posts if posts > 0 else 0
         overall_total += total_eng
         overall_posts += posts
-        overall_stories += stories
-        overall_content += content_count
         platform_data.append({
             "platform": platform,
             "total_engagement": total_eng,
             "posts_count": posts,
-            "stories_count": stories,
-            "content_count": content_count,
             "avg_engagement_per_post": avg_eng,
         })
 
@@ -522,9 +558,7 @@ def get_engagement_summary(start_date: Optional[str] = Query(None), end_date: Op
         "overall": {
             "total_engagement": overall_total,
             "posts_count": overall_posts,
-            "stories_count": overall_stories,
-            "content_count": overall_content,
-            "avg_engagement_per_post": overall_total / overall_content if overall_content > 0 else 0,
+            "avg_engagement_per_post": overall_total / overall_posts if overall_posts > 0 else 0,
         }
     }
 
@@ -652,8 +686,6 @@ def get_format_performance(start_date: Optional[str] = Query(None), end_date: Op
             fdf = pdf[pdf['format'] == fmt]
             content_count = len(fdf)
             if content_count == 0: continue
-            posts, stories = get_post_story_counts(fdf, platform)
-            
             reach_sum = fdf['reach'].sum()
             eng_sum = fdf['engagement'].sum()
             er_mean = fdf['engagement_rate'].mean()
@@ -668,22 +700,17 @@ def get_format_performance(start_date: Optional[str] = Query(None), end_date: Op
                 "format": fmt,
                 "is_total": False,
                 "posts": content_count,
-                "posts_count": posts,
-                "stories_count": stories,
                 "avg_reach": reach_sum / content_count,
                 "avg_engagement": eng_sum / content_count,
                 "avg_er": er_mean
             })
             
         if platform_posts > 0:
-            platform_regular_posts, platform_stories = get_post_story_counts(pdf, platform)
             result.append({
                 "platform": platform,
                 "format": f"{platform} Total",
                 "is_total": True,
                 "posts": platform_posts,
-                "posts_count": platform_regular_posts,
-                "stories_count": platform_stories,
                 "avg_reach": platform_reach / platform_posts,
                 "avg_engagement": platform_eng / platform_posts,
                 "avg_er": platform_er_sum / platform_posts
@@ -695,16 +722,12 @@ def get_format_performance(start_date: Optional[str] = Query(None), end_date: Op
             grand_er_sum += platform_er_sum
             
     if grand_posts > 0:
-        grand_regular_posts = sum(row.get('posts_count', 0) for row in result if not row.get('is_total'))
-        grand_stories = sum(row.get('stories_count', 0) for row in result if not row.get('is_total'))
         result.append({
             "platform": "Grand Total",
             "format": "",
             "is_total": True,
             "is_grand_total": True,
             "posts": grand_posts,
-            "posts_count": grand_regular_posts,
-            "stories_count": grand_stories,
             "avg_reach": grand_reach / grand_posts,
             "avg_engagement": grand_eng / grand_posts,
             "avg_er": grand_er_sum / grand_posts
@@ -1067,6 +1090,7 @@ def get_pillar_er(
 
     # Normalise column names (strip whitespace)
     df.columns = [str(c).strip() for c in df.columns]
+    df = exclude_instagram_stories_from_dataframe(df)
 
     required = {"Pillar", "Platform", "Organic/Paid", "ER%"}
     missing = required - set(df.columns)
@@ -1149,6 +1173,7 @@ def export_cross_platform(
 
     df = xl.parse(target)
     df.columns = [str(c).strip() for c in df.columns]
+    df = exclude_instagram_stories_from_dataframe(df)
 
     # Date filter
     if "Date(Publish)" in df.columns:
@@ -2075,12 +2100,11 @@ def get_wip_summary(
         if pdf.empty:
             continue
 
-        posts_count, stories_count = get_post_story_counts(pdf, platform)
-        content_count = len(pdf)
+        posts_count = len(pdf)
         total_reach = float(pdf['reach'].sum())
         total_engagement = float(pdf['engagement'].sum())
         total_views = float(pdf['views'].sum())
-        avg_er = float(pdf['engagement_rate'].mean()) if content_count > 0 else 0.0
+        avg_er = float(pdf['engagement_rate'].mean()) if posts_count > 0 else 0.0
         total_likes = float(pdf['likes'].sum())
         total_comments = float(pdf['comments'].sum()) if 'comments' in pdf else 0.0
         total_shares = float(pdf['shares'].sum()) if 'shares' in pdf else 0.0
@@ -2091,8 +2115,6 @@ def get_wip_summary(
 
         result[platform] = {
             "posts_count": posts_count,
-            "stories_count": stories_count,
-            "content_count": content_count,
             "total_reach": round(total_reach),
             "total_engagement": round(total_engagement),
             "total_views": round(total_views),
@@ -2287,22 +2309,18 @@ def export_platform_highlights(start_date: str = Query(""), end_date: str = Quer
         curr_pdf = df_curr[df_curr['platform'] == platform]
         prev_pdf = df_prev[df_prev['platform'] == platform]
         
-        c_posts, c_stories = get_post_story_counts(curr_pdf, platform)
-        p_posts, p_stories = get_post_story_counts(prev_pdf, platform)
-        c_content = len(curr_pdf)
-        p_content = len(prev_pdf)
+        c_posts = len(curr_pdf)
+        p_posts = len(prev_pdf)
 
-        c_reach = float(curr_pdf['reach'].mean()) if c_content > 0 else 0
-        p_reach = float(prev_pdf['reach'].mean()) if p_content > 0 else 0
+        c_reach = float(curr_pdf['reach'].mean()) if c_posts > 0 else 0
+        p_reach = float(prev_pdf['reach'].mean()) if p_posts > 0 else 0
 
-        c_er = float(curr_pdf['engagement_rate'].mean()) if c_content > 0 else 0
-        p_er = float(prev_pdf['engagement_rate'].mean()) if p_content > 0 else 0
+        c_er = float(curr_pdf['engagement_rate'].mean()) if c_posts > 0 else 0
+        p_er = float(prev_pdf['engagement_rate'].mean()) if p_posts > 0 else 0
         
         platforms_data[platform] = {
             "posts": c_posts,
             "prev_posts": p_posts,
-            "stories": c_stories,
-            "prev_stories": p_stories,
             "avg_reach": c_reach,
             "prev_avg_reach": p_reach,
             "avg_er": c_er,
@@ -2310,12 +2328,9 @@ def export_platform_highlights(start_date: str = Query(""), end_date: str = Quer
             "insight": "No data available."
         }
         
-        if c_content > 0 or p_content > 0:
+        if c_posts > 0 or p_posts > 0:
             current_count = f"{c_posts} posts"
             previous_count = f"{p_posts} posts"
-            if platform == 'Instagram':
-                current_count += f", {c_stories} stories"
-                previous_count += f", {p_stories} stories"
             prompt_data += f"- {platform}:\n"
             prompt_data += f"  Current: {current_count}, {c_reach:,.0f} avg reach, {c_er:.2f}% avg ER\n"
             prompt_data += f"  Previous: {previous_count}, {p_reach:,.0f} avg reach, {p_er:.2f}% avg ER\n\n"

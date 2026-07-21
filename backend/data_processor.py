@@ -34,6 +34,12 @@ def parse_platform_dates(values):
     """Parse raw platform export dates in month/day/year or ISO order."""
     return pd.to_datetime(values, errors='coerce', dayfirst=False, format='mixed')
 
+
+def calculate_fb_ig_engagement_rate(engagement, reach, views):
+    """Use Reach for FB/IG ER, falling back to Views when Reach is unavailable."""
+    denominator = reach if reach > 0 else views
+    return (engagement / denominator * 100) if denominator > 0 else 0
+
 def process_data(fb, ig, yt, tt, li=None, ig_story=None):
     unified_data = []
     
@@ -86,7 +92,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'shares': shares,
                 'favorites': 0,
                 'reposts': 0,
-                'engagement_rate': (total_eng / reach * 100) if reach > 0 else 0,
+                'engagement_rate': calculate_fb_ig_engagement_rate(total_eng, reach, views),
                 'is_organic': is_organic
             })
             
@@ -128,7 +134,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'shares': shares,
                 'favorites': saves,
                 'reposts': 0,
-                'engagement_rate': (total_eng / reach * 100) if reach > 0 else 0,
+                'engagement_rate': calculate_fb_ig_engagement_rate(total_eng, reach, views),
                 'is_organic': is_organic
             })
 

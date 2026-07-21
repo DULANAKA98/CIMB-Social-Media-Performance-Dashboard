@@ -137,8 +137,12 @@ const DataHub = ({ startDate, endDate }) => {
     if (col === 'is_organic') val = val === 'true';
     setSavingCell({ postId, col });
     try {
-      await axios.patch(`${API_URL}/posts/${postId}`, { [col]: val });
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, [col]: val } : p));
+      const res = await axios.patch(`${API_URL}/posts/${postId}`, { [col]: val });
+      setPosts(prev => prev.map(p => p.id === postId ? {
+        ...p,
+        [col]: val,
+        engagement_rate: res.data.engagement_rate ?? p.engagement_rate,
+      } : p));
       setSavedCell({ postId, col });
       setTimeout(() => setSavedCell(null), 1500);
     } catch {}
