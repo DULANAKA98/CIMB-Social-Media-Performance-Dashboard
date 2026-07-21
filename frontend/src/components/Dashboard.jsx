@@ -962,7 +962,7 @@ const Dashboard = ({ onLogout }) => {
           // Default top 5 / bottom 5 view
           <>
             <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ marginBottom: '1rem' }}>Top 5 Organic {isInstagram ? 'Content' : 'Posts'} (By Total Engagement)</h3>
+              <h3 style={{ marginBottom: '1rem' }}>Top 5 Organic Posts (By Total Engagement)</h3>
               <div className="table-container">
                 <table>
                   <thead>{getTableHeaders(platformName)}</thead>
@@ -972,7 +972,7 @@ const Dashboard = ({ onLogout }) => {
             </div>
 
             <div className="glass-panel" style={{ marginBottom: '1rem' }}>
-              <h3 style={{ marginBottom: '1rem' }}>Bottom 5 Organic {isInstagram ? 'Content' : 'Posts'} (By Total Engagement)</h3>
+              <h3 style={{ marginBottom: '1rem' }}>Bottom 5 Organic Posts (By Total Engagement)</h3>
               <div className="table-container">
                 <table>
                   <thead>{getTableHeaders(platformName)}</thead>
