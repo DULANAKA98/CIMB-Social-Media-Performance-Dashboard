@@ -19,6 +19,17 @@ def get_val(row, col, default=0):
         return default
 
 
+def get_text(row, *columns, default=''):
+    for column in columns:
+        value = row.get(column)
+        if pd.isna(value):
+            continue
+        text = str(value).strip()
+        if text and text.lower() not in ('nan', 'none'):
+            return text
+    return default
+
+
 def parse_platform_dates(values):
     """Parse raw platform export dates in month/day/year or ISO order."""
     return pd.to_datetime(values, errors='coerce', dayfirst=False, format='mixed')
@@ -63,6 +74,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('fb', row, link, title, date_str, idx),
                 'platform': 'Facebook',
                 'format': format_val,
+                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
                 'title': title,
                 'link': link,
@@ -104,6 +116,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('ig', row, link, str(row.get('Description', '')), date_str, idx),
                 'platform': 'Instagram',
                 'format': format_val,
+                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
                 'title': str(row.get('Description', '')),
                 'link': link,
@@ -145,6 +158,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('ig_story', row, link, title, date_str, idx),
                 'platform': 'Instagram',
                 'format': format_val,
+                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
                 'title': title,
                 'link': link,
@@ -183,6 +197,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('yt', row, link, str(row.get('Video title', '')), date_str, idx),
                 'platform': 'YouTube',
                 'format': 'Video',
+                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
                 'title': str(row.get('Video title', '')),
                 'link': link,
@@ -224,6 +239,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('tt', row, link, str(row.get('Video title', '')), date_str, idx),
                 'platform': 'TikTok',
                 'format': 'Video',
+                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
                 'title': str(row.get('Video title', '')),
                 'link': link,
@@ -264,6 +280,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('li', row, link, str(row.get('Post title', '')), date_str, idx),
                 'platform': 'LinkedIn',
                 'format': format_val,
+                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
                 'title': str(row.get('Post title', '')),
                 'link': link,

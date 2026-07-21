@@ -20,6 +20,8 @@ const COLUMNS = [
   { key: 'date', label: 'Date', width: '110px' },
   { key: 'platform', label: 'Platform', width: '115px' },
   { key: 'format', label: 'Format', width: '105px' },
+  { key: 'is_organic', label: 'Organic/Paid', width: '115px' },
+  { key: 'collab', label: 'Collab', width: '140px' },
   { key: 'title', label: 'Title', width: '220px' },
   { key: 'reach', label: 'Reach', width: '90px' },
   { key: 'views', label: 'Views', width: '90px' },
@@ -28,6 +30,7 @@ const COLUMNS = [
   { key: 'likes', label: 'Likes', width: '80px' },
   { key: 'comments', label: 'Comments', width: '95px' },
   { key: 'shares', label: 'Shares', width: '80px' },
+  { key: 'favorites', label: 'Saves', width: '80px' },
   { key: 'link', label: 'Link', width: '70px' },
 ];
 
@@ -131,6 +134,7 @@ const DataHub = ({ startDate, endDate }) => {
     if (!post) return cancelEdit();
     let val = editingValue;
     if (NUMERIC_COLS.includes(col)) val = parseFloat(val) || 0;
+    if (col === 'is_organic') val = val === 'true';
     setSavingCell({ postId, col });
     try {
       await axios.patch(`${API_URL}/posts/${postId}`, { [col]: val });
@@ -198,6 +202,20 @@ const DataHub = ({ startDate, endDate }) => {
           </select>
         );
       }
+      if (col === 'is_organic') {
+        return (
+          <select
+            value={editingValue === 'false' ? 'false' : 'true'}
+            autoFocus
+            onChange={e => setEditingValue(e.target.value)}
+            onBlur={() => commitEdit(post.id, col)}
+            style={styles.editSelect}
+          >
+            <option value="true">Organic</option>
+            <option value="false">Paid</option>
+          </select>
+        );
+      }
       return (
         <input
           autoFocus
@@ -229,6 +247,19 @@ const DataHub = ({ startDate, endDate }) => {
           color: colors[val] || '#aaa',
           padding: '2px 10px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600,
         }}>{val}</span>
+      );
+    }
+
+    if (col === 'is_organic') {
+      const organic = val !== false;
+      return (
+        <span style={{
+          background: organic ? 'rgba(16,185,129,0.14)' : 'rgba(245,158,11,0.14)',
+          color: organic ? '#10b981' : '#f59e0b',
+          padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700,
+        }}>
+          {organic ? 'Organic' : 'Paid'}
+        </span>
       );
     }
 
@@ -379,7 +410,7 @@ const DataHub = ({ startDate, endDate }) => {
       {/* Data Grid */}
       <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1250px' }}>
             <thead>
               <tr>
                 {COLUMNS.map(col => (

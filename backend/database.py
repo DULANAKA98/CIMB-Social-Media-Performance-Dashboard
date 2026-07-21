@@ -1,7 +1,7 @@
 """
 database.py — SQLAlchemy setup and table definitions.
 """
-from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, Text, Integer
+from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, Text, Integer, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 import os
@@ -23,6 +23,7 @@ class Post(Base):
     id           = Column(String, primary_key=True, index=True)
     platform     = Column(String, nullable=False, index=True)
     format       = Column(String)
+    collab       = Column(Text, default="")
     date         = Column(DateTime, index=True)
     title        = Column(Text)
     link         = Column(Text)
@@ -55,6 +56,8 @@ class AiReport(Base):
 def init_db():
     """Create all tables if they don't exist yet."""
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS collab TEXT DEFAULT ''"))
 
 
 def get_db():

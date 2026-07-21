@@ -56,6 +56,7 @@ def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] 
         for r in rows:
             records.append({
                 'id': r.id, 'platform': r.platform, 'format': r.format,
+                'collab': getattr(r, 'collab', '') or '',
                 'date': r.date, 'title': r.title, 'link': r.link,
                 'reach': r.reach or 0, 'views': r.views or 0,
                 'engagement': r.engagement or 0, 'likes': r.likes or 0,
@@ -198,6 +199,7 @@ async def upload_platform_files(
                 "id":              str(rec['id']),
                 "platform":        rec.get('platform', ''),
                 "format":          rec.get('format', ''),
+                "collab":          rec.get('collab', ''),
                 "date":            date_val,
                 "title":           rec.get('title', ''),
                 "link":            rec.get('link', ''),
@@ -266,6 +268,7 @@ def get_posts(
         "posts": [
             {
                 "id": p.id, "platform": p.platform, "format": p.format,
+                "collab": getattr(p, 'collab', '') or '',
                 "date": p.date.isoformat() if p.date else None,
                 "title": p.title, "link": p.link,
                 "reach": p.reach, "views": p.views, "engagement": p.engagement,
@@ -281,6 +284,7 @@ def get_posts(
 class PostUpdate(BaseModel):
     platform: Optional[str] = None
     format: Optional[str] = None
+    collab: Optional[str] = None
     date: Optional[str] = None
     title: Optional[str] = None
     link: Optional[str] = None
@@ -325,6 +329,7 @@ def delete_post(post_id: str, db: Session = Depends(get_db)):
 class NewPost(BaseModel):
     platform: str = "Facebook"
     format: str = "Video"
+    collab: str = ""
     date: Optional[str] = None
     title: str = ""
     link: str = ""
@@ -350,7 +355,7 @@ def create_post(body: NewPost, db: Session = Depends(get_db)):
             date_val = None
     post = Post(
         id=str(uuid.uuid4()),
-        platform=body.platform, format=body.format, date=date_val,
+        platform=body.platform, format=body.format, collab=body.collab, date=date_val,
         title=body.title, link=body.link, reach=body.reach, views=body.views,
         engagement=body.engagement, likes=body.likes, comments=body.comments,
         shares=body.shares, favorites=body.favorites, reposts=body.reposts,
