@@ -1,6 +1,68 @@
 import pandas as pd
 import numpy as np
 import hashlib
+import io
+
+
+def _has_required_columns(frame, required_columns):
+    if not required_columns:
+        return True
+    columns = {str(column).strip() for column in frame.columns}
+    return set(required_columns).issubset(columns)
+
+
+def _read_csv_with_header_detection(contents, required_columns):
+    last_error = None
+    for header_row in range(10):
+        try:
+            frame = pd.read_csv(io.BytesIO(contents), dtype=str, header=header_row)
+        except Exception as exc:
+            last_error = exc
+            continue
+        if _has_required_columns(frame, required_columns):
+            return frame
+    if last_error:
+        raise last_error
+    raise ValueError("Could not find the expected column headers in the CSV file.")
+
+
+def _read_excel_sheet_with_header_detection(xl, sheet_name, required_columns):
+    for header_row in range(10):
+        frame = xl.parse(sheet_name, dtype=str, header=header_row)
+        if _has_required_columns(frame, required_columns):
+            return frame
+    return None
+
+
+def read_platform_file(contents, filename, expected_sheet, required_columns=None):
+    """Read a platform file, including LinkedIn exports with a banner header row."""
+    if filename.lower().endswith(".csv"):
+        if required_columns:
+            return _read_csv_with_header_detection(contents, required_columns)
+        return pd.read_csv(io.BytesIO(contents), dtype=str)
+
+    xl = pd.ExcelFile(io.BytesIO(contents))
+    if not xl.sheet_names:
+        raise ValueError("The workbook does not contain any worksheets.")
+
+    if required_columns:
+        preferred_sheets = [expected_sheet, "All posts"]
+        candidate_sheets = list(dict.fromkeys(
+            [sheet for sheet in preferred_sheets if sheet in xl.sheet_names] + xl.sheet_names
+        ))
+        for sheet_name in candidate_sheets:
+            frame = _read_excel_sheet_with_header_detection(
+                xl, sheet_name, required_columns
+            )
+            if frame is not None:
+                return frame
+        raise ValueError(
+            "Could not find a LinkedIn posts sheet with the required columns. "
+            "Expected a Raw_LI sheet or a LinkedIn export containing an All posts sheet."
+        )
+
+    sheet_name = expected_sheet if expected_sheet in xl.sheet_names else xl.sheet_names[0]
+    return xl.parse(sheet_name, dtype=str)
 
 def generate_id(platform_prefix, row, link, title, date, idx):
     """Generate a guaranteed unique ID immune to float precision loss."""
@@ -273,22 +335,22 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             reposts = get_val(row, 'Reposts')
             total_eng = likes + comments + reposts
 
-            organic_paid_val = str(row.get('Organic/Paid', '')).strip().lower()
+            organic_paid_val = get_text(row, 'Organic/Paid', 'Post type').lower()
             is_organic = (organic_paid_val == 'organic') if organic_paid_val else True
             
-            format_val = str(row.get('Content Type', ''))
-            if format_val == 'nan': format_val = 'Unknown'
+            format_val = get_text(row, 'Content Type', default='Unknown')
 
             date_str = li_dates[idx].isoformat() if pd.notna(li_dates[idx]) else None
-            link = str(row.get('Post link', ''))
+            link = get_text(row, 'Post link')
+            title = get_text(row, 'Post title')
 
             unified_data.append({
-                'id': generate_id('li', row, link, str(row.get('Post title', '')), date_str, idx),
+                'id': generate_id('li', row, link, title, date_str, idx),
                 'platform': 'LinkedIn',
                 'format': format_val,
                 'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
-                'title': str(row.get('Post title', '')),
+                'title': title,
                 'link': link,
                 'reach': impressions,
                 'views': views,
@@ -298,6 +360,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'shares': 0,
                 'favorites': 0,
                 'reposts': reposts,
+                'impressions': impressions,
                 'engagement_rate': (total_eng / impressions * 100) if impressions > 0 else 0,
                 'is_organic': is_organic
             })

@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from data_processor import calculate_fb_ig_engagement_rate, process_data
+from data_processor import calculate_fb_ig_engagement_rate, process_data, read_platform_file
 from database import init_db, get_db, Post, AiReport
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
@@ -135,19 +135,15 @@ PLATFORM_UPLOADS = {
     "ig_story": {"sheet": "Raw_IG_Story", "label": "Instagram Stories"},
     "tt": {"sheet": "Raw_Tiktok", "label": "TikTok"},
     "yt": {"sheet": "Raw_Youtube", "label": "YouTube"},
-    "li": {"sheet": "Raw_LI", "label": "LinkedIn"},
+    "li": {
+        "sheet": "Raw_LI",
+        "label": "LinkedIn",
+        "required_columns": {
+            "Post title", "Post link", "Created date", "Impressions",
+            "Likes", "Comments", "Reposts", "Content Type",
+        },
+    },
 }
-
-
-def _read_platform_file(contents: bytes, filename: str, expected_sheet: str) -> pd.DataFrame:
-    if filename.lower().endswith(".csv"):
-        return pd.read_csv(io.BytesIO(contents), dtype=str)
-
-    xl = pd.ExcelFile(io.BytesIO(contents))
-    if not xl.sheet_names:
-        raise ValueError("The workbook does not contain any worksheets.")
-    sheet_name = expected_sheet if expected_sheet in xl.sheet_names else xl.sheet_names[0]
-    return xl.parse(sheet_name, dtype=str)
 
 
 @app.post("/api/upload-platform-files")
@@ -195,7 +191,12 @@ async def upload_platform_files(
                 return {"error": f"{PLATFORM_UPLOADS[key]['label']}: the file exceeds the 50 MB limit."}
 
             try:
-                frames[key] = _read_platform_file(contents, filename, PLATFORM_UPLOADS[key]["sheet"])
+                frames[key] = read_platform_file(
+                    contents,
+                    filename,
+                    PLATFORM_UPLOADS[key]["sheet"],
+                    PLATFORM_UPLOADS[key].get("required_columns"),
+                )
             except Exception as exc:
                 return {"error": f"{PLATFORM_UPLOADS[key]['label']}: could not read the uploaded file ({exc})."}
 

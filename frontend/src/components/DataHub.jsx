@@ -297,7 +297,7 @@ const DataHub = ({ startDate, endDate }) => {
           {lastSync && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last synced: {lastSync}</span>}
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: '0.9rem' }}>
-          Select one or more Excel or CSV files. Excel uses a matching Raw_* sheet when available; CSV is read directly.
+          Select one or more Excel or CSV files. Excel uses a matching Raw_* sheet when available; LinkedIn also supports completed exports with an All posts sheet.
         </p>
         <form onSubmit={handleSync}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
