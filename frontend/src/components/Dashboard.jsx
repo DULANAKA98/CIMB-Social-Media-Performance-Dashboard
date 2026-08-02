@@ -791,26 +791,43 @@ const Dashboard = ({ onLogout }) => {
 
   const renderPlatformCard = (platformName, stats) => {
     if (!stats) return null;
+    const isInstagramStories = platformName === 'Instagram Stories';
+    const contentCount = isInstagramStories ? stats.stories_count : stats.posts_count;
 
     return (
-      <div className="glass-panel" key={platformName} style={{ marginBottom: '1.5rem' }}>
+      <div
+        className="glass-panel"
+        key={platformName}
+        style={{
+          marginBottom: '1.5rem',
+          ...(isInstagramStories ? {
+            background: 'linear-gradient(135deg, rgba(225,48,108,0.13) 0%, rgba(131,58,180,0.10) 100%)',
+            borderColor: 'rgba(225,48,108,0.32)',
+          } : {}),
+        }}
+      >
         <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
           {platformName} Analytics
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
           <div className="metric-box">
-            <span>Posts</span>
-            <strong>{stats.posts_count}</strong>
+            <span>{isInstagramStories ? 'Stories' : 'Posts'}</span>
+            <strong>{contentCount}</strong>
           </div>
           <div className="metric-box">
             <span>Avg. Reach</span>
             <strong>{formatNumber(stats.avg_reach)}</strong>
           </div>
           <div className="metric-box">
-            <span>Avg. ER%</span>
+            <span>{isInstagramStories ? 'Avg. Story ER%' : 'Avg. ER%'}</span>
             <strong style={{ color: 'var(--accent-pink)' }}>{stats.avg_engagement_rate?.toFixed(2)}%</strong>
           </div>
         </div>
+        {isInstagramStories && (
+          <p style={{ margin: '0.8rem 0 0', color: 'var(--text-secondary)', fontSize: '0.75rem', textAlign: 'right' }}>
+            Story ER = Engagement / Reach x 100
+          </p>
+        )}
       </div>
     );
   };
