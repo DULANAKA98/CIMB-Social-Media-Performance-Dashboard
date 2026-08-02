@@ -117,6 +117,29 @@ def get_instagram_story_stats(start_date: Optional[str] = None, end_date: Option
         db.close()
 
 
+def combine_instagram_stats(post_stats, story_stats):
+    """Combine Instagram post and Story averages using content-count weighting."""
+    post_count = int((post_stats or {}).get('posts_count', 0))
+    story_count = int((story_stats or {}).get('stories_count', 0))
+    contents_count = post_count + story_count
+    if contents_count == 0:
+        return None
+
+    total_reach = (
+        float((post_stats or {}).get('avg_reach', 0)) * post_count
+        + float((story_stats or {}).get('avg_reach', 0)) * story_count
+    )
+    total_engagement_rate = (
+        float((post_stats or {}).get('avg_engagement_rate', 0)) * post_count
+        + float((story_stats or {}).get('avg_engagement_rate', 0)) * story_count
+    )
+    return {
+        'contents_count': contents_count,
+        'avg_reach': total_reach / contents_count,
+        'avg_engagement_rate': total_engagement_rate / contents_count,
+    }
+
+
 def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] = None):
     db = next(get_db())
     try:
@@ -538,6 +561,7 @@ def get_platform_stats(start_date: Optional[str] = Query(None), end_date: Option
 
         if platform == 'Instagram':
             stats['Instagram Stories'] = story_stats
+            stats['Instagram Overall'] = combine_instagram_stats(stats[platform], story_stats)
 
     return stats
 

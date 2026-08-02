@@ -792,26 +792,32 @@ const Dashboard = ({ onLogout }) => {
   const renderPlatformCard = (platformName, stats) => {
     if (!stats) return null;
     const isInstagramStories = platformName === 'Instagram Stories';
-    const contentCount = isInstagramStories ? stats.stories_count : stats.posts_count;
+    const isInstagramPosts = platformName === 'Instagram';
+    const isInstagramOverall = platformName === 'Instagram Overall';
+    const analyticsTitle = isInstagramPosts
+      ? 'Instagram Posts Analytics'
+      : isInstagramOverall
+        ? 'Overall Instagram Analytics'
+        : `${platformName} Analytics`;
+    const contentCount = isInstagramStories
+      ? stats.stories_count
+      : isInstagramOverall
+        ? stats.contents_count
+        : stats.posts_count;
+    const countLabel = isInstagramStories
+      ? 'Stories'
+      : isInstagramOverall
+        ? 'Total Contents'
+        : 'Posts';
 
     return (
-      <div
-        className="glass-panel"
-        key={platformName}
-        style={{
-          marginBottom: '1.5rem',
-          ...(isInstagramStories ? {
-            background: 'linear-gradient(135deg, rgba(225,48,108,0.13) 0%, rgba(131,58,180,0.10) 100%)',
-            borderColor: 'rgba(225,48,108,0.32)',
-          } : {}),
-        }}
-      >
+      <div className="glass-panel" key={platformName} style={{ marginBottom: '1.5rem' }}>
         <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-          {platformName} Analytics
+          {analyticsTitle}
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
           <div className="metric-box">
-            <span>{isInstagramStories ? 'Stories' : 'Posts'}</span>
+            <span>{countLabel}</span>
             <strong>{contentCount}</strong>
           </div>
           <div className="metric-box">
