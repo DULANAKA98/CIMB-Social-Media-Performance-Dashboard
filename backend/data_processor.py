@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import hashlib
 import io
+import re
 
 
 def _has_required_columns(frame, required_columns):
@@ -92,9 +93,79 @@ def get_text(row, *columns, default=''):
     return default
 
 
-def parse_platform_dates(values):
-    """Parse raw platform export dates in month/day/year or ISO order."""
-    return pd.to_datetime(values, errors='coerce', dayfirst=False, format='mixed')
+PLATFORM_DATE_DEFAULTS = {
+    "facebook": False,
+    "instagram": False,
+    "instagram_story": False,
+    "tiktok": True,
+    "youtube": True,
+    "linkedin": False,
+}
+
+_NUMERIC_DATE_PATTERN = re.compile(
+    r"^\s*(\d{1,2})\s*[/.-]\s*(\d{1,2})\s*[/.-]\s*\d{4}(?:\D|$)"
+)
+_ISO_DATE_PATTERN = re.compile(r"^\s*\d{4}-\d{1,2}-\d{1,2}(?:\D|$)")
+
+
+def _infer_dayfirst(values, default_dayfirst):
+    """Infer a file's numeric date order from dates that cannot be ambiguous."""
+    found_dayfirst = False
+    found_monthfirst = False
+
+    for value in values:
+        if pd.isna(value):
+            continue
+        match = _NUMERIC_DATE_PATTERN.match(str(value))
+        if not match:
+            continue
+
+        first, second = (int(part) for part in match.groups())
+        if first > 12 and second <= 12:
+            found_dayfirst = True
+        elif second > 12 and first <= 12:
+            found_monthfirst = True
+
+    if found_dayfirst and not found_monthfirst:
+        return True
+    if found_monthfirst and not found_dayfirst:
+        return False
+    return default_dayfirst
+
+
+def parse_platform_dates(values, platform):
+    """Parse dates using platform defaults plus evidence from the uploaded file."""
+    if values is None:
+        return pd.Series(dtype="datetime64[ns]")
+
+    platform_key = str(platform).strip().lower()
+    if platform_key not in PLATFORM_DATE_DEFAULTS:
+        raise ValueError(f"Unsupported platform date format: {platform}")
+
+    default_dayfirst = PLATFORM_DATE_DEFAULTS[platform_key]
+    dayfirst = _infer_dayfirst(values, default_dayfirst)
+
+    source = values.copy() if isinstance(values, pd.Series) else pd.Series(values)
+    iso_mask = source.map(
+        lambda value: False
+        if pd.isna(value)
+        else bool(_ISO_DATE_PATTERN.match(str(value)))
+    )
+    parsed = pd.Series(pd.NaT, index=source.index, dtype="datetime64[ns]")
+    parsed.loc[iso_mask] = pd.to_datetime(
+        source.loc[iso_mask],
+        errors="coerce",
+        dayfirst=False,
+        yearfirst=True,
+        format="mixed",
+    )
+    parsed.loc[~iso_mask] = pd.to_datetime(
+        source.loc[~iso_mask],
+        errors="coerce",
+        dayfirst=dayfirst,
+        format="mixed",
+    )
+    return parsed
 
 
 def calculate_fb_ig_engagement_rate(engagement, reach, views):
@@ -107,7 +178,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
     
     # Facebook
     if not fb.empty:
-        fb_dates = parse_platform_dates(fb.get('Publish time'))
+        fb_dates = parse_platform_dates(fb.get('Publish time'), "facebook")
         for idx, row in fb.iterrows():
             if pd.isna(row.get('Publish time')): continue
             reach = get_val(row, 'Reach', get_val(row, 'Lifetime Post Total Reach'))
@@ -160,7 +231,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             
     # Instagram
     if not ig.empty:
-        ig_dates = parse_platform_dates(ig.get('Publish time'))
+        ig_dates = parse_platform_dates(ig.get('Publish time'), "instagram")
         for idx, row in ig.iterrows():
             if pd.isna(row.get('Publish time')): continue
             reach = get_val(row, 'Reach')
@@ -202,7 +273,9 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
 
     # Instagram Stories (uploaded separately from Instagram posts)
     if ig_story is not None and not ig_story.empty:
-        ig_story_dates = parse_platform_dates(ig_story.get('Publish time'))
+        ig_story_dates = parse_platform_dates(
+            ig_story.get('Publish time'), "instagram_story"
+        )
         for idx, row in ig_story.iterrows():
             if pd.isna(row.get('Publish time')): continue
             reach = get_val(row, 'Reach')
@@ -244,7 +317,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             
     # YouTube
     if not yt.empty:
-        yt_dates = parse_platform_dates(yt.get('Video publish time'))
+        yt_dates = parse_platform_dates(yt.get('Video publish time'), "youtube")
         for idx, row in yt.iterrows():
             if pd.isna(row.get('Video publish time')): continue
             views = get_val(row, 'Views')
@@ -285,7 +358,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             
     # TikTok
     if not tt.empty:
-        tt_dates = parse_platform_dates(tt.get('Post time'))
+        tt_dates = parse_platform_dates(tt.get('Post time'), "tiktok")
         for idx, row in tt.iterrows():
             if pd.isna(row.get('Post time')): continue
             views = get_val(row, 'Video views')
@@ -325,7 +398,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             
     # LinkedIn
     if li is not None and not li.empty:
-        li_dates = parse_platform_dates(li.get('Created date'))
+        li_dates = parse_platform_dates(li.get('Created date'), "linkedin")
         for idx, row in li.iterrows():
             if pd.isna(row.get('Created date')): continue
             impressions = get_val(row, 'Impressions')
