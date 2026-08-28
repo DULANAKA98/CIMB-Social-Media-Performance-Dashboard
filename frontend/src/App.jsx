@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import Dashboard from './components/Dashboard'
+import Dashboard from './components/PerformanceDashboard'
 import Login from './components/Login'
 
 function App() {
