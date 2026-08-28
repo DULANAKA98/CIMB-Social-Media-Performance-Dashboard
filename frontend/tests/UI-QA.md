@@ -13,7 +13,14 @@ Run in `frontend`:
 npm ci
 node --test src/components/performance/model.test.js
 npm run build
+node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4173
 ```
+
+Before deployment, open the built preview at `http://127.0.0.1:4173/` and
+verify the login and dashboard render with no JavaScript initialization errors.
+The development server does not exercise production chunk loading. In particular,
+keep React and chart dependencies under Vite's default chunk handling; manually
+separating them previously created a circular import and a blank production page.
 
 For a populated, read-only UI test, run `node tests/preview-api.mjs` in one
 terminal. In another, run:
