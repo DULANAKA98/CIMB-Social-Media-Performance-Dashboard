@@ -111,17 +111,24 @@ function ReachBreakdown({ model }) {
   </Panel>;
 }
 
-function Followers({ followers, loading, error, onConnect }) {
-  return <Panel title="Follower Growth" subtitle="Monthly audience size" className="follower-chart" action={<button className="icon-button" aria-label="Connect follower sheet" title="Connect follower sheet" onClick={onConnect}><Settings2 size={14} /></button>}>
-    {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Monthly follower growth">
+function refreshedLabel(value) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kuala_Lumpur' }).format(new Date(value));
+}
+
+function Followers({ followers, loading, error }) {
+  const refreshed = refreshedLabel(followers.lastRefreshedAt);
+  return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart">
+    {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Daily follower growth">
       <ResponsiveContainer width="100%" height="100%"><LineChart data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
         <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="label" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => value.split(' ')[0]} />
         <YAxis tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={47} />
         <Tooltip contentStyle={TOOLTIP_STYLE} formatter={full} /><Line dataKey="followers" name="Followers" stroke="#ed0027" strokeWidth={2} dot={{ r: 3, fill: '#ed0027', stroke: '#fff', strokeWidth: 1 }} />
       </LineChart></ResponsiveContainer>
-    </div> : <Empty icon={TrendingUp} title={error ? 'Follower data unavailable' : 'Connect your audience data'} action={<button className="text-button" onClick={onConnect}>{error ? 'Check source' : 'Connect follower sheet'} <ArrowUpRight size={13} /></button>}>
-      {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms supplied. Matching months are needed for a combined total.` : 'Add monthly follower counts to see how your audience is growing.')}
+    </div> : <Empty icon={TrendingUp} title={error ? 'Follower data unavailable' : 'Waiting for the first daily snapshot'}>
+      {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms supplied. Matching daily snapshots are needed for a combined total.` : 'Follower counts will appear after the scheduled refresh runs.')}
     </Empty>}
+    <p className="follower-refreshed">{refreshed ? `Last refreshed ${refreshed}` : 'No successful refresh yet'}{followers.refreshSchedule ? ` · ${followers.refreshSchedule}` : ''}</p>
   </Panel>;
 }
 
@@ -194,9 +201,6 @@ export default function PerformanceDashboard({ onLogout }) {
   const [benchmarkMode, setBenchmarkMode] = useState('previous');
   const [detailTab, setDetailTab] = useState('overview');
   const [showAllPosts, setShowAllPosts] = useState(false);
-  const [followerDialog, setFollowerDialog] = useState(false);
-  const [followerUrl, setFollowerUrl] = useState('');
-  const [connectedUrl, setConnectedUrl] = useState('');
   const [followerState, setFollowerState] = useState({ data: null, loading: false, error: '' });
   const [aiState, setAiState] = useState({ data: null, loading: false });
   const [legacy, setLegacy] = useState(false);
@@ -227,21 +231,15 @@ export default function PerformanceDashboard({ onLogout }) {
     return () => trigger?.focus();
   }, [mobileOpen]);
   useEffect(() => {
-    if (!followerDialog) return;
-    const trigger = document.activeElement;
-    return () => trigger?.focus();
-  }, [followerDialog]);
-  useEffect(() => {
-    if (!connectedUrl) return;
     const controller = new AbortController();
     setFollowerState({ data: null, loading: true, error: '' });
-    axios.get(`${API_URL}/follower-growth`, { params: { sheet_url: connectedUrl, ...queryFor(range) }, signal: controller.signal, timeout: 60000 })
-      .then(response => { if (!controller.signal.aborted) setFollowerState({ data: response.data.error ? null : response.data, loading: false, error: response.data.error ? 'The follower sheet could not be read. Check sharing and tab names.' : '' }); })
-      .catch(() => { if (!controller.signal.aborted) setFollowerState({ data: null, loading: false, error: 'Unable to load follower data. Check the sheet and try again.' }); });
+    axios.get(`${API_URL}/follower-growth`, { params: queryFor(range), signal: controller.signal, timeout: 60000 })
+      .then(response => { if (!controller.signal.aborted) setFollowerState({ data: response.data, loading: false, error: '' }); })
+      .catch(() => { if (!controller.signal.aborted) setFollowerState({ data: null, loading: false, error: 'Unable to load follower data. Try refreshing the dashboard.' }); });
     return () => controller.abort();
-  }, [connectedUrl, range, refreshKey]);
+  }, [range, refreshKey]);
   useEffect(() => {
-    const escape = event => { if (event.key === 'Escape') { setMobileOpen(false); setFollowerDialog(false); } };
+    const escape = event => { if (event.key === 'Escape') setMobileOpen(false); };
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
   }, []);
@@ -256,7 +254,6 @@ export default function PerformanceDashboard({ onLogout }) {
       if (!controller.signal.aborted) setAiState({ data: response.data, loading: false });
     } catch { if (!controller.signal.aborted) setAiState({ data: { error: true }, loading: false }); }
   };
-  const followerConnectValid = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/[\w-]+/.test(followerUrl.trim());
   const title = page === 'data-hub' ? 'Data Hub' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Performance';
 
   if (legacy) return <><div className="legacy-back"><button onClick={() => { setLegacy(false); setRefreshKey(key => key + 1); }}>← Back to performance dashboard</button><span>Existing reporting workspace</span></div><Suspense fallback={<p>Opening reporting tools…</p>}><LegacyDashboard onLogout={onLogout} /></Suspense></>;
@@ -284,14 +281,14 @@ export default function PerformanceDashboard({ onLogout }) {
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
           <div className={`perf-kpis ${current.loading ? 'is-loading' : ''}`} aria-busy={current.loading}>
-            <Kpi label="Total Followers" value={full(followers.total)} icon={Users} help="Latest common month across the selected platforms; followers are not part of post exports."><span className="delta neutral">{followers.total == null ? <button className="text-button" onClick={() => setFollowerDialog(true)}>Connect follower data <ArrowUpRight size={11} /></button> : `As of ${followers.rows.at(-1)?.label}`}</span></Kpi>
+            <Kpi label="Total Followers" value={full(followers.total)} icon={Users} help="Sum of the latest matching daily follower snapshot across the selected platforms."><span className="delta neutral">{followers.total == null ? 'Waiting for follower refresh' : `Last refreshed ${refreshedLabel(followers.lastRefreshedAt)}`}</span></Kpi>
             <Kpi label="Total Reach" value={full(model.kpis.reach)} icon={Megaphone} help="Sum of post reach, not deduplicated people. Instagram Stories excluded."><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
             <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help="Total engagements across posts in the selected period. Instagram Stories excluded."><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
             <Kpi label={platform ? 'Avg. Post ER%' : 'Engagement Rate (ER%)'} value={percent(model.kpis.er)} icon={BarChart3} help={platform ? 'Mean of individual post engagement rates, as reported by the platform-stats endpoint.' : 'Total engagement / ER denominator. The backend uses views for Facebook/Instagram posts without reach.'}><Delta current={model.kpis.er} previous={previousModel.kpis.er} rate label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
           </div>
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published posts</small></h2></div><div className="detail-tabs" role="group" aria-label="Platform view">{['overview', 'content', 'formats', ...(platform === 'Instagram' ? ['stories'] : [])].map(tab => <button key={tab} aria-pressed={detailTab === tab} onClick={() => setDetailTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</div></div>}
           {(page === 'executive' || detailTab === 'overview') && <div className="perf-grid" aria-busy={current.loading}>
-            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} loading={followerState.loading} error={followerState.error} onConnect={() => setFollowerDialog(true)} />
+            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} loading={followerState.loading} error={followerState.error} />
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} /><Formats rows={model.formats} />
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} />
@@ -305,6 +302,5 @@ export default function PerformanceDashboard({ onLogout }) {
         </>}
       </main>
     </div>
-    {followerDialog && <div className="perf-modal-backdrop" onClick={event => { if (event.target === event.currentTarget) setFollowerDialog(false); }}><section className="perf-modal" role="dialog" aria-modal="true" aria-labelledby="follower-dialog-title" onKeyDown={trapFocus}><div className="popover-title"><h2 id="follower-dialog-title">Connect follower history</h2><button className="icon-button" onClick={() => setFollowerDialog(false)} aria-label="Close follower connection"><X size={20} /></button></div><p>Use a publicly shared Google Sheet with monthly follower counts. This uses the dashboard’s existing follower-data connection.</p><p className="sheet-help">Tab names: [FB] Followers, [IG] Followers, [TT] Followers, [YT] Followers and [LI] Followers. Each tab needs Month and Followers columns.</p><form onSubmit={event => { event.preventDefault(); if (followerConnectValid) { setConnectedUrl(followerUrl.trim()); setRefreshKey(key => key + 1); setFollowerDialog(false); } }}><label>Google Sheet URL<input autoFocus type="url" placeholder="https://docs.google.com/spreadsheets/d/…" value={followerUrl} onChange={e => setFollowerUrl(e.target.value)} required /></label><p className="panel-footnote">Connected for this session only. Combined totals require matching months from all five platforms.</p><button className="perf-button primary" disabled={!followerConnectValid}>Connect sheet <ArrowUpRight size={14} /></button></form></section></div>}
   </div>;
 }

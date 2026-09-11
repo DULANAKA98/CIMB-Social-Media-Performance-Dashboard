@@ -1,7 +1,7 @@
 """
 database.py — SQLAlchemy setup and table definitions.
 """
-from sqlalchemy import create_engine, Column, String, Float, Boolean, DateTime, Text, Integer, text
+from sqlalchemy import create_engine, Column, String, Float, Boolean, Date, DateTime, Text, Integer, BigInteger, UniqueConstraint, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 import os
@@ -51,6 +51,19 @@ class AiReport(Base):
     end_date        = Column(String)
     content         = Column(Text, nullable=False)                  # JSON string
     created_at      = Column(DateTime, default=datetime.utcnow)
+
+
+class FollowerSnapshot(Base):
+    __tablename__ = "follower_snapshots"
+    __table_args__ = (UniqueConstraint("platform", "snapshot_date", name="uq_follower_platform_date"),)
+
+    id            = Column(BigInteger, primary_key=True, autoincrement=True)
+    platform      = Column(String, nullable=False)
+    followers     = Column(Integer, nullable=False)
+    provider      = Column(String, nullable=False)
+    snapshot_date = Column(Date, nullable=False, index=True)
+    observed_at   = Column(DateTime(timezone=True), nullable=False)
+    refreshed_at  = Column(DateTime(timezone=True), nullable=False)
 
 
 def init_db():

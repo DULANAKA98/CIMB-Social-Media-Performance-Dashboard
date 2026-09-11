@@ -74,10 +74,14 @@ export function buildModel(data, platform = null) {
 export function followerModel(data, platform = null) {
   const names = platform ? [platform] : PLATFORMS.map(item => item.name);
   const available = names.filter(name => data?.[name]?.length);
+  const metadata = {
+    lastRefreshedAt: data?._meta?.last_refreshed_at || null,
+    refreshSchedule: data?._meta?.refresh_schedule || null,
+  };
   // Cross-platform totals require matching months from every selected platform.
   // Missing observations are never filled with zeros or carried forward.
-  if (available.length !== names.length) return { total: null, rows: [], coverage: available.length, expected: names.length };
+  if (available.length !== names.length) return { total: null, rows: [], coverage: available.length, expected: names.length, ...metadata };
   const months = data[names[0]].map(row => row.month).filter(month => names.every(name => data[name].some(row => row.month === month))).sort();
   const rows = months.map(month => ({ month, label: data[names[0]].find(row => row.month === month).month_label, followers: sum(names.map(name => data[name].find(row => row.month === month).followers)) }));
-  return { total: rows.at(-1)?.followers ?? null, rows, coverage: available.length, expected: names.length };
+  return { total: rows.at(-1)?.followers ?? null, rows, coverage: available.length, expected: names.length, ...metadata };
 }

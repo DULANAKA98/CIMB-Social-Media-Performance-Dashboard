@@ -65,13 +65,15 @@ test('deltas handle zero baselines and percentage points honestly', () => {
   assert.equal(change(3, 2.5, true).label, '+0.50pp');
 });
 
-test('follower totals require matching months across all selected platforms', () => {
-  const single = { Facebook: [{ month: '2026-07', month_label: 'Jul 2026', followers: 10 }] };
+test('follower totals require matching daily snapshots across all selected platforms', () => {
+  const single = { Facebook: [{ month: '2026-09-11', month_label: '11 Sep 2026', followers: 10 }] };
   assert.equal(followerModel(single).total, null);
   assert.equal(followerModel(single, 'Facebook').total, 10);
-  const complete = Object.fromEntries(['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn'].map(name => [name, [{ month: '2026-07', month_label: 'Jul 2026', followers: 10 }]]));
+  const complete = Object.fromEntries(['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn'].map(name => [name, [{ month: '2026-09-11', month_label: '11 Sep 2026', followers: 10 }]]));
+  complete._meta = { last_refreshed_at: '2026-09-11T00:00:00Z', refresh_schedule: 'Daily at 08:00 Asia/Kuala_Lumpur' };
   assert.equal(followerModel(complete).total, 50);
-  complete.LinkedIn[0].month = '2026-08';
+  assert.equal(followerModel(complete).lastRefreshedAt, '2026-09-11T00:00:00Z');
+  complete.LinkedIn[0].month = '2026-09-12';
   assert.equal(followerModel(complete).total, null);
 });
 

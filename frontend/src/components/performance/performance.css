@@ -91,6 +91,7 @@
 .donut-center strong { font-size: 25px; letter-spacing: -.7px; }.donut-center span { font-size: 11px; color: #8d8693; margin-top: 2px; }
 .donut-legend { display: flex; flex-direction: column; gap: 17px; font-size: 12px; }
 .donut-legend > div { display: flex; align-items: flex-start; gap: 5px; }.donut-legend i { margin-top: 4px; }.donut-legend strong { display: block; font-size: 12px; margin-top: 4px; }.donut-legend small { font-size: 11px; color: #97919c; font-weight: 400; }
+.follower-refreshed { color: #9b95a1; font-size: 11px; line-height: 1.5; margin: 8px 0 0; text-align: right; }
 .perf-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px 12px; min-height: 167px; flex: 1; }
 .empty-icon { color: #b7a5af; background: #f9f5f7; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; margin-bottom: 10px; }
 .perf-empty > strong { font-size: 13px; color: #786e7d; font-weight: 600; }.perf-empty p { max-width: 250px; color: #a097a3; font-size: 12px; line-height: 1.65; margin: 6px 0 10px; }

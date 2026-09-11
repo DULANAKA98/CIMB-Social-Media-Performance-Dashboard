@@ -8,3 +8,17 @@ services:
     envVars:
       - key: GROQ_API_KEY
         sync: false   # you will paste this manually in Render dashboard
+      - key: META_PAGE_ACCESS_TOKEN
+        sync: false
+      - key: META_PAGE_ID
+        sync: false
+      - key: META_INSTAGRAM_ACCOUNT_ID
+        sync: false
+      - key: METRICOOL_TOKEN
+        sync: false
+      - key: METRICOOL_USER_ID
+        sync: false
+      - key: METRICOOL_BLOG_ID
+        sync: false
+      - key: FOLLOWER_REFRESH_SECRET
+        sync: false

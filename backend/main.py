@@ -1,10 +1,10 @@
-from fastapi import FastAPI, Query, HTTPException, Response, Depends, File, UploadFile
+from fastapi import FastAPI, Query, HTTPException, Response, Depends, File, UploadFile, Header
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from data_processor import calculate_fb_ig_engagement_rate, process_data, read_platform_file
-from database import init_db, get_db, Post, AiReport
+from database import init_db, get_db, Post, AiReport, FollowerSnapshot
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 import pandas as pd
@@ -14,7 +14,9 @@ import os
 import io
 import requests as http_requests
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+import hmac
 
 load_dotenv()  # Load GROQ_API_KEY and DATABASE_URL from .env
 
@@ -1439,116 +1441,183 @@ def export_cross_platform(
     )
 
 
-@app.get("/api/follower-growth")
-def get_follower_growth(
-    sheet_url: str = Query(..., description="Public Google Sheet URL"),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-):
-    """
-    Read follower count tabs from the Google Sheet and return month-by-month
-    follower data per platform, filtered to the requested date range.
+FOLLOWER_PLATFORMS = ("Facebook", "Instagram", "TikTok", "YouTube", "LinkedIn")
+METRICOOL_FOLLOWER_METRICS = {
+    "TikTok": ("tiktok", "followers_count"),
+    "YouTube": ("youtube", "totalSubscribers"),
+    "LinkedIn": ("linkedin", "followers"),
+}
+MALAYSIA_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 
-    Expected sheet tabs: [FB] Followers, [IG] Followers, [TT] Followers,
-                         [YT] Followers, [LI] Followers
-    Expected columns:    Month (date-like) + Followers (numeric)
-    """
-    import re as _re
-    match = _re.search(r'/spreadsheets/d/([a-zA-Z0-9_-]+)', sheet_url)
-    if not match:
-        return {"error": "Invalid Google Sheet URL."}
-    export_url = f"https://docs.google.com/spreadsheets/d/{match.group(1)}/export?format=xlsx"
 
-    try:
-        xl = pd.ExcelFile(export_url)
-    except Exception as e:
-        return {"error": f"Could not download sheet: {e}"}
+def _required_env(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise RuntimeError(f"{name} is not configured")
+    return value
 
-    # Map: platform → possible sheet tab names
-    PLATFORM_SHEETS = {
-        "Facebook":  ["[FB] Followers", "FB Followers", "Facebook Followers"],
-        "Instagram": ["[IG] Followers", "IG Followers", "Instagram Followers"],
-        "TikTok":    ["[TT] Followers", "TT Followers", "TikTok Followers"],
-        "YouTube":   ["[YT] Followers", "YT Followers", "YouTube Followers"],
-        "LinkedIn":  ["[LI] Followers", "LI Followers", "LinkedIn Followers"],
+
+def _parse_provider_time(value: Optional[str], fallback: datetime) -> datetime:
+    if not value:
+        return fallback
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _fetch_meta_followers(refreshed_at: datetime):
+    token = _required_env("META_PAGE_ACCESS_TOKEN")
+    headers = {"Authorization": f"Bearer {token}"}
+    targets = {
+        "Facebook": (_required_env("META_PAGE_ID"), "followers_count"),
+        "Instagram": (_required_env("META_INSTAGRAM_ACCOUNT_ID"), "followers_count"),
+    }
+    result = {}
+    errors = {}
+    for platform, (account_id, field) in targets.items():
+        try:
+            response = http_requests.get(
+                f"https://graph.facebook.com/v23.0/{account_id}",
+                headers=headers,
+                params={"fields": field},
+                timeout=20,
+            )
+            response.raise_for_status()
+            result[platform] = {
+                "followers": int(response.json()[field]),
+                "provider": "Meta",
+                "observed_at": refreshed_at,
+            }
+        except Exception as exc:
+            errors[platform] = str(exc)
+    return result, errors
+
+
+def _fetch_metricool_followers(refreshed_at: datetime):
+    token = _required_env("METRICOOL_TOKEN")
+    user_id = _required_env("METRICOOL_USER_ID")
+    blog_id = _required_env("METRICOOL_BLOG_ID")
+    headers = {"X-Mc-Auth": token, "Content-Type": "application/json"}
+    local_now = refreshed_at.astimezone(MALAYSIA_TZ)
+    start = local_now - timedelta(days=14)
+    common = {
+        "blogId": blog_id,
+        "userId": user_id,
+        "subject": "account",
+        "from": start.isoformat(timespec="seconds"),
+        "to": local_now.isoformat(timespec="seconds"),
+        "timezone": "Asia/Kuala_Lumpur",
+    }
+    result = {}
+    errors = {}
+    for platform, (network, metric) in METRICOOL_FOLLOWER_METRICS.items():
+        try:
+            response = http_requests.get(
+                "https://app.metricool.com/api/v2/analytics/timelines",
+                headers=headers,
+                params={**common, "network": network, "metric": metric},
+                timeout=25,
+            )
+            response.raise_for_status()
+            series = response.json().get("data", [])
+            values = series[0].get("values", []) if series else []
+            if not values:
+                raise RuntimeError(f"Metricool returned no {platform} follower observations")
+            latest = max(values, key=lambda row: _parse_provider_time(row.get("dateTime"), refreshed_at))
+            result[platform] = {
+                "followers": int(float(latest["value"])),
+                "provider": "Metricool",
+                "observed_at": _parse_provider_time(latest.get("dateTime"), refreshed_at),
+            }
+        except Exception as exc:
+            errors[platform] = str(exc)
+    return result, errors
+
+
+def refresh_follower_snapshots(db: Session) -> Dict[str, Any]:
+    refreshed_at = datetime.now(timezone.utc)
+    snapshot_date = refreshed_at.astimezone(MALAYSIA_TZ).date()
+    fetched = {}
+    errors = {}
+    for provider, fetcher in (("Meta", _fetch_meta_followers), ("Metricool", _fetch_metricool_followers)):
+        try:
+            provider_rows, provider_errors = fetcher(refreshed_at)
+            fetched.update(provider_rows)
+            errors.update(provider_errors)
+        except Exception as exc:
+            errors[provider] = str(exc)
+
+    for platform, row in fetched.items():
+        snapshot = db.query(FollowerSnapshot).filter(
+            FollowerSnapshot.platform == platform,
+            FollowerSnapshot.snapshot_date == snapshot_date,
+        ).first()
+        if snapshot is None:
+            snapshot = FollowerSnapshot(platform=platform, snapshot_date=snapshot_date)
+            db.add(snapshot)
+        snapshot.followers = row["followers"]
+        snapshot.provider = row["provider"]
+        snapshot.observed_at = row["observed_at"]
+        snapshot.refreshed_at = refreshed_at
+    db.commit()
+    return {
+        "refreshed_at": refreshed_at.isoformat(),
+        "updated": {platform: row["followers"] for platform, row in fetched.items()},
+        "errors": errors,
     }
 
-    result = {}
 
-    # Parse date filter bounds
-    start_dt = pd.to_datetime(start_date) if start_date else None
-    end_dt   = pd.to_datetime(end_date)   if end_date   else None
-    # Expand end to end-of-day so month comparisons work correctly
-    if end_dt is not None and end_dt.time() == pd.Timestamp('00:00:00').time():
-        end_dt = end_dt + pd.Timedelta(days=1, seconds=-1)
+@app.post("/api/followers/refresh")
+def refresh_followers(
+    x_follower_refresh_secret: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    expected = _required_env("FOLLOWER_REFRESH_SECRET")
+    if not x_follower_refresh_secret or not hmac.compare_digest(x_follower_refresh_secret, expected):
+        raise HTTPException(status_code=401, detail="Invalid refresh secret")
+    result = refresh_follower_snapshots(db)
+    if not result["updated"]:
+        raise HTTPException(status_code=502, detail={"message": "All follower providers failed", **result})
+    return result
 
-    for platform, candidates in PLATFORM_SHEETS.items():
-        tab = next((c for c in candidates if c in xl.sheet_names), None)
-        if tab is None:
-            continue
 
-        try:
-            df_f = xl.parse(tab)
-        except Exception:
-            continue
+@app.get("/api/follower-growth")
+def get_follower_growth(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    query = db.query(FollowerSnapshot)
+    if start_date:
+        query = query.filter(FollowerSnapshot.snapshot_date >= pd.to_datetime(start_date).date())
+    if end_date:
+        query = query.filter(FollowerSnapshot.snapshot_date <= pd.to_datetime(end_date).date())
+    snapshots = query.order_by(FollowerSnapshot.snapshot_date, FollowerSnapshot.platform).all()
 
-        df_f.columns = [str(c).strip() for c in df_f.columns]
-
-        # Find the month column (first column that looks date-like)
-        month_col = None
-        for col in df_f.columns:
-            sample = df_f[col].dropna().head(5)
-            try:
-                pd.to_datetime(sample)
-                month_col = col
-                break
-            except Exception:
-                continue
-        if month_col is None:
-            # Fallback: first column
-            month_col = df_f.columns[0]
-
-        # Find the followers column (first numeric column after month)
-        follower_col = None
-        for col in df_f.columns:
-            if col == month_col:
-                continue
-            if pd.to_numeric(df_f[col], errors='coerce').notna().sum() > 0:
-                follower_col = col
-                break
-        if follower_col is None:
-            continue
-
-        df_f[month_col] = pd.to_datetime(df_f[month_col], errors='coerce')
-        df_f[follower_col] = pd.to_numeric(df_f[follower_col], errors='coerce')
-        df_f = df_f.dropna(subset=[month_col, follower_col])
-        df_f = df_f.sort_values(month_col)
-
-        # Apply date filter — keep rows whose month falls within the range
-        if start_dt is not None:
-            # Include months whose start is on or after the filter start
-            df_f = df_f[df_f[month_col] >= start_dt.replace(day=1)]
-        if end_dt is not None:
-            df_f = df_f[df_f[month_col] <= end_dt]
-
-        rows = []
-        prev_followers = None
-        for _, row in df_f.iterrows():
-            month_ts = row[month_col]
-            followers = int(row[follower_col])
-            growth_abs  = followers - prev_followers if prev_followers is not None else None
-            growth_pct  = round((growth_abs / prev_followers * 100), 2) if (prev_followers and prev_followers > 0 and growth_abs is not None) else None
-            rows.append({
-                "month":      month_ts.strftime("%Y-%m"),
-                "month_label": month_ts.strftime("%b %Y"),
-                "followers":  followers,
+    result = {platform: [] for platform in FOLLOWER_PLATFORMS}
+    for platform in FOLLOWER_PLATFORMS:
+        rows = [row for row in snapshots if row.platform == platform]
+        previous = None
+        for row in rows:
+            growth_abs = row.followers - previous if previous is not None else None
+            result[platform].append({
+                "month": row.snapshot_date.isoformat(),
+                "month_label": row.snapshot_date.strftime("%d %b %Y"),
+                "followers": row.followers,
                 "growth_abs": growth_abs,
-                "growth_pct": growth_pct,
+                "growth_pct": round(growth_abs / previous * 100, 2) if previous and growth_abs is not None else None,
+                "provider": row.provider,
+                "observed_at": row.observed_at.isoformat(),
+                "refreshed_at": row.refreshed_at.isoformat(),
             })
-            prev_followers = followers
+            previous = row.followers
 
-        result[platform] = rows
-
+    latest_refresh = db.query(func.max(FollowerSnapshot.refreshed_at)).scalar()
+    result["_meta"] = {
+        "last_refreshed_at": latest_refresh.isoformat() if latest_refresh else None,
+        "coverage": sum(bool(result[platform]) for platform in FOLLOWER_PLATFORMS),
+        "expected": len(FOLLOWER_PLATFORMS),
+        "refresh_schedule": "Daily at 08:00 Asia/Kuala_Lumpur",
+    }
     return result
 
 
