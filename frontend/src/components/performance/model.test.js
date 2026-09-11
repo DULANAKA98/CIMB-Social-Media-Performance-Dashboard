@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildModel, change, comparisonRange, followerModel, full, percent, safeLink } from './model.js';
+import { buildModel, change, comparisonRange, filterFollowerData, followerModel, full, percent, safeLink, thumbnailForPost } from './model.js';
 
 test('previous period uses inclusive day bounds and crosses month/year boundaries', () => {
   assert.deepEqual(comparisonRange({ start: '2026-01-01', end: '2026-01-31' }), { start: '2025-12-01', end: '2025-12-31' });
@@ -80,4 +80,21 @@ test('follower totals require matching daily snapshots across all selected platf
 test('only http(s) post links are rendered', () => {
   assert.equal(safeLink('javascript:alert(1)'), null);
   assert.equal(safeLink('https://example.com/post'), 'https://example.com/post');
+});
+
+test('thumbnail matching prefers the post URL and safely falls back to platform and date', () => {
+  const items = [
+    { platform: 'INSTAGRAM', publication_date: '2026-09-10T08:00:00Z', link: 'https://instagram.com/p/abc/?utm_source=test', picture: 'https://cdn.example.com/a.jpg' },
+    { platform: 'facebook', publication_date: '2026-09-10', link: '', picture: 'https://cdn.example.com/b.jpg' },
+  ];
+  assert.equal(thumbnailForPost({ platform: 'Instagram', date: '2026-09-01', link: 'https://www.instagram.com/p/abc/' }, items), 'https://cdn.example.com/a.jpg');
+  assert.equal(thumbnailForPost({ platform: 'Facebook', date: '2026-09-10', link: '' }, items), 'https://cdn.example.com/b.jpg');
+  assert.equal(thumbnailForPost({ platform: 'TikTok', date: '2026-09-10' }, items), null);
+});
+
+test('follower date filtering is independent and preserves response metadata', () => {
+  const data = { Facebook: [{ month: '2026-08-01' }, { month: '2026-09-01' }], _meta: { last_refreshed_at: 'now' } };
+  const filtered = filterFollowerData(data, { start: '2026-08-15', end: '2026-09-30' });
+  assert.deepEqual(filtered.Facebook, [{ month: '2026-09-01' }]);
+  assert.deepEqual(filtered._meta, data._meta);
 });

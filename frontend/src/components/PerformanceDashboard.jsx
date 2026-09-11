@@ -5,13 +5,18 @@ import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Camera, Chec
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import DataHub from './DataHub';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
-import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, followerModel, full, percent, safeLink } from './performance/model';
+import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, filterFollowerData, followerModel, full, percent, safeLink, thumbnailForPost } from './performance/model';
 import './performance/performance.css';
 
 const LegacyDashboard = lazy(() => import('./Dashboard'));
 const ICONS = { Instagram: Camera, TikTok: Music2, YouTube: CirclePlay };
 const CHART_STYLE = { fontSize: 12, fill: '#818493' };
 const TOOLTIP_STYLE = { background: '#fff', border: '1px solid #e9e9ef', borderRadius: 8, fontSize: 14, color: '#25232a', boxShadow: '0 5px 25px #26081510' };
+const localIso = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+const recentFollowerRange = () => {
+  const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29);
+  return { start: localIso(start), end: localIso(end) };
+};
 
 function trapFocus(event) {
   if (event.key !== 'Tab') return;
@@ -53,7 +58,7 @@ function Kpi({ label, value, icon: Icon, children, help, tone = '' }) {
   </section>;
 }
 
-function DateFilter({ range, onApply }) {
+function DateFilter({ range, onApply, label = 'Reporting period', follower = false }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(range);
   const ref = useRef(null);
@@ -69,9 +74,12 @@ function DateFilter({ range, onApply }) {
   const apply = value => { onApply(value); setOpen(false); };
   return <div className="date-filter" ref={ref}>
     <button className="perf-button date-trigger" aria-expanded={open} onClick={() => { setDraft(range); setOpen(!open); }}><CalendarDays size={15} /><span>{range.start ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates'}</span><ChevronDown size={13} /></button>
-    {open && <div className="date-popover" role="dialog" aria-label="Reporting period">
-      <div className="popover-title"><strong>Reporting period</strong><button aria-label="Close date filter" className="icon-button" onClick={() => setOpen(false)}><X size={16} /></button></div>
-      <div className="date-shortcuts"><button onClick={() => apply({ start: '', end: '' })}>All time</button><button onClick={() => {
+    {open && <div className="date-popover" role="dialog" aria-label={label}>
+      <div className="popover-title"><strong>{label}</strong><button aria-label="Close date filter" className="icon-button" onClick={() => setOpen(false)}><X size={16} /></button></div>
+      <div className="date-shortcuts"><button onClick={() => apply({ start: '', end: '' })}>All time</button>{follower && <button onClick={() => {
+        const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29);
+        apply({ start: localIso(start), end: localIso(end) });
+      }}>Last 30 days</button>}<button onClick={() => {
         const now = new Date();
         const local = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
         apply({ start: local(new Date(now.getFullYear(), now.getMonth() - 1, 1)), end: local(new Date(now.getFullYear(), now.getMonth(), 0)) });
@@ -86,18 +94,17 @@ function DateFilter({ range, onApply }) {
 
 function PerformanceChart({ model }) {
   const rows = model.rows.filter(row => row.posts != null);
-  return <Panel title="Performance by Platform" className="platform-chart" action={<div className="chart-legend"><span><i />Reach</span><span><i className="dark-dot" />Engagement</span><span><i className="line-dot" />Avg. ER%</span></div>}>
-    {rows.length ? <><div className="chart-area" role="img" aria-label="Reach, engagement and average post engagement rate by platform">
+  return <Panel title="Performance by Platform" className="platform-chart" action={<div className="chart-legend"><span><i />Reach · left axis</span><span><i className="line-dot" />Avg. ER% · right axis</span></div>}>
+    {rows.length ? <><div className="chart-area" role="img" aria-label="Reach and average post engagement rate by platform; engagement totals are listed below">
       <ResponsiveContainer width="100%" height="100%"><ComposedChart data={rows} margin={{ top: 22, right: 1, bottom: 0, left: -10 }} barGap={3}>
         <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="short" tick={CHART_STYLE} axisLine={false} tickLine={false} />
-        <YAxis yAxisId="volume" tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} width={46} />
-        <YAxis yAxisId="rate" orientation="right" tickFormatter={value => `${value}%`} tick={CHART_STYLE} axisLine={false} tickLine={false} width={36} />
+        <YAxis yAxisId="volume" tickFormatter={compact} tick={{ ...CHART_STYLE, fill: '#b3163d' }} axisLine={false} tickLine={false} width={46} />
+        <YAxis yAxisId="rate" orientation="right" tickFormatter={value => `${value}%`} tick={{ ...CHART_STYLE, fill: '#747b91' }} axisLine={false} tickLine={false} width={36} />
         <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value, name) => [name === 'Avg. ER%' ? percent(value) : full(value), name]} labelFormatter={(_, payload) => payload?.[0]?.payload?.name} />
         <Bar yAxisId="volume" dataKey="reach" name="Reach" fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={36}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 11, fill: '#5a5361' }} /></Bar>
-        <Bar yAxisId="volume" dataKey="engagement" name="Engagement" fill="#760a26" radius={[2, 2, 0, 0]} maxBarSize={22} />
         <Line yAxisId="rate" dataKey="er" name="Avg. ER%" stroke="#9297ab" strokeWidth={1.7} dot={{ r: 3, fill: '#9297ab' }} />
       </ComposedChart></ResponsiveContainer>
-    </div><div className="platform-legend">{rows.map(row => <span key={row.name}><PlatformIcon name={row.name} size={12} />{row.name}</span>)}</div></> : <Empty>Upload platform exports in Data Hub to populate this chart.</Empty>}
+    </div><div className="platform-legend">{rows.map(row => <span key={row.name}><span><PlatformIcon name={row.name} size={12} />{row.name}</span><small>Eng. {compact(row.engagement)}</small></span>)}</div></> : <Empty>Upload platform exports in Data Hub to populate this chart.</Empty>}
   </Panel>;
 }
 
@@ -116,9 +123,9 @@ function refreshedLabel(value) {
   return new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kuala_Lumpur' }).format(new Date(value));
 }
 
-function Followers({ followers, loading, error }) {
+function Followers({ followers, latest, loading, error, range, onRange }) {
   const refreshed = refreshedLabel(followers.lastRefreshedAt);
-  return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart">
+  return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart" action={<DateFilter range={range} onApply={onRange} label="Follower period" follower />}>
     {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Daily follower growth">
       <ResponsiveContainer width="100%" height="100%"><LineChart data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
         <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="label" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => value.split(' ')[0]} />
@@ -128,15 +135,15 @@ function Followers({ followers, loading, error }) {
     </div> : <Empty icon={TrendingUp} title={error ? 'Follower data unavailable' : 'Waiting for the first daily snapshot'}>
       {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms supplied. Matching daily snapshots are needed for a combined total.` : 'Follower counts will appear after the scheduled refresh runs.')}
     </Empty>}
-    <p className="follower-refreshed">{refreshed ? `Last refreshed ${refreshed}` : 'No successful refresh yet'}{followers.refreshSchedule ? ` · ${followers.refreshSchedule}` : ''}</p>
+    <p className="follower-refreshed">{refreshedLabel(latest.lastRefreshedAt) ? `Last refreshed ${refreshedLabel(latest.lastRefreshedAt)}` : refreshed ? `Last refreshed ${refreshed}` : 'No successful refresh yet'}{latest.refreshSchedule ? ` · ${latest.refreshSchedule}` : ''}</p>
   </Panel>;
 }
 
 function Categories({ rows }) {
   const visible = rows?.slice(0, 7) || [];
-  const max = Math.max(...visible.map(row => row.count), 1);
-  return <Panel title="Content Categories Performance" subtitle="Published posts · auto-classified by title" className="category-chart">
-    {visible.length ? <div className="category-rows">{visible.map((row, index) => <div className="category-row" key={row.type}><span title={row.type}>{row.type}</span><div><i style={{ width: `${row.count / max * 100}%`, opacity: 1 - index * 0.065 }} /></div><strong>{full(row.count)}</strong></div>)}</div> : <Empty icon={FileText}>Content categories will appear after posts are uploaded.</Empty>}
+  const max = Math.max(...visible.map(row => row.reach || 0), 1);
+  return <Panel title="Content Categories Performance" subtitle="Reach and weighted ER% · auto-classified by title" className="category-chart">
+    {visible.length ? <><div className="category-columns"><span>Category</span><span /><span>Reach</span><span>ER%</span></div><div className="category-rows">{visible.map((row, index) => <div className="category-row" key={row.type}><span title={row.type}>{row.type}</span><div><i style={{ width: `${(row.reach || 0) / max * 100}%`, opacity: 1 - index * 0.065 }} /></div><strong>{compact(row.reach)}</strong><em>{percent(row.engagement_rate)}</em></div>)}</div></> : <Empty icon={FileText}>Content categories will appear after posts are uploaded.</Empty>}
   </Panel>;
 }
 
@@ -152,14 +159,21 @@ function Formats({ rows }) {
   </Panel>;
 }
 
-function Posts({ posts, expanded, onExpand, platform }) {
+function PostThumbnail({ post, thumbnails }) {
+  const [failed, setFailed] = useState(false);
+  const src = thumbnailForPost(post, thumbnails);
+  if (!src || failed) return <span className="post-format-icon"><PlatformIcon name={post.platform} size={18} /></span>;
+  return <span className="post-thumbnail"><img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /></span>;
+}
+
+function Posts({ posts, expanded, onExpand, platform, thumbnails }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('engagement');
   const filtered = (posts || []).filter(post => `${post.title} ${post.format} ${post.platform}`.toLowerCase().includes(search.toLowerCase())).slice().sort((a, b) => (b[sort] || 0) - (a[sort] || 0));
   return <Panel title={expanded ? 'Organic Content Performance' : 'Top Performing Posts'} subtitle={platform ? `${platform} · organic posts` : 'Across platforms · ranked by engagement'} className={expanded ? 'expanded-posts' : 'top-posts'} action={!expanded && <button className="text-button" onClick={onExpand}>View all <ArrowUpRight size={12} /></button>}>
     {expanded && <div className="post-controls"><input aria-label="Search posts" placeholder="Search posts, formats or platforms…" value={search} onChange={e => setSearch(e.target.value)} /><label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="engagement">Engagement</option><option value="reach">Reach</option><option value="engagement_rate">ER%</option></select></label></div>}
     {filtered.length ? <div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>Reach</th><th>{expanded ? 'Engagement' : 'ER%'}</th>{expanded && <th>ER%</th>}</tr></thead><tbody>{filtered.slice(0, expanded ? 100 : 4).map((post, index) => <tr key={post.id ?? `${post.platform}-${index}`}>
-      <td><div className="post-identity"><span className="post-format-icon"><PlatformIcon name={post.platform} size={18} /></span><div>{safeLink(post.link) ? <a href={safeLink(post.link)} target="_blank" rel="noreferrer" title={post.title}>{post.title || 'Untitled post'}<ExternalLink size={10} /></a> : <strong title={post.title}>{post.title || 'Untitled post'}</strong>}<span>{dateLabel(post.date)} · {post.format || post.platform}</span></div></div></td>
+      <td><div className="post-identity"><PostThumbnail post={post} thumbnails={thumbnails} /><div>{safeLink(post.link) ? <a href={safeLink(post.link)} target="_blank" rel="noreferrer" title={post.title}>{post.title || 'Untitled post'}<ExternalLink size={10} /></a> : <strong title={post.title}>{post.title || 'Untitled post'}</strong>}<span>{dateLabel(post.date)} · {post.format || post.platform}</span></div></div></td>
       <td>{compact(post.reach)}</td><td>{expanded ? compact(post.engagement) : percent(post.engagement_rate)}</td>{expanded && <td>{percent(post.engagement_rate)}</td>}
     </tr>)}</tbody></table>{expanded && filtered.length > 100 && <p className="panel-footnote">Showing the top 100 matching posts. The full export is available in Data Hub.</p>}</div> : <Empty icon={FileText} title={search ? 'No matching posts' : 'No organic posts yet'}>Posts will appear here once content data is available for this selection.</Empty>}
   </Panel>;
@@ -201,7 +215,9 @@ export default function PerformanceDashboard({ onLogout }) {
   const [benchmarkMode, setBenchmarkMode] = useState('previous');
   const [detailTab, setDetailTab] = useState('overview');
   const [showAllPosts, setShowAllPosts] = useState(false);
+  const [followerRange, setFollowerRange] = useState(recentFollowerRange);
   const [followerState, setFollowerState] = useState({ data: null, loading: false, error: '' });
+  const [thumbnailState, setThumbnailState] = useState({ items: [] });
   const [aiState, setAiState] = useState({ data: null, loading: false });
   const [legacy, setLegacy] = useState(false);
   const aiController = useRef(null);
@@ -210,7 +226,8 @@ export default function PerformanceDashboard({ onLogout }) {
   const previous = usePerformanceData(comparedRange, refreshKey, !!comparedRange);
   const model = useMemo(() => buildModel(current.data, platform), [current.data, platform]);
   const previousModel = useMemo(() => buildModel(previous.data, platform), [previous.data, platform]);
-  const followers = useMemo(() => followerModel(followerState.data, platform), [followerState.data, platform]);
+  const latestFollowers = useMemo(() => followerModel(followerState.data, platform), [followerState.data, platform]);
+  const followers = useMemo(() => followerModel(filterFollowerData(followerState.data, followerRange), platform), [followerState.data, followerRange, platform]);
 
   const navigate = (next, name = null) => { setPage(next); setPlatform(name); setDetailTab('overview'); setShowAllPosts(false); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
   useEffect(() => {
@@ -233,9 +250,16 @@ export default function PerformanceDashboard({ onLogout }) {
   useEffect(() => {
     const controller = new AbortController();
     setFollowerState({ data: null, loading: true, error: '' });
-    axios.get(`${API_URL}/follower-growth`, { params: queryFor(range), signal: controller.signal, timeout: 60000 })
+    axios.get(`${API_URL}/follower-growth`, { signal: controller.signal, timeout: 60000 })
       .then(response => { if (!controller.signal.aborted) setFollowerState({ data: response.data, loading: false, error: '' }); })
       .catch(() => { if (!controller.signal.aborted) setFollowerState({ data: null, loading: false, error: 'Unable to load follower data. Try refreshing the dashboard.' }); });
+    return () => controller.abort();
+  }, [refreshKey]);
+  useEffect(() => {
+    const controller = new AbortController();
+    axios.get(`${API_URL}/post-thumbnails`, { params: queryFor(range), signal: controller.signal, timeout: 60000 })
+      .then(response => { if (!controller.signal.aborted) setThumbnailState({ items: response.data?.items || [] }); })
+      .catch(() => { if (!controller.signal.aborted) setThumbnailState({ items: [] }); });
     return () => controller.abort();
   }, [range, refreshKey]);
   useEffect(() => {
@@ -281,21 +305,21 @@ export default function PerformanceDashboard({ onLogout }) {
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
           <div className={`perf-kpis ${current.loading ? 'is-loading' : ''}`} aria-busy={current.loading}>
-            <Kpi label="Total Followers" value={full(followers.total)} icon={Users} help="Sum of the latest matching daily follower snapshot across the selected platforms."><span className="delta neutral">{followers.total == null ? 'Waiting for follower refresh' : `Last refreshed ${refreshedLabel(followers.lastRefreshedAt)}`}</span></Kpi>
+            <Kpi label="Total Followers" value={full(latestFollowers.total)} icon={Users} help="Sum of the latest matching daily follower snapshot across the selected platforms."><span className="delta neutral">{latestFollowers.total == null ? 'Waiting for follower refresh' : `Last refreshed ${refreshedLabel(latestFollowers.lastRefreshedAt)}`}</span></Kpi>
             <Kpi label="Total Reach" value={full(model.kpis.reach)} icon={Megaphone} help="Sum of post reach, not deduplicated people. Instagram Stories excluded."><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
             <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help="Total engagements across posts in the selected period. Instagram Stories excluded."><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
             <Kpi label={platform ? 'Avg. Post ER%' : 'Engagement Rate (ER%)'} value={percent(model.kpis.er)} icon={BarChart3} help={platform ? 'Mean of individual post engagement rates, as reported by the platform-stats endpoint.' : 'Total engagement / ER denominator. The backend uses views for Facebook/Instagram posts without reach.'}><Delta current={model.kpis.er} previous={previousModel.kpis.er} rate label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
           </div>
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published posts</small></h2></div><div className="detail-tabs" role="group" aria-label="Platform view">{['overview', 'content', 'formats', ...(platform === 'Instagram' ? ['stories'] : [])].map(tab => <button key={tab} aria-pressed={detailTab === tab} onClick={() => setDetailTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</div></div>}
           {(page === 'executive' || detailTab === 'overview') && <div className="perf-grid" aria-busy={current.loading}>
-            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} loading={followerState.loading} error={followerState.error} />
+            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} latest={latestFollowers} loading={followerState.loading} error={followerState.error} range={followerRange} onRange={setFollowerRange} />
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} /><Formats rows={model.formats} />
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} />
-            <Posts posts={model.posts} onExpand={() => { setShowAllPosts(!showAllPosts); }} platform={platform} />
+            <Posts posts={model.posts} onExpand={() => { setShowAllPosts(!showAllPosts); }} platform={platform} thumbnails={thumbnailState.items} />
             <Insights model={model} ai={platform ? null : aiState.data} loading={aiState.loading} onGenerate={platform ? () => setLegacy(true) : generateInsights} platform={platform} />
           </div>}
-          {(showAllPosts || (page === 'platform' && detailTab === 'content')) && <Posts posts={model.posts} platform={platform} expanded />}
+          {(showAllPosts || (page === 'platform' && detailTab === 'content')) && <Posts posts={model.posts} platform={platform} thumbnails={thumbnailState.items} expanded />}
           {page === 'platform' && detailTab === 'formats' && <div className="format-detail"><Formats rows={model.formats} /><Panel title="Format breakdown" subtitle="Organic posts only"><div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Format</th><th>Posts</th><th>Reach</th><th>Engagement</th><th>Avg. ER%</th></tr></thead><tbody>{model.formats.map(row => <tr key={row.name}><td>{row.name}</td><td>{full(row.posts)}</td><td>{compact(row.reach)}</td><td>{compact(row.engagement)}</td><td>{percent(row.er)}</td></tr>)}</tbody></table>{!model.formats.length && <Empty />}</div></Panel></div>}
           {page === 'platform' && detailTab === 'stories' && <Panel title="Instagram Stories" subtitle="Reported separately; not included in the main post totals">{current.data.stats?.['Instagram Stories'] ? <div className="story-kpis"><Kpi label="Stories" value={full(current.data.stats['Instagram Stories'].stories_count)} icon={Camera} /><Kpi label="Average reach" value={full(current.data.stats['Instagram Stories'].avg_reach)} icon={Users} /><Kpi label="Average ER%" value={percent(current.data.stats['Instagram Stories'].avg_engagement_rate)} icon={Heart} /></div> : <Empty icon={Camera} title="No Instagram Stories in this period">Upload an Instagram Stories export in Data Hub to populate this view.</Empty>}</Panel>}
           <footer className="perf-footer"><span><Info size={12} /> Post-level reach is not deduplicated. Instagram Stories are reported separately.</span><span>{current.updatedAt && `Updated ${current.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</span></footer>

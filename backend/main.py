@@ -675,36 +675,89 @@ def classify_content_type(title: str) -> str:
 
 @app.get("/api/content-types")
 def get_content_types(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    """Return content-type breakdown (post counts) per platform + overall."""
+    """Return category reach and weighted engagement rate per platform + overall."""
     df = get_filtered_data(start_date, end_date)
 
     platforms = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']
-    result = {}
-    overall_counts: dict[str, int] = {}
-
-    for platform in platforms:
-        pdf = df[df['platform'] == platform]
+    def summarize(pdf: pd.DataFrame):
         if pdf.empty:
-            result[platform] = []
-            continue
+            return []
+        work = pdf.copy()
+        work['_category'] = work['title'].fillna('').map(lambda value: classify_content_type(str(value)))
+        # Match the dashboard's ER definition: Meta posts fall back to views when
+        # reach is unavailable; every other platform uses reach.
+        work['_er_base'] = work['reach'].fillna(0).astype(float)
+        meta_mask = work['platform'].isin(['Facebook', 'Instagram']) & (work['_er_base'] <= 0)
+        work.loc[meta_mask, '_er_base'] = work.loc[meta_mask, 'views'].fillna(0).astype(float)
+        rows = []
+        for category, group in work.groupby('_category', sort=False):
+            reach = float(group['reach'].fillna(0).sum())
+            engagement = float(group['engagement'].fillna(0).sum())
+            denominator = float(group['_er_base'].sum())
+            rows.append({
+                "type": category,
+                "count": int(len(group)),
+                "reach": reach,
+                "engagement": engagement,
+                "engagement_rate": (engagement / denominator * 100) if denominator > 0 else None,
+            })
+        return sorted(rows, key=lambda row: row['reach'], reverse=True)
 
-        counts: dict[str, int] = {}
-        for title in pdf['title'].fillna(''):
-            ct = classify_content_type(str(title))
-            counts[ct] = counts.get(ct, 0) + 1
-
-        # Sort by count desc
-        sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
-        result[platform] = [{"type": t, "count": c} for t, c in sorted_counts]
-
-        for t, c in counts.items():
-            overall_counts[t] = overall_counts.get(t, 0) + c
-
-    result["Overall"] = [
-        {"type": t, "count": c}
-        for t, c in sorted(overall_counts.items(), key=lambda x: x[1], reverse=True)
-    ]
+    result = {platform: summarize(df[df['platform'] == platform]) for platform in platforms}
+    result["Overall"] = summarize(df)
     return result
+
+
+def _metricool_posts(start_date: Optional[str], end_date: Optional[str]):
+    """Fetch cross-platform post metadata used only for thumbnail enrichment."""
+    token = _required_env("METRICOOL_TOKEN")
+    user_id = _required_env("METRICOOL_USER_ID")
+    blog_id = _required_env("METRICOOL_BLOG_ID")
+    local_now = datetime.now(timezone.utc).astimezone(MALAYSIA_TZ)
+    start = pd.to_datetime(start_date).date() if start_date else (local_now - timedelta(days=730)).date()
+    end = pd.to_datetime(end_date).date() if end_date else local_now.date()
+    response = http_requests.get(
+        "https://app.metricool.com/api/v2/analytics/brand-summary/posts",
+        headers={"X-Mc-Auth": token, "Content-Type": "application/json"},
+        params={
+            "blogId": blog_id,
+            "userId": user_id,
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "timezone": "Asia/Kuala_Lumpur",
+        },
+        timeout=35,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    rows = payload.get("data", payload if isinstance(payload, list) else [])
+    return rows if isinstance(rows, list) else []
+
+
+@app.get("/api/post-thumbnails")
+def get_post_thumbnails(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
+    """Return safe Metricool thumbnail metadata; analytics still come from our DB."""
+    try:
+        rows = _metricool_posts(start_date, end_date)
+        items = []
+        for row in rows:
+            picture = str(row.get("picture") or "").strip()
+            link = str(row.get("link") or "").strip()
+            if not picture.lower().startswith(("http://", "https://")):
+                continue
+            items.append({
+                "id": str(row.get("id") or ""),
+                "platform": str(row.get("network") or row.get("networkConnection") or ""),
+                "title": str(row.get("text") or ""),
+                "link": link if link.lower().startswith(("http://", "https://")) else "",
+                "picture": picture,
+                "publication_date": row.get("publicationDate"),
+            })
+        return {"items": items}
+    except Exception as exc:
+        # Thumbnails are optional enrichment. Never make the performance data
+        # unavailable when Metricool is temporarily unreachable.
+        return {"items": [], "warning": str(exc)}
 
 
 @app.get("/api/all-content")

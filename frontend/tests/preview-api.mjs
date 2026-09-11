@@ -25,9 +25,10 @@ const fixtures = {
   'engagement-summary': { overall: { total_engagement: 905000, posts_count: 80 }, platforms: names.map((platform, i) => ({ platform, total_engagement: engagements[i], posts_count: 16 })) },
   'all-content': Object.fromEntries(names.map(platform => [platform, posts.filter(post => post.platform === platform)])),
   'organic-content': Object.fromEntries(names.map(platform => [platform, { top: posts.filter(post => post.platform === platform).slice(0, 5), bottom: [] }])),
-  'content-types': Object.fromEntries([...names, 'Overall'].map(platform => [platform, categories.map((type, i) => ({ type, count: (6 - i) * (platform === 'Overall' ? 3 : 1) }))])),
+  'content-types': Object.fromEntries([...names, 'Overall'].map(platform => [platform, categories.map((type, i) => ({ type, count: (6 - i) * (platform === 'Overall' ? 3 : 1), reach: (6 - i) * 1450000 * (platform === 'Overall' ? 3 : 1), engagement: (6 - i) * 49000, engagement_rate: 2.35 + i * .31 }))])),
   'format-performance': names.flatMap(platform => ['Video', 'Carousel', 'Static', 'Link'].map((format, i) => ({ platform, format, is_total: false, posts: 4, avg_reach: 50000, avg_engagement: 2000, avg_er: 4.52 - i * .6 }))),
-  'follower-growth': Object.fromEntries(names.map((platform, index) => [platform, Array.from({ length: 6 }, (_, i) => ({ month: `2026-0${i + 3}`, month_label: ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'][i] + ' 2026', followers: 450000 + index * 100000 + i * 22000 }))])),
+  'follower-growth': { ...Object.fromEntries(names.map((platform, index) => [platform, ['2026-08-13', '2026-08-20', '2026-08-27', '2026-09-03', '2026-09-10', '2026-09-11'].map((date, i) => ({ month: date, month_label: `${date.slice(8)} ${date.slice(5, 7) === '08' ? 'Aug' : 'Sep'} 2026`, followers: 450000 + index * 100000 + i * 22000 }))])), _meta: { last_refreshed_at: '2026-09-11T09:20:00Z', refresh_schedule: 'Daily at 08:00 Asia/Kuala_Lumpur' } },
+  'post-thumbnails': { items: posts.map(post => ({ platform: post.platform, title: post.title, publication_date: post.date, link: '', picture: `https://picsum.photos/seed/cimb-${post.id}/120/90` })) },
   'posts': { posts, total: posts.length, pages: 2 },
   'executive-summary': { error: 'Test fixture: AI unavailable' },
 };

@@ -15,6 +15,43 @@ export const safeLink = value => /^https?:\/\//i.test(value || '') ? value : nul
 export const dateLabel = value => value ? new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'All time';
 const iso = date => date.toISOString().slice(0, 10);
 
+const normalizeUrl = value => {
+  if (!safeLink(value)) return '';
+  try {
+    const url = new URL(value);
+    return `${url.hostname.replace(/^www\./, '').toLowerCase()}${url.pathname.replace(/\/$/, '')}`;
+  } catch { return ''; }
+};
+const normalizePlatform = value => String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+const comparableDate = value => String(value || '').slice(0, 10);
+
+export function thumbnailForPost(post, items = []) {
+  const exactUrl = normalizeUrl(post?.link);
+  let match = exactUrl ? items.find(item => normalizeUrl(item.link) === exactUrl) : null;
+  if (!match) {
+    const platform = normalizePlatform(post?.platform);
+    const date = comparableDate(post?.date);
+    const candidates = items.filter(item => normalizePlatform(item.platform).includes(platform) && comparableDate(item.publication_date) === date);
+    if (candidates.length === 1) match = candidates[0];
+    else if (candidates.length > 1) {
+      const title = String(post?.title || '').trim().toLowerCase();
+      match = candidates.find(item => {
+        const candidate = String(item.title || '').trim().toLowerCase();
+        return title && candidate && (candidate.includes(title.slice(0, 45)) || title.includes(candidate.slice(0, 45)));
+      });
+    }
+  }
+  return safeLink(match?.picture);
+}
+
+export function filterFollowerData(data, range) {
+  if (!data || (!range?.start && !range?.end)) return data;
+  return Object.fromEntries(Object.entries(data).map(([key, value]) => {
+    if (key === '_meta' || !Array.isArray(value)) return [key, value];
+    return [key, value.filter(row => (!range.start || row.month >= range.start) && (!range.end || row.month <= range.end))];
+  }));
+}
+
 export function comparisonRange(range, mode = 'previous') {
   if (!range.start || !range.end || range.start > range.end) return null;
   const start = new Date(`${range.start}T00:00:00Z`);
