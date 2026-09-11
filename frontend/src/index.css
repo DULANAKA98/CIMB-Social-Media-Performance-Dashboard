@@ -66,7 +66,7 @@ body {
 }
 
 .sidebar-logo h1 {
-  font-size: 1.05rem;
+  font-size: calc(1.05rem + 2px);
   font-weight: 800;
   background: linear-gradient(135deg, #ffffff 0%, #a0aab2 100%);
   -webkit-background-clip: text;
@@ -76,7 +76,7 @@ body {
 }
 
 .sidebar-logo p {
-  font-size: 0.68rem;
+  font-size: calc(0.68rem + 2px);
   color: var(--text-secondary);
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -99,7 +99,7 @@ body {
   border-radius: 12px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 0.88rem;
+  font-size: calc(0.88rem + 2px);
   font-weight: 500;
   transition: all 0.2s ease;
   border: 1px solid transparent;
@@ -170,7 +170,7 @@ body {
 }
 
 .sidebar-footer p {
-  font-size: 0.68rem;
+  font-size: calc(0.68rem + 2px);
   color: rgba(160, 170, 178, 0.45);
   letter-spacing: 0.5px;
 }
@@ -198,7 +198,7 @@ body {
 }
 
 .top-bar-title {
-  font-size: 1.15rem;
+  font-size: calc(1.15rem + 2px);
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -206,7 +206,7 @@ body {
 .top-bar-title span {
   color: var(--text-secondary);
   font-weight: 400;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem + 2px);
   margin-left: 0.5rem;
 }
 
@@ -228,7 +228,7 @@ body {
 }
 
 .header h1 {
-  font-size: 2.8rem;
+  font-size: calc(2.8rem + 2px);
   font-weight: 800;
   background: linear-gradient(135deg, #ffffff 0%, #a0aab2 100%);
   -webkit-background-clip: text;
@@ -269,14 +269,14 @@ body {
 
 .kpi-title {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem + 2px);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .kpi-value {
-  font-size: 2rem;
+  font-size: calc(2rem + 2px);
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -318,7 +318,7 @@ th, td {
 th {
   color: var(--text-secondary);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem + 2px);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   border-bottom: 2px solid rgba(255, 255, 255, 0.05);
@@ -330,7 +330,7 @@ th:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
 
 td {
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  font-size: 0.95rem;
+  font-size: calc(0.95rem + 2px);
   color: #e2e8f0;
 }
 
@@ -383,7 +383,7 @@ tr:hover td {
 .platform-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem + 2px);
   font-weight: 600;
   display: inline-block;
 }
@@ -445,7 +445,7 @@ tr:hover td {
 }
 
 .metric-box span {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem + 2px);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -453,7 +453,7 @@ tr:hover td {
 }
 
 .metric-box strong {
-  font-size: 1.8rem;
+  font-size: calc(1.8rem + 2px);
   color: var(--text-primary);
   font-weight: 700;
   letter-spacing: -0.5px;

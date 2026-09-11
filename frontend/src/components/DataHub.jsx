@@ -249,7 +249,7 @@ const DataHub = ({ startDate, endDate }) => {
         <span style={{
           background: `${colors[val] || '#666'}22`,
           color: colors[val] || '#aaa',
-          padding: '2px 10px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600,
+          padding: '2px 10px', borderRadius: '999px', fontSize: 'calc(0.78rem + 2px)', fontWeight: 600,
         }}>{val}</span>
       );
     }
@@ -260,7 +260,7 @@ const DataHub = ({ startDate, endDate }) => {
         <span style={{
           background: organic ? 'rgba(16,185,129,0.14)' : 'rgba(245,158,11,0.14)',
           color: organic ? '#10b981' : '#f59e0b',
-          padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700,
+          padding: '2px 10px', borderRadius: '999px', fontSize: 'calc(0.75rem + 2px)', fontWeight: 700,
         }}>
           {organic ? 'Organic' : 'Paid'}
         </span>
@@ -284,8 +284,8 @@ const DataHub = ({ startDate, endDate }) => {
 
   return (
     <div>
-      <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Data Hub</h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+      <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Data Hub</h2>
+      <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.5rem' }}>
         Upload raw platform Excel or CSV files to the database and manage all content records directly here.
       </p>
 
@@ -293,10 +293,10 @@ const DataHub = ({ startDate, endDate }) => {
       <div className="glass-panel" style={{ marginBottom: '1.5rem', padding: '1.2rem 1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
           <UploadCloud size={17} color="var(--accent-purple)" />
-          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Upload Platform Files</span>
-          {lastSync && <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last synced: {lastSync}</span>}
+          <span style={{ fontWeight: 700, fontSize: 'calc(0.95rem + 2px)', color: 'var(--text-primary)' }}>Upload Platform Files</span>
+          {lastSync && <span style={{ marginLeft: 'auto', fontSize: 'calc(0.75rem + 2px)', color: 'var(--text-secondary)' }}>Last synced: {lastSync}</span>}
         </div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: '0.9rem' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.78rem + 2px)', marginBottom: '0.9rem' }}>
           Select one or more Excel or CSV files. Excel uses a matching Raw_* sheet when available; LinkedIn also supports completed exports with an All posts sheet.
         </p>
         <form onSubmit={handleSync}>
@@ -310,8 +310,8 @@ const DataHub = ({ startDate, endDate }) => {
                   borderRadius: '10px', padding: '0.75rem 0.85rem', minWidth: 0,
                 }}
               >
-                <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{label}</span>
-                <span style={{ fontSize: '0.72rem', color: platformFiles[field] ? '#10b981' : 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontWeight: 700, fontSize: 'calc(0.82rem + 2px)', color: 'var(--text-primary)' }}>{label}</span>
+                <span style={{ fontSize: 'calc(0.72rem + 2px)', color: platformFiles[field] ? '#10b981' : 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {platformFiles[field]?.name || 'Choose Excel or CSV file'}
                 </span>
                 <input
@@ -330,7 +330,7 @@ const DataHub = ({ startDate, endDate }) => {
             style={{
               background: syncing ? 'rgba(139,92,246,0.4)' : 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
               color: 'white', border: 'none', borderRadius: '10px', padding: '0.7rem 1.4rem',
-              fontWeight: 700, fontSize: '0.88rem', cursor: syncing ? 'not-allowed' : 'pointer',
+              fontWeight: 700, fontSize: 'calc(0.88rem + 2px)', cursor: syncing ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit',
               boxShadow: '0 4px 16px rgba(139,92,246,0.3)',
             }}
@@ -344,7 +344,7 @@ const DataHub = ({ startDate, endDate }) => {
         {syncMsg && (
           <div style={{
             marginTop: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
-            color: syncMsg.type === 'success' ? '#10b981' : '#f87171', fontSize: '0.85rem',
+            color: syncMsg.type === 'success' ? '#10b981' : '#f87171', fontSize: 'calc(0.85rem + 2px)',
           }}>
             {syncMsg.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
             {syncMsg.text}
@@ -362,7 +362,7 @@ const DataHub = ({ startDate, endDate }) => {
             style={{
               width: '100%', paddingLeft: '34px', padding: '0.6rem 0.9rem 0.6rem 34px',
               background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '8px', color: 'white', fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none',
+              borderRadius: '8px', color: 'white', fontFamily: 'inherit', fontSize: 'calc(0.85rem + 2px)', outline: 'none',
             }}
           />
         </div>
@@ -372,7 +372,7 @@ const DataHub = ({ startDate, endDate }) => {
           style={{
             background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '8px', color: 'white', padding: '0.6rem 0.9rem', fontFamily: 'inherit',
-            fontSize: '0.85rem', cursor: 'pointer', outline: 'none',
+            fontSize: 'calc(0.85rem + 2px)', cursor: 'pointer', outline: 'none',
           }}
         >
           <option value="">All Platforms</option>
@@ -386,14 +386,14 @@ const DataHub = ({ startDate, endDate }) => {
           style={{
             background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '8px', color: 'white', padding: '0.6rem 0.9rem', fontFamily: 'inherit',
-            fontSize: '0.85rem', cursor: 'pointer', outline: 'none',
+            fontSize: 'calc(0.85rem + 2px)', cursor: 'pointer', outline: 'none',
           }}
         >
           <option value="desc">Date: Newest first</option>
           <option value="asc">Date: Oldest first</option>
         </select>
 
-        <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginLeft: 'auto' }}>
+        <span style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.82rem + 2px)', marginLeft: 'auto' }}>
           {total.toLocaleString()} records
         </span>
 
@@ -403,7 +403,7 @@ const DataHub = ({ startDate, endDate }) => {
           style={{
             background: 'linear-gradient(135deg, #059669, #10b981)', color: 'white',
             border: 'none', borderRadius: '8px', padding: '0.6rem 1.1rem',
-            fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+            fontWeight: 700, fontSize: 'calc(0.85rem + 2px)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit',
           }}
         >
@@ -419,7 +419,7 @@ const DataHub = ({ startDate, endDate }) => {
               <tr>
                 {COLUMNS.map(col => (
                   <th key={col.key} style={{
-                    padding: '0.75rem 0.9rem', textAlign: 'left', fontSize: '0.72rem',
+                    padding: '0.75rem 0.9rem', textAlign: 'left', fontSize: 'calc(0.72rem + 2px)',
                     fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase',
                     letterSpacing: '0.08em', background: 'rgba(0,0,0,0.25)',
                     borderBottom: '1px solid rgba(255,255,255,0.06)', width: col.width,
@@ -440,7 +440,7 @@ const DataHub = ({ startDate, endDate }) => {
                   <div className="spinner" style={{ margin: '0 auto', width: 24, height: 24, borderTopColor: 'var(--accent-purple)' }} />
                 </td></tr>
               ) : posts.length === 0 ? (
-                <tr><td colSpan={COLUMNS.length + 1} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                <tr><td colSpan={COLUMNS.length + 1} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 'calc(0.9rem + 2px)' }}>
                   No content found. Upload a platform file to get started.
                 </td></tr>
               ) : posts.map((post, idx) => (
@@ -459,7 +459,7 @@ const DataHub = ({ startDate, endDate }) => {
                       onDoubleClick={() => col.key !== 'link' && startEdit(post.id, col.key, post[col.key])}
                       style={{
                         padding: '0.55rem 0.9rem',
-                        fontSize: '0.82rem',
+                        fontSize: 'calc(0.82rem + 2px)',
                         color: 'var(--text-primary)',
                         borderBottom: '1px solid rgba(255,255,255,0.04)',
                         maxWidth: col.width,
@@ -510,7 +510,7 @@ const DataHub = ({ startDate, endDate }) => {
             >
               <ChevronLeft size={15} />
             </button>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: 'calc(0.82rem + 2px)', color: 'var(--text-secondary)' }}>
               Page {page} of {pages}
             </span>
             <button
@@ -524,7 +524,7 @@ const DataHub = ({ startDate, endDate }) => {
         )}
       </div>
 
-      <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'rgba(160,170,178,0.5)' }}>
+      <p style={{ marginTop: '0.75rem', fontSize: 'calc(0.75rem + 2px)', color: 'rgba(160,170,178,0.5)' }}>
         💡 Double-click any cell to edit it inline. Press Enter to save, Escape to cancel.
       </p>
     </div>
@@ -535,12 +535,12 @@ const styles = {
   editInput: {
     width: '100%', background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.5)',
     borderRadius: '4px', color: 'white', padding: '2px 6px', fontFamily: 'inherit',
-    fontSize: '0.82rem', outline: 'none',
+    fontSize: 'calc(0.82rem + 2px)', outline: 'none',
   },
   editSelect: {
     width: '100%', background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.5)',
     borderRadius: '4px', color: 'white', padding: '2px 4px', fontFamily: 'inherit',
-    fontSize: '0.82rem', outline: 'none',
+    fontSize: 'calc(0.82rem + 2px)', outline: 'none',
   },
   pageBtn: {
     background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',

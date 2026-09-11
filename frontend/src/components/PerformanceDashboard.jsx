@@ -10,8 +10,8 @@ import './performance/performance.css';
 
 const LegacyDashboard = lazy(() => import('./Dashboard'));
 const ICONS = { Instagram: Camera, TikTok: Music2, YouTube: CirclePlay };
-const CHART_STYLE = { fontSize: 10, fill: '#818493' };
-const TOOLTIP_STYLE = { background: '#fff', border: '1px solid #e9e9ef', borderRadius: 8, fontSize: 12, color: '#25232a', boxShadow: '0 5px 25px #26081510' };
+const CHART_STYLE = { fontSize: 12, fill: '#818493' };
+const TOOLTIP_STYLE = { background: '#fff', border: '1px solid #e9e9ef', borderRadius: 8, fontSize: 14, color: '#25232a', boxShadow: '0 5px 25px #26081510' };
 
 function trapFocus(event) {
   if (event.key !== 'Tab') return;
@@ -93,7 +93,7 @@ function PerformanceChart({ model }) {
         <YAxis yAxisId="volume" tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} width={46} />
         <YAxis yAxisId="rate" orientation="right" tickFormatter={value => `${value}%`} tick={CHART_STYLE} axisLine={false} tickLine={false} width={36} />
         <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value, name) => [name === 'Avg. ER%' ? percent(value) : full(value), name]} labelFormatter={(_, payload) => payload?.[0]?.payload?.name} />
-        <Bar yAxisId="volume" dataKey="reach" name="Reach" fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={36}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 9, fill: '#5a5361' }} /></Bar>
+        <Bar yAxisId="volume" dataKey="reach" name="Reach" fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={36}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 11, fill: '#5a5361' }} /></Bar>
         <Bar yAxisId="volume" dataKey="engagement" name="Engagement" fill="#760a26" radius={[2, 2, 0, 0]} maxBarSize={22} />
         <Line yAxisId="rate" dataKey="er" name="Avg. ER%" stroke="#9297ab" strokeWidth={1.7} dot={{ r: 3, fill: '#9297ab' }} />
       </ComposedChart></ResponsiveContainer>
@@ -137,9 +137,9 @@ function Formats({ rows }) {
   return <Panel title="Content Format Performance" subtitle="Average post ER% · organic content" className="format-chart">
     {rows.length ? <div className="chart-area" role="img" aria-label="Average organic engagement rate by content format">
       <ResponsiveContainer width="100%" height="100%"><BarChart data={rows.slice(0, 6)} margin={{ top: 25, right: 8, left: 8, bottom: 8 }}>
-        <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 9 }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 'auto']} />
+        <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 11 }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 'auto']} />
         <Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => percent(value)} cursor={{ fill: '#f7f7fa' }} />
-        <Bar dataKey="er" name="Avg. ER%" radius={[3, 3, 0, 0]} maxBarSize={43}>{rows.slice(0, 6).map((row, index) => <Cell key={row.name} fill={['#ed0027', '#790a29', '#888996', '#b5b6c2', '#d1bdc5', '#dfe0e8'][index]} />)}<LabelList dataKey="er" position="top" formatter={percent} style={{ fontSize: 10, fill: '#39323f', fontWeight: 600 }} /></Bar>
+        <Bar dataKey="er" name="Avg. ER%" radius={[3, 3, 0, 0]} maxBarSize={43}>{rows.slice(0, 6).map((row, index) => <Cell key={row.name} fill={['#ed0027', '#790a29', '#888996', '#b5b6c2', '#d1bdc5', '#dfe0e8'][index]} />)}<LabelList dataKey="er" position="top" formatter={percent} style={{ fontSize: 12, fill: '#39323f', fontWeight: 600 }} /></Bar>
       </BarChart></ResponsiveContainer>
     </div> : <Empty icon={BarChart3}>Upload organic posts to compare content formats.</Empty>}
   </Panel>;

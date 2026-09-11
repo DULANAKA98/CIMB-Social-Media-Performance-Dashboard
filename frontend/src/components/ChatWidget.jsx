@@ -64,7 +64,7 @@ const ChatWidget = ({ startDate, endDate, activeTab, executiveSummary, strategyD
           <div style={styles.header}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Sparkles size={18} color="var(--accent-purple)" />
-              <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-primary)' }}>AI Analyst</h3>
+              <h3 style={{ fontSize: 'calc(1rem + 2px)', margin: 0, color: 'var(--text-primary)' }}>AI Analyst</h3>
             </div>
             <button onClick={() => setIsOpen(false)} style={styles.closeBtn}>
               <X size={18} />
@@ -84,7 +84,7 @@ const ChatWidget = ({ startDate, endDate, activeTab, executiveSummary, strategyD
                   borderRadius: '12px',
                   background: msg.role === 'user' ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))' : 'rgba(255, 255, 255, 0.05)',
                   color: 'white',
-                  fontSize: '0.9rem',
+                  fontSize: 'calc(0.9rem + 2px)',
                   lineHeight: '1.4',
                   wordWrap: 'break-word',
                   whiteSpace: 'pre-wrap'
@@ -208,7 +208,7 @@ const styles = {
     color: 'white',
     outline: 'none',
     fontFamily: 'inherit',
-    fontSize: '0.9rem',
+    fontSize: 'calc(0.9rem + 2px)',
   },
   sendBtn: {
     background: 'var(--accent-blue)',

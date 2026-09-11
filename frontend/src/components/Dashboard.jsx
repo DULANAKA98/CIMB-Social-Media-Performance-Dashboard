@@ -259,8 +259,8 @@ const Dashboard = ({ onLogout }) => {
     if (wipError) {
       return (
         <div className="glass-panel" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.08)', padding: '2rem', textAlign: 'center', transition: 'none' }}>
-          <p style={{ color: '#f87171', fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>⚠ Error Loading WIP Data</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '1.5rem' }}>{wipError}</p>
+          <p style={{ color: '#f87171', fontSize: 'calc(1rem + 2px)', fontWeight: 600, marginBottom: '0.5rem' }}>⚠ Error Loading WIP Data</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.88rem + 2px)', marginBottom: '1.5rem' }}>{wipError}</p>
           <button onClick={() => setWipTrigger(prev => prev + 1)} className="refresh-btn" style={{ margin: '0 auto' }}>
             Try Again
           </button>
@@ -292,8 +292,8 @@ const Dashboard = ({ onLogout }) => {
           if (platform === 'YouTube') {
             return (
               <div key={platform} className="glass-panel" style={{ borderTop: `4px solid ${meta.color}` }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
-                  <span style={{ fontSize: '1.4rem' }}>{meta.emoji}</span> {platform} WIP Data
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: 'calc(1.2rem + 2px)', fontWeight: 700 }}>
+                  <span style={{ fontSize: 'calc(1.4rem + 2px)' }}>{meta.emoji}</span> {platform} WIP Data
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="metric-box">
@@ -319,8 +319,8 @@ const Dashboard = ({ onLogout }) => {
           
           return (
             <div key={platform} className="glass-panel" style={{ borderTop: `4px solid ${meta.color}` }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: 700 }}>
-                <span style={{ fontSize: '1.4rem' }}>{meta.emoji}</span> {platform} WIP Data
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: 'calc(1.2rem + 2px)', fontWeight: 700 }}>
+                <span style={{ fontSize: 'calc(1.4rem + 2px)' }}>{meta.emoji}</span> {platform} WIP Data
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="metric-box" style={{ gridColumn: 'span 2' }}>
@@ -346,30 +346,30 @@ const Dashboard = ({ onLogout }) => {
               </div>
               {/* Engagement breakdown */}
               <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Engagement Breakdown</p>
+                <p style={{ fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Engagement Breakdown</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
                   {data.total_likes > 0 && (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
                       ❤️ {formatNumber(data.total_likes)}
                     </span>
                   )}
                   {data.total_comments > 0 && (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
                       💬 {formatNumber(data.total_comments)}
                     </span>
                   )}
                   {data.total_shares > 0 && (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
                       🔗 {formatNumber(data.total_shares)}
                     </span>
                   )}
                   {data.total_favorites > 0 && (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
                       ⭐ {formatNumber(data.total_favorites)}
                     </span>
                   )}
                   {data.total_reposts > 0 && (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
                       🔄 {formatNumber(data.total_reposts)}
                     </span>
                   )}
@@ -405,8 +405,8 @@ const Dashboard = ({ onLogout }) => {
       return (
         <div className="glass-panel" style={{ borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', padding: '2rem', textAlign: 'center' }}>
           <p style={{ color: '#f87171', fontWeight: 600, marginBottom: '0.5rem' }}>⚠ Error Loading Follower Data</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{followerError}</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', opacity: 0.7 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.88rem + 2px)', marginBottom: '0.5rem' }}>{followerError}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.78rem + 2px)', opacity: 0.7 }}>
             Expected sheet tabs: [FB] Followers · [IG] Followers · [TT] Followers · [YT] Followers · [LI] Followers
           </p>
         </div>
@@ -418,7 +418,7 @@ const Dashboard = ({ onLogout }) => {
         <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', borderStyle: 'dashed' }}>
           <Users size={36} style={{ color: 'var(--text-secondary)', margin: '0 auto 1rem', display: 'block', opacity: 0.5 }} />
           <p style={{ color: 'var(--text-secondary)' }}>No follower data loaded yet. Ensure the data source is connected.</p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '0.5rem', opacity: 0.7 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.78rem + 2px)', marginTop: '0.5rem', opacity: 0.7 }}>
             Expected sheet tabs: [FB] Followers · [IG] Followers · [TT] Followers · [YT] Followers · [LI] Followers
           </p>
         </div>
@@ -476,19 +476,19 @@ const Dashboard = ({ onLogout }) => {
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <span style={{ fontSize: '1.4rem' }}>{meta.emoji}</span>
+                  <span style={{ fontSize: 'calc(1.4rem + 2px)' }}>{meta.emoji}</span>
                   <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', margin: 0 }}>{platform}</h3>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0, marginTop: '0.15rem' }}>Monthly Follower Growth</p>
+                    <h3 style={{ fontSize: 'calc(1.1rem + 2px)', fontWeight: 700, color: '#fff', margin: 0 }}>{platform}</h3>
+                    <p style={{ fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)', margin: 0, marginTop: '0.15rem' }}>Monthly Follower Growth</p>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: '1.4rem', fontWeight: 800, color, margin: 0, lineHeight: 1 }}>
+                  <p style={{ fontSize: 'calc(1.4rem + 2px)', fontWeight: 800, color, margin: 0, lineHeight: 1 }}>
                     {latest.followers.toLocaleString()}
                   </p>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>{latest.month_label}</p>
+                  <p style={{ fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)', margin: 0 }}>{latest.month_label}</p>
                   {totalGrowthPct != null && (
-                    <p style={{ fontSize: '0.75rem', fontWeight: 700, color: totalGrowth >= 0 ? '#10b981' : '#f87171', margin: 0 }}>
+                    <p style={{ fontSize: 'calc(0.75rem + 2px)', fontWeight: 700, color: totalGrowth >= 0 ? '#10b981' : '#f87171', margin: 0 }}>
                       {totalGrowth >= 0 ? '+' : ''}{totalGrowth.toLocaleString()} ({totalGrowthPct}%) in period
                     </p>
                   )}
@@ -552,7 +552,7 @@ const Dashboard = ({ onLogout }) => {
                   return (
                     <text key={t}
                       x={PAD.left - 6} y={fY(val) + 4}
-                      textAnchor="end" fontSize={9} fill="rgba(255,255,255,0.45)"
+                      textAnchor="end" fontSize={11} fill="rgba(255,255,255,0.45)"
                     >
                       {fmtF(Math.round(val))}
                     </text>
@@ -566,7 +566,7 @@ const Dashboard = ({ onLogout }) => {
                   return (
                     <text key={i}
                       x={xPos(i) + barWidth / 2} y={H - 6}
-                      textAnchor="middle" fontSize={8.5} fill="rgba(255,255,255,0.45)"
+                      textAnchor="middle" fontSize={10.5} fill="rgba(255,255,255,0.45)"
                     >
                       {r.month_label}
                     </text>
@@ -574,13 +574,13 @@ const Dashboard = ({ onLogout }) => {
                 })}
 
                 {/* Right axis label */}
-                <text x={W - 4} y={PAD.top + innerH / 2} textAnchor="middle" fontSize={8} fill="#f59e0b"
+                <text x={W - 4} y={PAD.top + innerH / 2} textAnchor="middle" fontSize={10} fill="#f59e0b"
                   transform={`rotate(-90, ${W - 4}, ${PAD.top + innerH / 2})`}
                 >MoM %</text>
               </svg>
 
               {/* Legend */}
-              <div style={{ display: 'flex', gap: '1.2rem', marginTop: '0.6rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', gap: '1.2rem', marginTop: '0.6rem', fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   <span style={{ display: 'inline-block', width: 10, height: 10, background: `${color}88`, border: `1.5px solid ${color}`, borderRadius: 2 }} />
                   Followers
@@ -593,7 +593,7 @@ const Dashboard = ({ onLogout }) => {
 
               {/* Monthly table */}
               <div style={{ marginTop: '1rem', overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'calc(0.78rem + 2px)' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                       <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Month</th>
@@ -726,11 +726,11 @@ const Dashboard = ({ onLogout }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
           <thead>
             <tr style={{ background: '#7f1d1d' }}>
-              <th style={{ padding: '1rem 1.4rem', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', color: '#fff', fontWeight: 700, fontSize: '0.9rem', textTransform: 'none', background: '#991b1b' }}>
+              <th style={{ padding: '1rem 1.4rem', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', color: '#fff', fontWeight: 700, fontSize: 'calc(0.9rem + 2px)', textTransform: 'none', background: '#991b1b' }}>
                 Pillar
               </th>
               {platforms.map(p => (
-                <th key={p} style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontWeight: 700, fontSize: '0.9rem', textTransform: 'none', background: '#b91c1c' }}>
+                <th key={p} style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontWeight: 700, fontSize: 'calc(0.9rem + 2px)', textTransform: 'none', background: '#b91c1c' }}>
                   <span style={{ color: PLATFORM_COLORS[p] || '#fff' }}>{p}</span>
                 </th>
               ))}
@@ -739,11 +739,11 @@ const Dashboard = ({ onLogout }) => {
           <tbody>
             {pivot.map((row, i) => (
               <tr key={i} style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                <td style={{ padding: '0.85rem 1.4rem', border: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, fontSize: '0.88rem', color: '#fff', textAlign: 'left', background: 'rgba(153,27,27,0.2)' }}>
+                <td style={{ padding: '0.85rem 1.4rem', border: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, fontSize: 'calc(0.88rem + 2px)', color: '#fff', textAlign: 'left', background: 'rgba(153,27,27,0.2)' }}>
                   {row.pillar}
                 </td>
                 {platforms.map(p => (
-                  <td key={p} style={{ padding: '0.85rem 1rem', border: '1px solid rgba(255,255,255,0.06)', fontSize: '0.9rem', color: row[p] != null ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                  <td key={p} style={{ padding: '0.85rem 1rem', border: '1px solid rgba(255,255,255,0.06)', fontSize: 'calc(0.9rem + 2px)', color: row[p] != null ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                     {row[p] != null ? `${row[p].toFixed(2)}%` : '—'}
                   </td>
                 ))}
@@ -830,7 +830,7 @@ const Dashboard = ({ onLogout }) => {
           </div>
         </div>
         {isInstagramStories && (
-          <p style={{ margin: '0.8rem 0 0', color: 'var(--text-secondary)', fontSize: '0.75rem', textAlign: 'right' }}>
+          <p style={{ margin: '0.8rem 0 0', color: 'var(--text-secondary)', fontSize: 'calc(0.75rem + 2px)', textAlign: 'right' }}>
             Story ER = Engagement / Reach x 100
           </p>
         )}
@@ -952,7 +952,7 @@ const Dashboard = ({ onLogout }) => {
           padding: '0.4rem 1.2rem',
           borderRadius: '6px',
           cursor: 'pointer',
-          fontSize: '0.85rem',
+          fontSize: 'calc(0.85rem + 2px)',
           fontWeight: '600',
           transition: 'background 0.2s',
           display: 'block',
@@ -967,7 +967,7 @@ const Dashboard = ({ onLogout }) => {
 
     return (
       <div key={platformName} style={{ marginBottom: '3rem' }}>
-        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>{platformName} Organic Performance</h2>
+        <h2 style={{ marginBottom: '1.5rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>{platformName} Organic Performance</h2>
 
         {allExpanded ? (
           // Full sorted list view
@@ -1051,9 +1051,9 @@ const Dashboard = ({ onLogout }) => {
               background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-pink))',
               borderRadius: '8px',
               padding: '0.4rem 0.7rem',
-              fontSize: '1rem',
+              fontSize: 'calc(1rem + 2px)',
             }}>⚡</span>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>Overall Across All Platforms</h3>
+            <h3 style={{ fontSize: 'calc(1.1rem + 2px)', color: 'var(--text-primary)' }}>Overall Across All Platforms</h3>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
             <div className="metric-box" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
@@ -1074,13 +1074,13 @@ const Dashboard = ({ onLogout }) => {
             return (
               <div style={{ marginTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600' }}>
+                  <p style={{ fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600' }}>
                     Content Mix
                   </p>
                   <button
                     id="copy-btn-Overall"
                     onClick={handleCopyOverall}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', padding: '0.1rem 0.4rem', borderRadius: '4px', transition: 'color 0.2s' }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 'calc(0.72rem + 2px)', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', padding: '0.1rem 0.4rem', borderRadius: '4px', transition: 'color 0.2s' }}
                     onMouseEnter={e => e.target.style.color = '#fff'}
                     onMouseLeave={e => { if (e.target.textContent !== '✓ Copied!') e.target.style.color = 'var(--text-secondary)'; }}
                   >
@@ -1089,11 +1089,11 @@ const Dashboard = ({ onLogout }) => {
                 </div>
                 <p
                   onClick={e => { const r = document.createRange(); r.selectNodeContents(e.currentTarget); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }}
-                  style={{ fontSize: '0.88rem', lineHeight: '1.65', color: 'var(--text-primary)', cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.6rem 0.75rem', border: '1px solid rgba(255,255,255,0.05)', margin: 0, wordBreak: 'break-word' }}
+                  style={{ fontSize: 'calc(0.88rem + 2px)', lineHeight: '1.65', color: 'var(--text-primary)', cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.6rem 0.75rem', border: '1px solid rgba(255,255,255,0.05)', margin: 0, wordBreak: 'break-word' }}
                 >
                   {overallText}
                 </p>
-                <p style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: '0.3rem', opacity: 0.6 }}>
+                <p style={{ fontSize: 'calc(0.65rem + 2px)', color: 'var(--text-secondary)', marginTop: '0.3rem', opacity: 0.6 }}>
                   Click text to select · {contentTypes.Overall.length} type{contentTypes.Overall.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -1133,30 +1133,30 @@ const Dashboard = ({ onLogout }) => {
                     boxShadow: `0 0 8px ${color}`,
                     flexShrink: 0,
                   }} />
-                  <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', fontWeight: '700' }}>{platform}</h4>
+                  <h4 style={{ fontSize: 'calc(1rem + 2px)', color: 'var(--text-primary)', fontWeight: '700' }}>{platform}</h4>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
                   <div className="metric-box" style={{ borderColor: `${color}22` }}>
                     <span>Total Engagements</span>
-                    <strong style={{ fontSize: '1.4rem', color }}>{formatNumber(total_engagement)}</strong>
+                    <strong style={{ fontSize: 'calc(1.4rem + 2px)', color }}>{formatNumber(total_engagement)}</strong>
                   </div>
                   <div className="metric-box" style={{ borderColor: `${color}22` }}>
                     <span>Avg. Eng. / Post</span>
-                    <strong style={{ fontSize: '1.4rem' }}>{formatNumber(avg_engagement_per_post)}</strong>
+                    <strong style={{ fontSize: 'calc(1.4rem + 2px)' }}>{formatNumber(avg_engagement_per_post)}</strong>
                   </div>
                 </div>
 
                 {types.length > 0 && (
                   <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.9rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <p style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600' }}>
+                      <p style={{ fontSize: 'calc(0.68rem + 2px)', color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600' }}>
                         Content Types
                       </p>
                       <button
                         id={`copy-btn-${platform}`}
                         onClick={handleCopy}
-                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', padding: '0.1rem 0.4rem', borderRadius: '4px', transition: 'color 0.2s' }}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 'calc(0.72rem + 2px)', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', padding: '0.1rem 0.4rem', borderRadius: '4px', transition: 'color 0.2s' }}
                         onMouseEnter={e => e.target.style.color = '#fff'}
                         onMouseLeave={e => { if (e.target.textContent !== '✓ Copied!') e.target.style.color = 'var(--text-secondary)'; }}
                       >
@@ -1165,16 +1165,16 @@ const Dashboard = ({ onLogout }) => {
                     </div>
                     <p
                       onClick={e => { const r = document.createRange(); r.selectNodeContents(e.currentTarget); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }}
-                      style={{ fontSize: '0.88rem', lineHeight: '1.65', color: 'var(--text-primary)', cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.6rem 0.75rem', border: '1px solid rgba(255,255,255,0.05)', margin: 0, wordBreak: 'break-word' }}
+                      style={{ fontSize: 'calc(0.88rem + 2px)', lineHeight: '1.65', color: 'var(--text-primary)', cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.6rem 0.75rem', border: '1px solid rgba(255,255,255,0.05)', margin: 0, wordBreak: 'break-word' }}
                     >
                       {typeText}
                     </p>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: '0.3rem', opacity: 0.6 }}>
+                    <p style={{ fontSize: 'calc(0.65rem + 2px)', color: 'var(--text-secondary)', marginTop: '0.3rem', opacity: 0.6 }}>
                       Click text to select · {types.length} type{types.length !== 1 ? 's' : ''}
                     </p>
                   </div>
                 )}
-                <div style={{ marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'right' }}>
+                <div style={{ marginTop: '0.75rem', fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-secondary)', textAlign: 'right' }}>
                   {posts_count} post{posts_count !== 1 ? 's' : ''} in period
                 </div>
               </div>
@@ -1196,12 +1196,12 @@ const Dashboard = ({ onLogout }) => {
           <table className="format-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
             <thead>
               <tr style={{ background: '#b91c1c', color: 'white' }}>
-                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Platform</th>
-                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Format</th>
-                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>No. of Posts</th>
-                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Avg. Reach</th>
-                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Avg. Engagements</th>
-                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: '0.95rem' }}>Avg. Engagement Rate</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Platform</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Format</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>No. of Posts</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Avg. Reach</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Avg. Engagements</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Avg. Engagement Rate</th>
               </tr>
             </thead>
             <tbody>
@@ -1267,7 +1267,7 @@ const Dashboard = ({ onLogout }) => {
       return (
         <div className="glass-panel" style={{ marginBottom: '3rem', textAlign: 'center', padding: '3rem' }}>
           <div className="spinner" style={{ margin: '0 auto 1rem', width: 40, height: 40, borderTopColor: 'var(--accent-purple)' }} />
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Groq is analysing your data…</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.9rem + 2px)' }}>Groq is analysing your data…</p>
         </div>
       );
     }
@@ -1328,9 +1328,9 @@ const Dashboard = ({ onLogout }) => {
           {/* Summary header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.8rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.6rem', marginBottom: '0.25rem', display: 'inline-block' }}>Executive Summary</h2>
+              <h2 style={{ fontSize: 'calc(1.6rem + 2px)', marginBottom: '0.25rem', display: 'inline-block' }}>Executive Summary</h2>
               {es.period && (
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Period: {es.period}</p>
+                <p style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Period: {es.period}</p>
               )}
             </div>
             <div style={{ display: 'flex', gap: '0.6rem' }}>
@@ -1343,7 +1343,7 @@ const Dashboard = ({ onLogout }) => {
                   color: 'var(--text-secondary)',
                   padding: '0.4rem 1rem',
                   borderRadius: '8px',
-                  fontSize: '0.8rem',
+                  fontSize: 'calc(0.8rem + 2px)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                   fontWeight: '600',
@@ -1362,7 +1362,7 @@ const Dashboard = ({ onLogout }) => {
                   color: 'var(--text-secondary)',
                   padding: '0.4rem 0.8rem',
                   borderRadius: '8px',
-                  fontSize: '0.8rem',
+                  fontSize: 'calc(0.8rem + 2px)',
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}
@@ -1381,11 +1381,11 @@ const Dashboard = ({ onLogout }) => {
               {/* Top Platform */}
               <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '14px', overflow: 'hidden' }}>
                 <div style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.7), rgba(236,72,153,0.5))', padding: '0.55rem 1rem' }}>
-                  <p style={{ fontSize: '0.8rem', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Top Performing Platform</p>
+                  <p style={{ fontSize: 'calc(0.8rem + 2px)', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Top Performing Platform</p>
                 </div>
                 <div style={{ padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                   <span style={{
-                    fontSize: '2rem',
+                    fontSize: 'calc(2rem + 2px)',
                     width: '2.5rem', height: '2.5rem',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: `${PLATFORM_COLORS_EXEC[es.top_platform] || '#8b5cf6'}22`,
@@ -1395,8 +1395,8 @@ const Dashboard = ({ onLogout }) => {
                     {es.top_platform === 'Facebook' ? '📘' : es.top_platform === 'Instagram' ? '📸' : es.top_platform === 'TikTok' ? '🎵' : es.top_platform === 'YouTube' ? '▶️' : '💼'}
                   </span>
                   <div>
-                    <p style={{ fontSize: '1.3rem', fontWeight: '800', color: PLATFORM_COLORS_EXEC[es.top_platform] || '#8b5cf6' }}>{es.top_platform}</p>
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginTop: '0.1rem' }}>{es.top_platform_reason}</p>
+                    <p style={{ fontSize: 'calc(1.3rem + 2px)', fontWeight: '800', color: PLATFORM_COLORS_EXEC[es.top_platform] || '#8b5cf6' }}>{es.top_platform}</p>
+                    <p style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-secondary)', lineHeight: '1.4', marginTop: '0.1rem' }}>{es.top_platform_reason}</p>
                   </div>
                 </div>
               </div>
@@ -1404,11 +1404,11 @@ const Dashboard = ({ onLogout }) => {
               {/* Key Highlights */}
               <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '14px', overflow: 'hidden' }}>
                 <div style={{ background: 'linear-gradient(90deg, rgba(59,130,246,0.7), rgba(99,102,241,0.5))', padding: '0.55rem 1rem' }}>
-                  <p style={{ fontSize: '0.8rem', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Key Highlights</p>
+                  <p style={{ fontSize: 'calc(0.8rem + 2px)', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Key Highlights</p>
                 </div>
                 <ul style={{ margin: 0, padding: '1rem 1.2rem 1rem 2.2rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                   {(es.key_highlights || []).map((h, i) => (
-                    <li key={i} style={{ fontSize: '0.875rem', lineHeight: '1.55', color: 'var(--text-primary)' }}
+                    <li key={i} style={{ fontSize: 'calc(0.875rem + 2px)', lineHeight: '1.55', color: 'var(--text-primary)' }}
                       dangerouslySetInnerHTML={{ __html: h.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
                     />
                   ))}
@@ -1418,11 +1418,11 @@ const Dashboard = ({ onLogout }) => {
               {/* Audience Behaviour */}
               <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '14px', overflow: 'hidden' }}>
                 <div style={{ background: 'linear-gradient(90deg, rgba(16,185,129,0.65), rgba(5,150,105,0.45))', padding: '0.55rem 1rem' }}>
-                  <p style={{ fontSize: '0.8rem', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Audience Behaviour</p>
+                  <p style={{ fontSize: 'calc(0.8rem + 2px)', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Audience Behaviour</p>
                 </div>
                 <ul style={{ margin: 0, padding: '1rem 1.2rem 1rem 2.2rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                   {(es.audience_behaviour || []).map((h, i) => (
-                    <li key={i} style={{ fontSize: '0.875rem', lineHeight: '1.55', color: 'var(--text-primary)' }}
+                    <li key={i} style={{ fontSize: 'calc(0.875rem + 2px)', lineHeight: '1.55', color: 'var(--text-primary)' }}
                       dangerouslySetInnerHTML={{ __html: h.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
                     />
                   ))}
@@ -1433,13 +1433,13 @@ const Dashboard = ({ onLogout }) => {
             {/* RIGHT COLUMN — Recommendations */}
             <div style={{ background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '14px', overflow: 'hidden' }}>
               <div style={{ background: 'linear-gradient(90deg, rgba(236,72,153,0.65), rgba(239,68,68,0.45))', padding: '0.55rem 1rem' }}>
-                <p style={{ fontSize: '0.8rem', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>High-Level Recommendations</p>
+                <p style={{ fontSize: 'calc(0.8rem + 2px)', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>High-Level Recommendations</p>
               </div>
               <div style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                 {Object.entries(es.recommendations || {}).map(([platform, rec]) => (
                   <div key={platform}>
                     <p style={{
-                      fontSize: '0.82rem',
+                      fontSize: 'calc(0.82rem + 2px)',
                       fontWeight: '700',
                       color: PLATFORM_COLORS_EXEC[platform] || 'var(--accent-blue)',
                       marginBottom: '0.3rem',
@@ -1447,7 +1447,7 @@ const Dashboard = ({ onLogout }) => {
                     }}>
                       {platform}
                     </p>
-                    <p style={{ fontSize: '0.855rem', lineHeight: '1.55', color: 'var(--text-primary)', margin: 0 }}
+                    <p style={{ fontSize: 'calc(0.855rem + 2px)', lineHeight: '1.55', color: 'var(--text-primary)', margin: 0 }}
                       dangerouslySetInnerHTML={{ __html: `• ${rec.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}` }}
                     />
                   </div>
@@ -1497,7 +1497,7 @@ const Dashboard = ({ onLogout }) => {
                 background: 'rgba(185,28,28,0.15)',
                 border: '1px solid rgba(185,28,28,0.35)',
                 borderRadius: '8px', padding: '0.5rem 1rem',
-                color: '#fca5a5', fontSize: '0.8rem', fontWeight: 600,
+                color: '#fca5a5', fontSize: 'calc(0.8rem + 2px)', fontWeight: 600,
                 cursor: 'pointer', display: 'flex', alignItems: 'center',
                 justifyContent: 'center', gap: '0.4rem', fontFamily: 'inherit',
                 transition: 'background 0.2s',
@@ -1527,18 +1527,18 @@ const Dashboard = ({ onLogout }) => {
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                style={{ background: 'transparent', color: 'white', border: 'none', padding: '0.15rem 0.4rem', borderRadius: '4px', outline: 'none', fontSize: '0.85rem' }}
+                style={{ background: 'transparent', color: 'white', border: 'none', padding: '0.15rem 0.4rem', borderRadius: '4px', outline: 'none', fontSize: 'calc(0.85rem + 2px)' }}
               />
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>to</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.8rem + 2px)' }}>to</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                style={{ background: 'transparent', color: 'white', border: 'none', padding: '0.15rem 0.4rem', borderRadius: '4px', outline: 'none', fontSize: '0.85rem' }}
+                style={{ background: 'transparent', color: 'white', border: 'none', padding: '0.15rem 0.4rem', borderRadius: '4px', outline: 'none', fontSize: 'calc(0.85rem + 2px)' }}
               />
             </div>
 
-            <button className="refresh-btn" onClick={handleRefresh} disabled={loading} style={{ padding: '0.6rem 1.1rem', fontSize: '0.85rem' }}>
+            <button className="refresh-btn" onClick={handleRefresh} disabled={loading} style={{ padding: '0.6rem 1.1rem', fontSize: 'calc(0.85rem + 2px)' }}>
               {loading ? <div className="spinner" style={{ width: 16, height: 16 }}></div> : <RefreshCw size={15} />}
               {loading ? 'Refreshing…' : 'Refresh Data'}
             </button>
@@ -1551,7 +1551,7 @@ const Dashboard = ({ onLogout }) => {
                 color: 'white', border: 'none', padding: '0.6rem 1.1rem', borderRadius: '8px',
                 fontWeight: '700', cursor: execLoading ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', gap: '0.4rem',
-                fontSize: '0.85rem', fontFamily: 'inherit', transition: 'opacity 0.2s',
+                fontSize: 'calc(0.85rem + 2px)', fontFamily: 'inherit', transition: 'opacity 0.2s',
                 boxShadow: '0 4px 15px rgba(139,92,246,0.3)',
               }}
               onMouseEnter={e => { if (!execLoading) e.currentTarget.style.opacity = '0.88'; }}
@@ -1572,10 +1572,10 @@ const Dashboard = ({ onLogout }) => {
                 <div className="glass-panel" style={{ textAlign: 'center', padding: '4rem 2rem', borderStyle: 'dashed' }}>
                   <Sparkles size={40} style={{ margin: '0 auto 1rem', color: 'var(--accent-purple)', display: 'block' }} />
                   <h3 style={{ marginBottom: '0.5rem' }}>No Summary Yet</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Click "AI Summary" in the top bar to generate an executive report for the selected date range.</p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.9rem + 2px)', marginBottom: '1.5rem' }}>Click "AI Summary" in the top bar to generate an executive report for the selected date range.</p>
                   <button
                     onClick={generateExecSummary}
-                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.85), rgba(236,72,153,0.75))', color: 'white', border: 'none', padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.95rem', fontFamily: 'inherit' }}
+                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.85), rgba(236,72,153,0.75))', color: 'white', border: 'none', padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: 'calc(0.95rem + 2px)', fontFamily: 'inherit' }}
                   >
                     ✦ Generate AI Summary
                   </button>
@@ -1632,15 +1632,15 @@ const Dashboard = ({ onLogout }) => {
 
           {activeTab === 'formats' && (
             <div>
-              <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Organic Content Types & Format Performance</h2>
+              <h2 style={{ marginBottom: '1.5rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Organic Content Types & Format Performance</h2>
               {renderFormatPerformanceSection()}
             </div>
           )}
 
           {activeTab === 'followers' && (
             <div>
-              <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Monthly Followers Data</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.8rem' }}>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Monthly Followers Data</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.8rem' }}>
                 Month-by-month follower counts and growth rates per platform. Bars show total followers (left axis); the amber line shows month-on-month growth % (right axis).
               </p>
               {renderFollowersSection()}
@@ -1664,11 +1664,11 @@ const Dashboard = ({ onLogout }) => {
                   <Download size={28} style={{ color: 'var(--accent-blue)' }} />
                 </div>
 
-                <h2 style={{ fontSize: '1.5rem', marginBottom: '0.6rem' }}>Download All Contents</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '0.5rem' }}>
+                <h2 style={{ fontSize: 'calc(1.5rem + 2px)', marginBottom: '0.6rem' }}>Download All Contents</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.9rem + 2px)', lineHeight: '1.6', marginBottom: '0.5rem' }}>
                   Exports all contents (Organic &amp; Paid) for the selected date range across all platforms as an Excel file.
                 </p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '2rem', opacity: 0.7 }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.82rem + 2px)', marginBottom: '2rem', opacity: 0.7 }}>
                   Columns: Date · Platform · Format · Pillar · Organic/Paid · Collab · Title · Caption · Reach · Views · Interaction · ER% · Likes · Comments · Shares · Saves · Reposts · URL · Year Month
                 </p>
 
@@ -1676,7 +1676,7 @@ const Dashboard = ({ onLogout }) => {
                   <div style={{
                     display: 'inline-block', background: 'rgba(59,130,246,0.1)',
                     border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px',
-                    padding: '0.4rem 1rem', marginBottom: '1.8rem', fontSize: '0.85rem', color: 'var(--accent-blue)'
+                    padding: '0.4rem 1rem', marginBottom: '1.8rem', fontSize: 'calc(0.85rem + 2px)', color: 'var(--accent-blue)'
                   }}>
                     📅 {startDate} → {endDate}
                   </div>
@@ -1684,7 +1684,7 @@ const Dashboard = ({ onLogout }) => {
                   <div style={{
                     display: 'inline-block', background: 'rgba(245,158,11,0.08)',
                     border: '1px solid rgba(245,158,11,0.2)', borderRadius: '8px',
-                    padding: '0.4rem 1rem', marginBottom: '1.8rem', fontSize: '0.85rem', color: '#fbbf24'
+                    padding: '0.4rem 1rem', marginBottom: '1.8rem', fontSize: 'calc(0.85rem + 2px)', color: '#fbbf24'
                   }}>
                     ⚠ No date range selected — all available data will be exported
                   </div>
@@ -1702,7 +1702,7 @@ const Dashboard = ({ onLogout }) => {
                     padding: '0.85rem 2.2rem', borderRadius: '10px',
                     fontWeight: '700', cursor: downloadLoading ? 'not-allowed' : 'pointer',
                     display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                    fontSize: '1rem', fontFamily: 'inherit',
+                    fontSize: 'calc(1rem + 2px)', fontFamily: 'inherit',
                     boxShadow: '0 4px 20px rgba(59,130,246,0.35)',
                     transition: 'opacity 0.2s',
                   }}
@@ -1714,7 +1714,7 @@ const Dashboard = ({ onLogout }) => {
                     : <><Download size={18} /> Download Excel</>}
                 </button>
 
-                <p style={{ marginTop: '1.2rem', fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.55 }}>
+                <p style={{ marginTop: '1.2rem', fontSize: 'calc(0.75rem + 2px)', color: 'var(--text-secondary)', opacity: 0.55 }}>
                   The file is generated fresh from the Data Hub database each time
                 </p>
               </div>
@@ -1723,8 +1723,8 @@ const Dashboard = ({ onLogout }) => {
 
           {activeTab === 'pillar' && (
             <div>
-              <h2 style={{ marginBottom: '0.5rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Content Mix &amp; Pillar Alignment</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.8rem' }}>
+              <h2 style={{ marginBottom: '0.5rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Content Mix &amp; Pillar Alignment</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.8rem' }}>
                 Paste your exported &quot;All Contents&quot; Google Sheet URL below. Only Organic posts are included in the ER% calculation.
               </p>
 
@@ -1739,7 +1739,7 @@ const Dashboard = ({ onLogout }) => {
                   onKeyDown={e => e.key === 'Enter' && handleFetchPillar()}
                   style={{
                     flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                    color: 'var(--text-primary)', fontSize: '0.88rem', fontFamily: 'inherit',
+                    color: 'var(--text-primary)', fontSize: 'calc(0.88rem + 2px)', fontFamily: 'inherit',
                   }}
                 />
                 <button
@@ -1748,7 +1748,7 @@ const Dashboard = ({ onLogout }) => {
                   style={{
                     background: pillarLoading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
                     color: '#fff', border: 'none', padding: '0.55rem 1.2rem',
-                    borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem',
+                    borderRadius: '8px', fontWeight: 700, fontSize: 'calc(0.85rem + 2px)',
                     cursor: pillarLoading ? 'not-allowed' : 'pointer',
                     display: 'flex', alignItems: 'center', gap: '0.4rem',
                     fontFamily: 'inherit', whiteSpace: 'nowrap',
@@ -1763,14 +1763,14 @@ const Dashboard = ({ onLogout }) => {
               {/* Error */}
               {pillarError && (
                 <div className="glass-panel" style={{ marginBottom: '1.5rem', borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', padding: '1rem 1.4rem' }}>
-                  <p style={{ color: '#f87171', fontSize: '0.88rem' }}>⚠ {pillarError}</p>
+                  <p style={{ color: '#f87171', fontSize: 'calc(0.88rem + 2px)' }}>⚠ {pillarError}</p>
                 </div>
               )}
 
               {/* Table */}
               {pillarData && !pillarError && (
                 <div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: '0.75rem' }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.78rem + 2px)', marginBottom: '0.75rem' }}>
                     Showing avg ER% per Pillar × Platform (Organic only{startDate && endDate ? ` · ${startDate} → ${endDate}` : ''})
                   </p>
                   {renderPillarTable()}
@@ -1783,7 +1783,7 @@ const Dashboard = ({ onLogout }) => {
                       style={{
                         background: crossPlatformLoading ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg, #059669, #10b981)',
                         color: '#fff', border: 'none', padding: '0.65rem 1.4rem',
-                        borderRadius: '10px', fontWeight: '700', fontSize: '0.88rem',
+                        borderRadius: '10px', fontWeight: '700', fontSize: 'calc(0.88rem + 2px)',
                         cursor: crossPlatformLoading ? 'not-allowed' : 'pointer',
                         display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
                         fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(16,185,129,0.3)',
@@ -1805,8 +1805,8 @@ const Dashboard = ({ onLogout }) => {
           {/* ── Platform Strategy Recommendations ── */}
           {activeTab === 'strategy' && (
             <div>
-              <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Platform Strategy Recommendations</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Platform Strategy Recommendations</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.5rem' }}>
                 AI-generated STOP · PAUSE · CONTINUE · ENHANCE framework based on organic ER% and format performance for the selected period.
               </p>
 
@@ -1820,7 +1820,7 @@ const Dashboard = ({ onLogout }) => {
                   } catch { } finally { setStrategyLoading(false); }
                 }} style={{
                   background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#fff', border: 'none',
-                  padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: 700, fontSize: '0.92rem',
+                  padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: 700, fontSize: 'calc(0.92rem + 2px)',
                   cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit',
                   boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
                 }}><Target size={18} /> Generate Strategy Insights</button>
@@ -1845,9 +1845,9 @@ const Dashboard = ({ onLogout }) => {
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={{ padding: '0.9rem 1.2rem', background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', fontWeight: 700, color: '#fff', fontSize: '0.85rem', textTransform: 'none', width: '14%' }}></th>
+                            <th style={{ padding: '0.9rem 1.2rem', background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', fontWeight: 700, color: '#fff', fontSize: 'calc(0.85rem + 2px)', textTransform: 'none', width: '14%' }}></th>
                             {COLS.map(c => (
-                              <th key={c.key} style={{ padding: '0.9rem 1rem', background: c.hdrBg, border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', fontWeight: 800, color: c.hdrColor, fontSize: '0.85rem', letterSpacing: '0.05em' }}>{c.label}</th>
+                              <th key={c.key} style={{ padding: '0.9rem 1rem', background: c.hdrBg, border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', fontWeight: 800, color: c.hdrColor, fontSize: 'calc(0.85rem + 2px)', letterSpacing: '0.05em' }}>{c.label}</th>
                             ))}
                           </tr>
                         </thead>
@@ -1856,9 +1856,9 @@ const Dashboard = ({ onLogout }) => {
                             const pd = strat[plat] || {};
                             return (
                               <tr key={plat} style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                                <td style={{ padding: '0.85rem 1.2rem', border: '1px solid rgba(255,255,255,0.07)', fontWeight: 700, fontSize: '0.9rem', color: '#fff', background: 'rgba(185,28,28,0.15)' }}>{plat}</td>
+                                <td style={{ padding: '0.85rem 1.2rem', border: '1px solid rgba(255,255,255,0.07)', fontWeight: 700, fontSize: 'calc(0.9rem + 2px)', color: '#fff', background: 'rgba(185,28,28,0.15)' }}>{plat}</td>
                                 {COLS.map(c => (
-                                  <td key={c.key} style={{ padding: '0.85rem 1rem', border: '1px solid rgba(255,255,255,0.07)', fontSize: '0.85rem', color: 'var(--text-primary)', verticalAlign: 'top' }}>
+                                  <td key={c.key} style={{ padding: '0.85rem 1rem', border: '1px solid rgba(255,255,255,0.07)', fontSize: 'calc(0.85rem + 2px)', color: 'var(--text-primary)', verticalAlign: 'top' }}>
                                     {pd[c.key] || '—'}
                                   </td>
                                 ))}
@@ -1871,10 +1871,10 @@ const Dashboard = ({ onLogout }) => {
 
                     {/* Key Takeaways */}
                     <div className="glass-panel" style={{ background: '#0f172a', borderColor: 'rgba(255,255,255,0.1)' }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: '#fff' }}>Key Takeaways</h3>
+                      <h3 style={{ fontSize: 'calc(1rem + 2px)', fontWeight: 700, marginBottom: '1rem', color: '#fff' }}>Key Takeaways</h3>
                       <ul style={{ paddingLeft: '1.2rem', margin: 0 }}>
                         {(strategyData.key_takeaways || []).map((t, i) => (
-                          <li key={i} style={{ marginBottom: '0.55rem', fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t}</li>
+                          <li key={i} style={{ marginBottom: '0.55rem', fontSize: 'calc(0.88rem + 2px)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t}</li>
                         ))}
                       </ul>
                     </div>
@@ -1887,8 +1887,8 @@ const Dashboard = ({ onLogout }) => {
           {/* ── Key Learnings & Recommendations ── */}
           {activeTab === 'learnings' && (
             <div>
-              <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>Key Learnings &amp; Recommendations</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Key Learnings &amp; Recommendations</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.5rem' }}>
                 AI-derived strategic learnings with concrete action items based on platform engagement data.
               </p>
 
@@ -1902,7 +1902,7 @@ const Dashboard = ({ onLogout }) => {
                   } catch { } finally { setStrategyLoading(false); }
                 }} style={{
                   background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#fff', border: 'none',
-                  padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: 700, fontSize: '0.92rem',
+                  padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: 700, fontSize: 'calc(0.92rem + 2px)',
                   cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit',
                   boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
                 }}><BookOpen size={18} /> Generate Key Learnings</button>
@@ -1914,17 +1914,17 @@ const Dashboard = ({ onLogout }) => {
               {strategyData && !strategyData.error && (
                 <div className="glass-panel" style={{ padding: '1.8rem 2rem' }}>
                   <div style={{ background: '#b91c1c', borderRadius: '8px', padding: '0.75rem 1.5rem', marginBottom: '1.8rem', textAlign: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: '1rem', color: '#fff', letterSpacing: '0.02em' }}>Key Learnings</span>
+                    <span style={{ fontWeight: 700, fontSize: 'calc(1rem + 2px)', color: '#fff', letterSpacing: '0.02em' }}>Key Learnings</span>
                   </div>
                   {(strategyData.key_learnings || []).map((item, i) => (
                     <div key={i} style={{ marginBottom: '1.8rem', paddingBottom: '1.8rem', borderBottom: i < (strategyData.key_learnings.length - 1) ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
-                      <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                      <p style={{ fontWeight: 700, fontSize: 'calc(0.95rem + 2px)', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
                         {item.number}. {item.title}
                       </p>
-                      <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '0.75rem' }}>
+                      <p style={{ fontSize: 'calc(0.88rem + 2px)', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '0.75rem' }}>
                         {item.description}
                       </p>
-                      <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6 }}>
+                      <p style={{ fontSize: 'calc(0.88rem + 2px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6 }}>
                         Action: {item.action}
                       </p>
                     </div>
@@ -1936,8 +1936,8 @@ const Dashboard = ({ onLogout }) => {
 
           {activeTab === 'wip' && (
             <div>
-              <h2 style={{ marginBottom: '0.4rem', fontSize: '1.5rem', color: 'var(--accent-blue)' }}>WIP Data</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>WIP Data</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.5rem' }}>
                 Aggregated metrics from the database for the selected date range.
               </p>
               {renderWipSection()}

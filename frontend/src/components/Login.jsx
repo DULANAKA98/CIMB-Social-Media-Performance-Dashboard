@@ -77,10 +77,10 @@ const Login = ({ onLogin }) => {
             <Lock size={26} color="#fff" />
           </div>
           <h1 style={{
-            fontSize: '1.5rem', fontWeight: 800, color: '#fff',
+            fontSize: 'calc(1.5rem + 2px)', fontWeight: 800, color: '#fff',
             letterSpacing: '-0.3px', margin: 0, marginBottom: '0.3rem',
           }}>CIMB Posts Analytics Dashboard</h1>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.83rem', margin: 0 }}>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 'calc(0.83rem + 2px)', margin: 0 }}>
             CIMB Social Media Intelligence
           </p>
         </div>
@@ -89,7 +89,7 @@ const Login = ({ onLogin }) => {
         <form onSubmit={handleSubmit}>
           {/* Username */}
           <div style={{ marginBottom: '1.1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.4rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            <label style={{ display: 'block', fontSize: 'calc(0.8rem + 2px)', color: 'rgba(255,255,255,0.5)', marginBottom: '0.4rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Username
             </label>
             <div style={{ position: 'relative' }}>
@@ -105,7 +105,7 @@ const Login = ({ onLogin }) => {
                   background: 'rgba(255,255,255,0.06)',
                   border: `1px solid ${error ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`,
                   borderRadius: 10, padding: '0.75rem 1rem 0.75rem 2.6rem',
-                  color: '#fff', fontSize: '0.92rem', fontFamily: 'inherit',
+                  color: '#fff', fontSize: 'calc(0.92rem + 2px)', fontFamily: 'inherit',
                   outline: 'none', transition: 'border-color 0.2s',
                 }}
                 onFocus={e => { e.target.style.borderColor = 'rgba(185,28,28,0.6)'; }}
@@ -116,7 +116,7 @@ const Login = ({ onLogin }) => {
 
           {/* Password */}
           <div style={{ marginBottom: '1.6rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.4rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            <label style={{ display: 'block', fontSize: 'calc(0.8rem + 2px)', color: 'rgba(255,255,255,0.5)', marginBottom: '0.4rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Password
             </label>
             <div style={{ position: 'relative' }}>
@@ -132,7 +132,7 @@ const Login = ({ onLogin }) => {
                   background: 'rgba(255,255,255,0.06)',
                   border: `1px solid ${error ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`,
                   borderRadius: 10, padding: '0.75rem 2.8rem 0.75rem 2.6rem',
-                  color: '#fff', fontSize: '0.92rem', fontFamily: 'inherit',
+                  color: '#fff', fontSize: 'calc(0.92rem + 2px)', fontFamily: 'inherit',
                   outline: 'none', transition: 'border-color 0.2s',
                 }}
                 onFocus={e => { e.target.style.borderColor = 'rgba(185,28,28,0.6)'; }}
@@ -155,7 +155,7 @@ const Login = ({ onLogin }) => {
           {/* Error message */}
           {error && (
             <p style={{
-              color: '#f87171', fontSize: '0.83rem', margin: '-0.8rem 0 1rem',
+              color: '#f87171', fontSize: 'calc(0.83rem + 2px)', margin: '-0.8rem 0 1rem',
               display: 'flex', alignItems: 'center', gap: '0.3rem',
             }}>⚠ {error}</p>
           )}
@@ -170,7 +170,7 @@ const Login = ({ onLogin }) => {
                 ? 'rgba(185,28,28,0.4)'
                 : 'linear-gradient(135deg, #b91c1c, #991b1b)',
               color: '#fff', border: 'none', borderRadius: 10,
-              padding: '0.85rem', fontWeight: 700, fontSize: '0.95rem',
+              padding: '0.85rem', fontWeight: 700, fontSize: 'calc(0.95rem + 2px)',
               cursor: loading || !username || !password ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
               fontFamily: 'inherit',
