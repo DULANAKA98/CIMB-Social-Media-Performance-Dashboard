@@ -1808,10 +1808,17 @@ def get_follower_growth(
 
 @app.get("/api/follower-growth/metricool")
 def get_metricool_follower_growth(
-    start_date: str = Query(...),
-    end_date: str = Query(...),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
 ):
-    """Return fresh Metricool follower timelines for the card's selected period."""
+    """Return fresh Metricool follower timelines for the dashboard reporting period."""
+    if not start_date or not end_date:
+        first_post, last_post = db.query(func.min(Post.date), func.max(Post.date)).one()
+        if not first_post or not last_post:
+            raise HTTPException(status_code=400, detail="No post dates are available for the reporting period")
+        start_date = start_date or first_post.date().isoformat()
+        end_date = end_date or last_post.date().isoformat()
     try:
         start = pd.to_datetime(start_date).date()
         end = pd.to_datetime(end_date).date()
@@ -1829,6 +1836,8 @@ def get_metricool_follower_growth(
         "coverage": sum(bool(result[platform]) for platform in FOLLOWER_PLATFORMS),
         "expected": len(FOLLOWER_PLATFORMS),
         "errors": errors,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
     }
     if not any(result[platform] for platform in FOLLOWER_PLATFORMS):
         raise HTTPException(status_code=502, detail={"message": "Metricool returned no follower history", "errors": errors})

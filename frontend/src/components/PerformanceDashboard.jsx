@@ -13,11 +13,6 @@ const LegacyDashboard = lazy(() => import('./Dashboard'));
 const BRAND_ICONS = { Facebook: FaFacebookF, Instagram: FaInstagram, TikTok: FaTiktok, YouTube: FaYoutube, LinkedIn: FaLinkedinIn };
 const CHART_STYLE = { fontSize: 12, fill: '#818493' };
 const TOOLTIP_STYLE = { background: '#fff', border: '1px solid #e9e9ef', borderRadius: 8, fontSize: 14, color: '#25232a', boxShadow: '0 5px 25px #26081510' };
-const localIso = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
-const recentFollowerRange = () => {
-  const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29);
-  return { start: localIso(start), end: localIso(end) };
-};
 
 function trapFocus(event) {
   if (event.key !== 'Tab') return;
@@ -59,7 +54,7 @@ function Kpi({ label, value, icon: Icon, children, help, tone = '' }) {
   </section>;
 }
 
-function DateFilter({ range, onApply, label = 'Reporting period', follower = false }) {
+function DateFilter({ range, onApply, label = 'Reporting period' }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(range);
   const ref = useRef(null);
@@ -77,10 +72,7 @@ function DateFilter({ range, onApply, label = 'Reporting period', follower = fal
     <button className="perf-button date-trigger" aria-expanded={open} onClick={() => { setDraft(range); setOpen(!open); }}><CalendarDays size={15} /><span>{range.start ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates'}</span><ChevronDown size={13} /></button>
     {open && <div className="date-popover" role="dialog" aria-label={label}>
       <div className="popover-title"><strong>{label}</strong><button aria-label="Close date filter" className="icon-button" onClick={() => setOpen(false)}><X size={16} /></button></div>
-      <div className="date-shortcuts">{!follower && <button onClick={() => apply({ start: '', end: '' })}>All time</button>}{follower && <button onClick={() => {
-        const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29);
-        apply({ start: localIso(start), end: localIso(end) });
-      }}>Last 30 days</button>}<button onClick={() => {
+      <div className="date-shortcuts"><button onClick={() => apply({ start: '', end: '' })}>All time</button><button onClick={() => {
         const now = new Date();
         const local = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
         apply({ start: local(new Date(now.getFullYear(), now.getMonth() - 1, 1)), end: local(new Date(now.getFullYear(), now.getMonth(), 0)) });
@@ -125,9 +117,9 @@ function refreshedLabel(value) {
   return new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kuala_Lumpur' }).format(new Date(value));
 }
 
-function Followers({ followers, loading, error, range, onRange }) {
+function Followers({ followers, loading, error }) {
   const refreshed = refreshedLabel(followers.lastRefreshedAt);
-  return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart" action={<DateFilter range={range} onApply={onRange} label="Follower period" follower />}>
+  return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart">
     {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Daily follower growth">
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><LineChart data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
         <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="label" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => value.split(' ').slice(0, 2).join(' ')} />
@@ -229,7 +221,6 @@ export default function PerformanceDashboard({ onLogout }) {
   const [benchmarkMode, setBenchmarkMode] = useState('previous');
   const [detailTab, setDetailTab] = useState('overview');
   const [showAllPosts, setShowAllPosts] = useState(false);
-  const [followerRange, setFollowerRange] = useState(recentFollowerRange);
   const [followerState, setFollowerState] = useState({ data: null, loading: false, error: '' });
   const [followerHistoryState, setFollowerHistoryState] = useState({ data: null, loading: false, error: '' });
   const [thumbnailState, setThumbnailState] = useState({ items: [] });
@@ -273,16 +264,16 @@ export default function PerformanceDashboard({ onLogout }) {
   useEffect(() => {
     const controller = new AbortController();
     setFollowerHistoryState({ data: null, loading: true, error: '' });
-    axios.get(`${API_URL}/follower-growth/metricool`, { params: queryFor(followerRange), signal: controller.signal, timeout: 90000 })
+    axios.get(`${API_URL}/follower-growth/metricool`, { params: queryFor(range), signal: controller.signal, timeout: 90000 })
       .then(response => {
         if (controller.signal.aborted) return;
         const errors = response.data?._meta?.errors || {};
         const failed = Object.keys(errors);
         setFollowerHistoryState({ data: response.data, loading: false, error: failed.length ? `Metricool could not load: ${failed.join(', ')}.` : '' });
       })
-      .catch(() => { if (!controller.signal.aborted) setFollowerHistoryState({ data: null, loading: false, error: 'Unable to fetch follower history from Metricool. Try another date range.' }); });
+      .catch(() => { if (!controller.signal.aborted) setFollowerHistoryState({ data: null, loading: false, error: 'Unable to fetch follower history from Metricool for this reporting period.' }); });
     return () => controller.abort();
-  }, [followerRange, refreshKey]);
+  }, [range, refreshKey]);
   useEffect(() => {
     const controller = new AbortController();
     axios.get(`${API_URL}/post-thumbnails`, { params: queryFor(range), signal: controller.signal, timeout: 60000 })
@@ -340,7 +331,7 @@ export default function PerformanceDashboard({ onLogout }) {
           </div>
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published posts</small></h2></div><div className="detail-tabs" role="group" aria-label="Platform view">{['overview', 'content', 'formats', ...(platform === 'Instagram' ? ['stories'] : [])].map(tab => <button key={tab} aria-pressed={detailTab === tab} onClick={() => setDetailTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</div></div>}
           {(page === 'executive' || detailTab === 'overview') && <div className="perf-grid" aria-busy={current.loading}>
-            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} range={followerRange} onRange={setFollowerRange} />
+            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} /><Formats rows={model.formats} />
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} />
