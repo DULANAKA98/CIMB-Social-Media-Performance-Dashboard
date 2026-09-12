@@ -84,7 +84,7 @@
 .chart-legend i, .donut-legend i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ed0027; flex-shrink: 0; }
 .chart-legend .dark-dot { background: #760a26; }.chart-legend .line-dot { background: #9297ab; width: 10px; height: 2px; }
 .platform-legend { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; color: #837989; font-size: 10px; margin: 6px 0 3px; }
-.platform-legend > span { display: inline-flex; flex-direction: column; gap: 3px; align-items: center; }.platform-legend > span > span { display: flex; gap: 3px; align-items: center; }.platform-legend small { color: #760a26; font-size: 9px; font-weight: 600; }
+.platform-legend > span { display: inline-flex; gap: 4px; align-items: center; }
 .reach-body { display: flex; align-items: center; gap: 10px; min-height: 205px; }
 .donut-chart { width: 62%; height: 190px; min-width: 0; position: relative; }
 .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }

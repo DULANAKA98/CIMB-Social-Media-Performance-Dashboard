@@ -1,6 +1,6 @@
 export const PLATFORMS = [
-  { name: 'Facebook', short: 'FB', color: '#1877f2' },
   { name: 'Instagram', short: 'IG', color: '#c72c75' },
+  { name: 'Facebook', short: 'FB', color: '#1877f2' },
   { name: 'TikTok', short: 'TT', color: '#20212a' },
   { name: 'YouTube', short: 'YT', color: '#ed0027' },
   { name: 'LinkedIn', short: 'LI', color: '#0a66c2' },
@@ -23,7 +23,13 @@ const normalizeUrl = value => {
   } catch { return ''; }
 };
 const normalizePlatform = value => String(value || '').toLowerCase().replace(/[^a-z]/g, '');
-const comparableDate = value => String(value || '').slice(0, 10);
+const comparableDate = value => String(value?.dateTime || value || '').slice(0, 10);
+const titleWords = value => new Set(String(value || '').toLowerCase().replace(/https?:\/\/\S+/g, '').replace(/[^a-z0-9]+/g, ' ').split(' ').filter(word => word.length > 2));
+const titleScore = (left, right) => {
+  const a = titleWords(left); const b = titleWords(right);
+  if (!a.size || !b.size) return 0;
+  return [...a].filter(word => b.has(word)).length / Math.min(a.size, b.size);
+};
 
 export function thumbnailForPost(post, items = []) {
   const exactUrl = normalizeUrl(post?.link);
@@ -34,11 +40,8 @@ export function thumbnailForPost(post, items = []) {
     const candidates = items.filter(item => normalizePlatform(item.platform).includes(platform) && comparableDate(item.publication_date) === date);
     if (candidates.length === 1) match = candidates[0];
     else if (candidates.length > 1) {
-      const title = String(post?.title || '').trim().toLowerCase();
-      match = candidates.find(item => {
-        const candidate = String(item.title || '').trim().toLowerCase();
-        return title && candidate && (candidate.includes(title.slice(0, 45)) || title.includes(candidate.slice(0, 45)));
-      });
+      const ranked = candidates.map(item => ({ item, score: titleScore(post?.title, item.title) })).sort((a, b) => b.score - a.score);
+      if (ranked[0]?.score >= .25) match = ranked[0].item;
     }
   }
   return safeLink(match?.picture);

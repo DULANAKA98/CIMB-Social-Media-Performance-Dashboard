@@ -16,6 +16,7 @@ import requests as http_requests
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hmac
 
 load_dotenv()  # Load GROQ_API_KEY and DATABASE_URL from .env
@@ -722,8 +723,8 @@ def _metricool_posts(start_date: Optional[str], end_date: Optional[str]):
         params={
             "blogId": blog_id,
             "userId": user_id,
-            "from": start.isoformat(),
-            "to": end.isoformat(),
+            "from": f"{start.isoformat()}T00:00:00",
+            "to": f"{end.isoformat()}T23:59:59",
             "timezone": "Asia/Kuala_Lumpur",
         },
         timeout=35,
@@ -751,7 +752,9 @@ def get_post_thumbnails(start_date: Optional[str] = Query(None), end_date: Optio
                 "title": str(row.get("text") or ""),
                 "link": link if link.lower().startswith(("http://", "https://")) else "",
                 "picture": picture,
-                "publication_date": row.get("publicationDate"),
+                "publication_date": (row.get("publicationDate") or {}).get("dateTime")
+                if isinstance(row.get("publicationDate"), dict)
+                else row.get("publicationDate"),
             })
         return {"items": items}
     except Exception as exc:
@@ -1500,6 +1503,13 @@ METRICOOL_FOLLOWER_METRICS = {
     "YouTube": ("youtube", "totalSubscribers"),
     "LinkedIn": ("linkedin", "followers"),
 }
+METRICOOL_FOLLOWER_TIMELINES = {
+    "Facebook": ("facebook", "pageFollows"),
+    "Instagram": ("instagram", "followers"),
+    "TikTok": ("tiktok", "followers_count"),
+    "YouTube": ("youtube", "totalSubscribers"),
+    "LinkedIn": ("linkedin", "followers"),
+}
 MALAYSIA_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 
 
@@ -1583,6 +1593,69 @@ def _fetch_metricool_followers(refreshed_at: datetime):
             }
         except Exception as exc:
             errors[platform] = str(exc)
+    return result, errors
+
+
+def _fetch_metricool_follower_history(start_date: str, end_date: str):
+    """Fetch the requested account-level follower timelines directly from Metricool."""
+    token = _required_env("METRICOOL_TOKEN")
+    user_id = _required_env("METRICOOL_USER_ID")
+    blog_id = _required_env("METRICOOL_BLOG_ID")
+    headers = {"X-Mc-Auth": token, "Content-Type": "application/json"}
+    result = {platform: [] for platform in FOLLOWER_PLATFORMS}
+    errors = {}
+    start = pd.to_datetime(start_date).date()
+    end = pd.to_datetime(end_date).date()
+
+    def fetch_platform(platform, network, metric):
+        response = http_requests.get(
+            "https://app.metricool.com/api/v2/analytics/timelines",
+            headers=headers,
+            params={
+                "blogId": blog_id,
+                "userId": user_id,
+                "network": network,
+                "metric": metric,
+                "subject": "account",
+                "from": f"{start_date}T00:00:00+08:00",
+                "to": f"{end_date}T23:59:59+08:00",
+                "timezone": "Asia/Kuala_Lumpur",
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        series = response.json().get("data", [])
+        values = series[0].get("values", []) if series else []
+        # Providers can return timeline values in either direction and may
+        # emit more than one observation for a calendar day. Keep the last
+        # observation for each Malaysia date, then sort ascending.
+        by_date = {}
+        for value in values:
+            observed = _parse_provider_time(value.get("dateTime"), datetime.now(timezone.utc))
+            day = observed.astimezone(MALAYSIA_TZ).date()
+            if day < start or day > end:
+                continue
+            by_date[day] = {
+                "month": day.isoformat(),
+                "month_label": day.strftime("%d %b %Y"),
+                "followers": int(float(value["value"])),
+                "provider": "Metricool",
+                "observed_at": observed.isoformat(),
+            }
+        return platform, [by_date[day] for day in sorted(by_date)]
+
+    with ThreadPoolExecutor(max_workers=len(METRICOOL_FOLLOWER_TIMELINES)) as pool:
+        futures = {
+            pool.submit(fetch_platform, platform, network, metric): platform
+            for platform, (network, metric) in METRICOOL_FOLLOWER_TIMELINES.items()
+        }
+        for future in as_completed(futures):
+            platform = futures[future]
+            try:
+                _, rows = future.result()
+                result[platform] = rows
+            except Exception as exc:
+                errors[platform] = str(exc)
     return result, errors
 
 
@@ -1671,6 +1744,35 @@ def get_follower_growth(
         "expected": len(FOLLOWER_PLATFORMS),
         "refresh_schedule": "Daily at 08:00 Asia/Kuala_Lumpur",
     }
+    return result
+
+
+@app.get("/api/follower-growth/metricool")
+def get_metricool_follower_growth(
+    start_date: str = Query(...),
+    end_date: str = Query(...),
+):
+    """Return fresh Metricool follower timelines for the card's selected period."""
+    try:
+        start = pd.to_datetime(start_date).date()
+        end = pd.to_datetime(end_date).date()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid follower date range") from exc
+    if start > end:
+        raise HTTPException(status_code=400, detail="Follower start date must not be after end date")
+    if (end - start).days > 730:
+        raise HTTPException(status_code=400, detail="Follower date range cannot exceed two years")
+
+    result, errors = _fetch_metricool_follower_history(start.isoformat(), end.isoformat())
+    result["_meta"] = {
+        "last_refreshed_at": datetime.now(timezone.utc).isoformat(),
+        "source": "Metricool",
+        "coverage": sum(bool(result[platform]) for platform in FOLLOWER_PLATFORMS),
+        "expected": len(FOLLOWER_PLATFORMS),
+        "errors": errors,
+    }
+    if not any(result[platform] for platform in FOLLOWER_PLATFORMS):
+        raise HTTPException(status_code=502, detail={"message": "Metricool returned no follower history", "errors": errors})
     return result
 
 

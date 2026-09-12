@@ -85,7 +85,7 @@ test('only http(s) post links are rendered', () => {
 test('thumbnail matching prefers the post URL and safely falls back to platform and date', () => {
   const items = [
     { platform: 'INSTAGRAM', publication_date: '2026-09-10T08:00:00Z', link: 'https://instagram.com/p/abc/?utm_source=test', picture: 'https://cdn.example.com/a.jpg' },
-    { platform: 'facebook', publication_date: '2026-09-10', link: '', picture: 'https://cdn.example.com/b.jpg' },
+    { platform: 'facebook', publication_date: { dateTime: '2026-09-10T09:30:00Z' }, link: '', picture: 'https://cdn.example.com/b.jpg' },
   ];
   assert.equal(thumbnailForPost({ platform: 'Instagram', date: '2026-09-01', link: 'https://www.instagram.com/p/abc/' }, items), 'https://cdn.example.com/a.jpg');
   assert.equal(thumbnailForPost({ platform: 'Facebook', date: '2026-09-10', link: '' }, items), 'https://cdn.example.com/b.jpg');

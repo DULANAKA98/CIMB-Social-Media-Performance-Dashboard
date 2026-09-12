@@ -1,15 +1,16 @@
 /* eslint-disable react/prop-types */
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Camera, Check, ChevronDown, ChevronRight, CirclePlay, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, Music2, RefreshCw, Settings2, Target, TrendingUp, Users, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Camera, Check, ChevronDown, ChevronRight, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Settings2, Target, TrendingUp, Users, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
-import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, filterFollowerData, followerModel, full, percent, safeLink, thumbnailForPost } from './performance/model';
+import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, followerModel, full, percent, safeLink, thumbnailForPost } from './performance/model';
 import './performance/performance.css';
 
 const LegacyDashboard = lazy(() => import('./Dashboard'));
-const ICONS = { Instagram: Camera, TikTok: Music2, YouTube: CirclePlay };
+const BRAND_ICONS = { Facebook: FaFacebookF, Instagram: FaInstagram, TikTok: FaTiktok, YouTube: FaYoutube, LinkedIn: FaLinkedinIn };
 const CHART_STYLE = { fontSize: 12, fill: '#818493' };
 const TOOLTIP_STYLE = { background: '#fff', border: '1px solid #e9e9ef', borderRadius: 8, fontSize: 14, color: '#25232a', boxShadow: '0 5px 25px #26081510' };
 const localIso = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
@@ -29,9 +30,9 @@ function trapFocus(event) {
 }
 
 function PlatformIcon({ name, size = 16 }) {
-  if (name === 'Facebook' || name === 'LinkedIn') return <span className="platform-letter-icon" style={{ width: size, fontSize: size }} aria-hidden="true">{name === 'Facebook' ? 'f' : 'in'}</span>;
-  const Icon = ICONS[name] || BarChart3;
-  return <Icon size={size} aria-hidden="true" />;
+  const Icon = BRAND_ICONS[name] || BarChart3;
+  const color = PLATFORMS.find(platform => platform.name === name)?.color;
+  return <Icon size={size} color={color} aria-hidden="true" />;
 }
 
 function Panel({ title, subtitle, children, className = '', action }) {
@@ -76,7 +77,7 @@ function DateFilter({ range, onApply, label = 'Reporting period', follower = fal
     <button className="perf-button date-trigger" aria-expanded={open} onClick={() => { setDraft(range); setOpen(!open); }}><CalendarDays size={15} /><span>{range.start ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates'}</span><ChevronDown size={13} /></button>
     {open && <div className="date-popover" role="dialog" aria-label={label}>
       <div className="popover-title"><strong>{label}</strong><button aria-label="Close date filter" className="icon-button" onClick={() => setOpen(false)}><X size={16} /></button></div>
-      <div className="date-shortcuts"><button onClick={() => apply({ start: '', end: '' })}>All time</button>{follower && <button onClick={() => {
+      <div className="date-shortcuts">{!follower && <button onClick={() => apply({ start: '', end: '' })}>All time</button>}{follower && <button onClick={() => {
         const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 29);
         apply({ start: localIso(start), end: localIso(end) });
       }}>Last 30 days</button>}<button onClick={() => {
@@ -94,17 +95,18 @@ function DateFilter({ range, onApply, label = 'Reporting period', follower = fal
 
 function PerformanceChart({ model }) {
   const rows = model.rows.filter(row => row.posts != null);
-  return <Panel title="Performance by Platform" className="platform-chart" action={<div className="chart-legend"><span><i />Reach · left axis</span><span><i className="line-dot" />Avg. ER% · right axis</span></div>}>
-    {rows.length ? <><div className="chart-area" role="img" aria-label="Reach and average post engagement rate by platform; engagement totals are listed below">
-      <ResponsiveContainer width="100%" height="100%"><ComposedChart data={rows} margin={{ top: 22, right: 1, bottom: 0, left: -10 }} barGap={3}>
+  return <Panel title="Performance by Platform" className="platform-chart" action={<div className="chart-legend"><span><i />Reach</span><span><i className="dark-dot" />Engagement</span><span><i className="line-dot" />ER%</span></div>}>
+    {rows.length ? <><div className="chart-area" role="img" aria-label="Reach, engagement and average post engagement rate by platform">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><ComposedChart data={rows} margin={{ top: 22, right: 1, bottom: 0, left: -10 }} barGap={3}>
         <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="short" tick={CHART_STYLE} axisLine={false} tickLine={false} />
-        <YAxis yAxisId="volume" tickFormatter={compact} tick={{ ...CHART_STYLE, fill: '#b3163d' }} axisLine={false} tickLine={false} width={46} />
+        <YAxis yAxisId="volume" tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} width={46} />
         <YAxis yAxisId="rate" orientation="right" tickFormatter={value => `${value}%`} tick={{ ...CHART_STYLE, fill: '#747b91' }} axisLine={false} tickLine={false} width={36} />
         <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value, name) => [name === 'Avg. ER%' ? percent(value) : full(value), name]} labelFormatter={(_, payload) => payload?.[0]?.payload?.name} />
-        <Bar yAxisId="volume" dataKey="reach" name="Reach" fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={36}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 11, fill: '#5a5361' }} /></Bar>
+        <Bar yAxisId="volume" dataKey="reach" name="Reach" fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={32}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 11, fill: '#5a5361' }} /></Bar>
+        <Bar yAxisId="volume" dataKey="engagement" name="Engagement" fill="#760a26" radius={[2, 2, 0, 0]} maxBarSize={22} minPointSize={11}><LabelList dataKey="engagement" position="top" formatter={compact} style={{ fontSize: 10, fill: '#760a26' }} /></Bar>
         <Line yAxisId="rate" dataKey="er" name="Avg. ER%" stroke="#9297ab" strokeWidth={1.7} dot={{ r: 3, fill: '#9297ab' }} />
       </ComposedChart></ResponsiveContainer>
-    </div><div className="platform-legend">{rows.map(row => <span key={row.name}><span><PlatformIcon name={row.name} size={12} />{row.name}</span><small>Eng. {compact(row.engagement)}</small></span>)}</div></> : <Empty>Upload platform exports in Data Hub to populate this chart.</Empty>}
+    </div><div className="platform-legend">{rows.map(row => <span key={row.name}><PlatformIcon name={row.name} size={12} />{row.name}</span>)}</div></> : <Empty>Upload platform exports in Data Hub to populate this chart.</Empty>}
   </Panel>;
 }
 
@@ -112,7 +114,7 @@ function ReachBreakdown({ model }) {
   const total = model.kpis.reach;
   return <Panel title="Reach Breakdown" subtitle="Organic and paid post reach" className="reach-chart">
     {model.reachSplit && total > 0 ? <div className="reach-body"><div className="donut-chart" role="img" aria-label={`Organic reach ${full(model.reachSplit[0].value)}, paid reach ${full(model.reachSplit[1].value)}`}>
-      <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={model.reachSplit} dataKey="value" innerRadius="64%" outerRadius="92%" startAngle={90} endAngle={-270} stroke="#fff" strokeWidth={3}>{model.reachSplit.map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => full(value)} /></PieChart></ResponsiveContainer>
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><PieChart><Pie data={model.reachSplit} dataKey="value" innerRadius="64%" outerRadius="92%" startAngle={90} endAngle={-270} stroke="#fff" strokeWidth={3}>{model.reachSplit.map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => full(value)} /></PieChart></ResponsiveContainer>
       <div className="donut-center"><strong>{compact(total)}</strong><span>Total reach</span></div>
     </div><div className="donut-legend">{model.reachSplit.map(row => <div key={row.name}><i style={{ background: row.color }} /><span>{row.name}<strong>{compact(row.value)} <small>({Math.round(row.value / total * 100)}%)</small></strong></span></div>)}</div></div> : <Empty icon={Target}>Reach data will appear here when available.</Empty>}
   </Panel>;
@@ -123,19 +125,19 @@ function refreshedLabel(value) {
   return new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kuala_Lumpur' }).format(new Date(value));
 }
 
-function Followers({ followers, latest, loading, error, range, onRange }) {
+function Followers({ followers, loading, error, range, onRange }) {
   const refreshed = refreshedLabel(followers.lastRefreshedAt);
   return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart" action={<DateFilter range={range} onApply={onRange} label="Follower period" follower />}>
     {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Daily follower growth">
-      <ResponsiveContainer width="100%" height="100%"><LineChart data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
-        <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="label" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => value.split(' ')[0]} />
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><LineChart data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
+        <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="label" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => value.split(' ').slice(0, 2).join(' ')} />
         <YAxis tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={47} />
         <Tooltip contentStyle={TOOLTIP_STYLE} formatter={full} /><Line dataKey="followers" name="Followers" stroke="#ed0027" strokeWidth={2} dot={{ r: 3, fill: '#ed0027', stroke: '#fff', strokeWidth: 1 }} />
       </LineChart></ResponsiveContainer>
     </div> : <Empty icon={TrendingUp} title={error ? 'Follower data unavailable' : 'Waiting for the first daily snapshot'}>
       {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms supplied. Matching daily snapshots are needed for a combined total.` : 'Follower counts will appear after the scheduled refresh runs.')}
     </Empty>}
-    <p className="follower-refreshed">{refreshedLabel(latest.lastRefreshedAt) ? `Last refreshed ${refreshedLabel(latest.lastRefreshedAt)}` : refreshed ? `Last refreshed ${refreshed}` : 'No successful refresh yet'}{latest.refreshSchedule ? ` · ${latest.refreshSchedule}` : ''}</p>
+    <p className="follower-refreshed">{refreshed ? `Metricool · fetched ${refreshed}` : 'Metricool data has not loaded yet'}</p>
   </Panel>;
 }
 
@@ -150,7 +152,7 @@ function Categories({ rows }) {
 function Formats({ rows }) {
   return <Panel title="Content Format Performance" subtitle="Average post ER% · organic content" className="format-chart">
     {rows.length ? <div className="chart-area" role="img" aria-label="Average organic engagement rate by content format">
-      <ResponsiveContainer width="100%" height="100%"><BarChart data={rows.slice(0, 6)} margin={{ top: 25, right: 8, left: 8, bottom: 8 }}>
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><BarChart data={rows.slice(0, 6)} margin={{ top: 25, right: 8, left: 8, bottom: 8 }}>
         <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 11 }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 'auto']} />
         <Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => percent(value)} cursor={{ fill: '#f7f7fa' }} />
         <Bar dataKey="er" name="Avg. ER%" radius={[3, 3, 0, 0]} maxBarSize={43}>{rows.slice(0, 6).map((row, index) => <Cell key={row.name} fill={['#ed0027', '#790a29', '#888996', '#b5b6c2', '#d1bdc5', '#dfe0e8'][index]} />)}<LabelList dataKey="er" position="top" formatter={percent} style={{ fontSize: 12, fill: '#39323f', fontWeight: 600 }} /></Bar>
@@ -162,6 +164,7 @@ function Formats({ rows }) {
 function PostThumbnail({ post, thumbnails }) {
   const [failed, setFailed] = useState(false);
   const src = thumbnailForPost(post, thumbnails);
+  useEffect(() => setFailed(false), [src]);
   if (!src || failed) return <span className="post-format-icon"><PlatformIcon name={post.platform} size={18} /></span>;
   return <span className="post-thumbnail"><img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /></span>;
 }
@@ -217,6 +220,7 @@ export default function PerformanceDashboard({ onLogout }) {
   const [showAllPosts, setShowAllPosts] = useState(false);
   const [followerRange, setFollowerRange] = useState(recentFollowerRange);
   const [followerState, setFollowerState] = useState({ data: null, loading: false, error: '' });
+  const [followerHistoryState, setFollowerHistoryState] = useState({ data: null, loading: false, error: '' });
   const [thumbnailState, setThumbnailState] = useState({ items: [] });
   const [aiState, setAiState] = useState({ data: null, loading: false });
   const [legacy, setLegacy] = useState(false);
@@ -227,7 +231,7 @@ export default function PerformanceDashboard({ onLogout }) {
   const model = useMemo(() => buildModel(current.data, platform), [current.data, platform]);
   const previousModel = useMemo(() => buildModel(previous.data, platform), [previous.data, platform]);
   const latestFollowers = useMemo(() => followerModel(followerState.data, platform), [followerState.data, platform]);
-  const followers = useMemo(() => followerModel(filterFollowerData(followerState.data, followerRange), platform), [followerState.data, followerRange, platform]);
+  const followers = useMemo(() => followerModel(followerHistoryState.data, platform), [followerHistoryState.data, platform]);
 
   const navigate = (next, name = null) => { setPage(next); setPlatform(name); setDetailTab('overview'); setShowAllPosts(false); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
   useEffect(() => {
@@ -255,6 +259,19 @@ export default function PerformanceDashboard({ onLogout }) {
       .catch(() => { if (!controller.signal.aborted) setFollowerState({ data: null, loading: false, error: 'Unable to load follower data. Try refreshing the dashboard.' }); });
     return () => controller.abort();
   }, [refreshKey]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setFollowerHistoryState({ data: null, loading: true, error: '' });
+    axios.get(`${API_URL}/follower-growth/metricool`, { params: queryFor(followerRange), signal: controller.signal, timeout: 90000 })
+      .then(response => {
+        if (controller.signal.aborted) return;
+        const errors = response.data?._meta?.errors || {};
+        const failed = Object.keys(errors);
+        setFollowerHistoryState({ data: response.data, loading: false, error: failed.length ? `Metricool could not load: ${failed.join(', ')}.` : '' });
+      })
+      .catch(() => { if (!controller.signal.aborted) setFollowerHistoryState({ data: null, loading: false, error: 'Unable to fetch follower history from Metricool. Try another date range.' }); });
+    return () => controller.abort();
+  }, [followerRange, refreshKey]);
   useEffect(() => {
     const controller = new AbortController();
     axios.get(`${API_URL}/post-thumbnails`, { params: queryFor(range), signal: controller.signal, timeout: 60000 })
@@ -312,7 +329,7 @@ export default function PerformanceDashboard({ onLogout }) {
           </div>
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published posts</small></h2></div><div className="detail-tabs" role="group" aria-label="Platform view">{['overview', 'content', 'formats', ...(platform === 'Instagram' ? ['stories'] : [])].map(tab => <button key={tab} aria-pressed={detailTab === tab} onClick={() => setDetailTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</div></div>}
           {(page === 'executive' || detailTab === 'overview') && <div className="perf-grid" aria-busy={current.loading}>
-            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} latest={latestFollowers} loading={followerState.loading} error={followerState.error} range={followerRange} onRange={setFollowerRange} />
+            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} range={followerRange} onRange={setFollowerRange} />
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} /><Formats rows={model.formats} />
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} />

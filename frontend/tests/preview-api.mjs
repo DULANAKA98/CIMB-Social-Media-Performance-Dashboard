@@ -28,6 +28,7 @@ const fixtures = {
   'content-types': Object.fromEntries([...names, 'Overall'].map(platform => [platform, categories.map((type, i) => ({ type, count: (6 - i) * (platform === 'Overall' ? 3 : 1), reach: (6 - i) * 1450000 * (platform === 'Overall' ? 3 : 1), engagement: (6 - i) * 49000, engagement_rate: 2.35 + i * .31 }))])),
   'format-performance': names.flatMap(platform => ['Video', 'Carousel', 'Static', 'Link'].map((format, i) => ({ platform, format, is_total: false, posts: 4, avg_reach: 50000, avg_engagement: 2000, avg_er: 4.52 - i * .6 }))),
   'follower-growth': { ...Object.fromEntries(names.map((platform, index) => [platform, ['2026-08-13', '2026-08-20', '2026-08-27', '2026-09-03', '2026-09-10', '2026-09-11'].map((date, i) => ({ month: date, month_label: `${date.slice(8)} ${date.slice(5, 7) === '08' ? 'Aug' : 'Sep'} 2026`, followers: 450000 + index * 100000 + i * 22000 }))])), _meta: { last_refreshed_at: '2026-09-11T09:20:00Z', refresh_schedule: 'Daily at 08:00 Asia/Kuala_Lumpur' } },
+  'metricool': { ...Object.fromEntries(names.map((platform, index) => [platform, ['2026-08-14', '2026-08-20', '2026-08-27', '2026-09-03', '2026-09-10', '2026-09-12'].map((date, i) => ({ month: date, month_label: `${date.slice(8)} ${date.slice(5, 7) === '08' ? 'Aug' : 'Sep'} 2026`, followers: 450000 + index * 100000 + i * 22000 }))])), _meta: { last_refreshed_at: '2026-09-12T09:20:00Z', source: 'Metricool', errors: {} } },
   'post-thumbnails': { items: posts.map(post => ({ platform: post.platform, title: post.title, publication_date: post.date, link: '', picture: `https://picsum.photos/seed/cimb-${post.id}/120/90` })) },
   'posts': { posts, total: posts.length, pages: 2 },
   'executive-summary': { error: 'Test fixture: AI unavailable' },
@@ -42,5 +43,12 @@ http.createServer((req, res) => {
   if (url.searchParams.get('start_date')?.startsWith('2098')) { res.writeHead(503); res.end(JSON.stringify({ detail: 'Synthetic connection failure' })); return; }
   const endpoint = url.pathname.split('/').at(-1);
   if (!(endpoint in fixtures)) { res.writeHead(404); res.end('{}'); return; }
+  if (endpoint === 'metricool') {
+    const start = url.searchParams.get('start_date') || '';
+    const end = url.searchParams.get('end_date') || '9999-12-31';
+    const filtered = Object.fromEntries(names.map(name => [name, fixtures.metricool[name].filter(row => row.month >= start && row.month <= end)]));
+    res.end(JSON.stringify({ ...filtered, _meta: fixtures.metricool._meta }));
+    return;
+  }
   res.end(JSON.stringify(fixtures[endpoint]));
 }).listen(8766, '127.0.0.1', () => console.log('Synthetic, read-only UI preview API: http://127.0.0.1:8766/api'));
