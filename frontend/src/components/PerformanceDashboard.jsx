@@ -162,11 +162,22 @@ function Formats({ rows }) {
 }
 
 function PostThumbnail({ post, thumbnails }) {
-  const [failed, setFailed] = useState(false);
-  const src = thumbnailForPost(post, thumbnails);
-  useEffect(() => setFailed(false), [src]);
-  if (!src || failed) return <span className="post-format-icon"><PlatformIcon name={post.platform} size={18} /></span>;
-  return <span className="post-thumbnail"><img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /></span>;
+  const metricoolSrc = thumbnailForPost(post, thumbnails);
+  const postUrl = safeLink(post.link);
+  const [fallbackSrc, setFallbackSrc] = useState('');
+  const [failedSrc, setFailedSrc] = useState('');
+  useEffect(() => { setFallbackSrc(''); setFailedSrc(''); }, [metricoolSrc, postUrl]);
+  useEffect(() => {
+    if (!postUrl || fallbackSrc || (metricoolSrc && failedSrc !== metricoolSrc)) return;
+    const controller = new AbortController();
+    axios.get(`${API_URL}/post-thumbnail`, { params: { url: postUrl }, signal: controller.signal, timeout: 25000 })
+      .then(response => setFallbackSrc(safeLink(response.data?.picture) || ''))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [fallbackSrc, failedSrc, metricoolSrc, postUrl]);
+  const src = metricoolSrc && failedSrc !== metricoolSrc ? metricoolSrc : fallbackSrc && failedSrc !== fallbackSrc ? fallbackSrc : '';
+  if (!src) return <span className="post-format-icon"><PlatformIcon name={post.platform} size={18} /></span>;
+  return <span className="post-thumbnail"><img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedSrc(src)} /></span>;
 }
 
 function Posts({ posts, expanded, onExpand, platform, thumbnails }) {

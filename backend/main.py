@@ -17,7 +17,11 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
+from html import unescape
+from urllib.parse import urlparse
 import hmac
+import re
 
 load_dotenv()  # Load GROQ_API_KEY and DATABASE_URL from .env
 
@@ -761,6 +765,61 @@ def get_post_thumbnails(start_date: Optional[str] = Query(None), end_date: Optio
         # Thumbnails are optional enrichment. Never make the performance data
         # unavailable when Metricool is temporarily unreachable.
         return {"items": [], "warning": str(exc)}
+
+
+SOCIAL_POST_HOSTS = (
+    "facebook.com", "instagram.com", "linkedin.com", "tiktok.com", "youtube.com", "youtu.be",
+)
+
+
+def _is_public_social_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+        host = (parsed.hostname or "").lower()
+        return parsed.scheme == "https" and any(host == allowed or host.endswith(f".{allowed}") for allowed in SOCIAL_POST_HOSTS)
+    except Exception:
+        return False
+
+
+@lru_cache(maxsize=512)
+def _public_post_image(post_url: str) -> str:
+    """Read a public post's Open Graph image when Metricool has no matching row."""
+    response = http_requests.get(
+        post_url,
+        headers={"User-Agent": "Mozilla/5.0 (compatible; CIMB-Dashboard/1.0)"},
+        timeout=18,
+        allow_redirects=True,
+    )
+    response.raise_for_status()
+    if not _is_public_social_url(response.url):
+        raise ValueError("Social post redirected to an unsupported host")
+    patterns = (
+        r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, response.text, flags=re.IGNORECASE)
+        if match:
+            image_url = unescape(match.group(1))
+            if urlparse(image_url).scheme == "https":
+                return image_url
+    return ""
+
+
+@app.get("/api/post-thumbnail")
+def get_public_post_thumbnail(url: str = Query(...)):
+    """Return a tightly scoped public-page fallback for posts absent from Metricool."""
+    if not _is_public_social_url(url):
+        raise HTTPException(status_code=400, detail="Unsupported social post URL")
+    try:
+        picture = _public_post_image(url)
+        if not picture:
+            raise HTTPException(status_code=404, detail="No public thumbnail found")
+        return {"picture": picture, "source": "Public post metadata fallback"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Unable to load public post thumbnail") from exc
 
 
 @app.get("/api/all-content")

@@ -30,6 +30,7 @@ const fixtures = {
   'follower-growth': { ...Object.fromEntries(names.map((platform, index) => [platform, ['2026-08-13', '2026-08-20', '2026-08-27', '2026-09-03', '2026-09-10', '2026-09-11'].map((date, i) => ({ month: date, month_label: `${date.slice(8)} ${date.slice(5, 7) === '08' ? 'Aug' : 'Sep'} 2026`, followers: 450000 + index * 100000 + i * 22000 }))])), _meta: { last_refreshed_at: '2026-09-11T09:20:00Z', refresh_schedule: 'Daily at 08:00 Asia/Kuala_Lumpur' } },
   'metricool': { ...Object.fromEntries(names.map((platform, index) => [platform, ['2026-08-14', '2026-08-20', '2026-08-27', '2026-09-03', '2026-09-10', '2026-09-12'].map((date, i) => ({ month: date, month_label: `${date.slice(8)} ${date.slice(5, 7) === '08' ? 'Aug' : 'Sep'} 2026`, followers: 450000 + index * 100000 + i * 22000 }))])), _meta: { last_refreshed_at: '2026-09-12T09:20:00Z', source: 'Metricool', errors: {} } },
   'post-thumbnails': { items: posts.map(post => ({ platform: post.platform, title: post.title, publication_date: post.date, link: '', picture: `https://picsum.photos/seed/cimb-${post.id}/120/90` })) },
+  'post-thumbnail': { picture: 'https://picsum.photos/seed/cimb-fallback/120/90', source: 'Synthetic public metadata fallback' },
   'posts': { posts, total: posts.length, pages: 2 },
   'executive-summary': { error: 'Test fixture: AI unavailable' },
 };
