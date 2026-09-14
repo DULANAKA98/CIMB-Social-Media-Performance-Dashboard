@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Camera, Check, ChevronDown, ChevronRight, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Settings2, Target, TrendingUp, Users, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronRight, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Settings2, Target, TrendingUp, Users, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
@@ -222,7 +222,6 @@ export default function PerformanceDashboard({ onLogout }) {
   const [range, setRange] = useState({ start: '', end: '' });
   const [refreshKey, setRefreshKey] = useState(0);
   const [benchmarkMode, setBenchmarkMode] = useState('previous');
-  const [detailTab, setDetailTab] = useState('overview');
   const [showAllPosts, setShowAllPosts] = useState(false);
   const [followerState, setFollowerState] = useState({ data: null, loading: false, error: '' });
   const [followerHistoryState, setFollowerHistoryState] = useState({ data: null, loading: false, error: '' });
@@ -230,6 +229,7 @@ export default function PerformanceDashboard({ onLogout }) {
   const [aiState, setAiState] = useState({ data: null, loading: false });
   const [legacy, setLegacy] = useState(false);
   const aiController = useRef(null);
+  const mainRef = useRef(null);
   const current = usePerformanceData(range, refreshKey);
   const comparedRange = useMemo(() => comparisonRange(range, benchmarkMode), [range, benchmarkMode]);
   const previous = usePerformanceData(comparedRange, refreshKey, !!comparedRange);
@@ -238,7 +238,30 @@ export default function PerformanceDashboard({ onLogout }) {
   const latestFollowers = useMemo(() => followerModel(followerState.data, platform), [followerState.data, platform]);
   const followers = useMemo(() => followerModel(followerHistoryState.data, platform), [followerHistoryState.data, platform]);
 
-  const navigate = (next, name = null) => { setPage(next); setPlatform(name); setDetailTab('overview'); setShowAllPosts(false); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
+  const navigate = (next, name = null) => { setPage(next); setPlatform(name); setShowAllPosts(false); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
+  useLayoutEffect(() => {
+    const root = mainRef.current;
+    if (!root) return undefined;
+    const items = [...root.querySelectorAll('.perf-kpi, .perf-panel, .section-intro, .data-hub-view .glass-panel')];
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion || !('IntersectionObserver' in window)) {
+      items.forEach(item => item.classList.add('reveal-item', 'is-visible'));
+      return undefined;
+    }
+    items.forEach((item, index) => {
+      item.classList.add('reveal-item');
+      item.style.setProperty('--reveal-delay', `${Math.min(index % 4, 3) * 45}ms`);
+    });
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -24px' });
+    items.forEach(item => observer.observe(item));
+    return () => observer.disconnect();
+  }, [page, platform]);
   useEffect(() => {
     aiController.current?.abort();
     setAiState({ data: null, loading: false });
@@ -300,7 +323,7 @@ export default function PerformanceDashboard({ onLogout }) {
       if (!controller.signal.aborted) setAiState({ data: response.data, loading: false });
     } catch { if (!controller.signal.aborted) setAiState({ data: { error: true }, loading: false }); }
   };
-  const title = page === 'data-hub' ? 'Data Hub' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Performance';
+  const title = page === 'data-hub' ? 'Data Hub' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
 
   if (legacy) return <><div className="legacy-back"><button onClick={() => { setLegacy(false); setRefreshKey(key => key + 1); }}>← Back to performance dashboard</button><span>Existing reporting workspace</span></div><Suspense fallback={<p>Opening reporting tools…</p>}><LegacyDashboard onLogout={onLogout} /></Suspense></>;
 
@@ -310,7 +333,7 @@ export default function PerformanceDashboard({ onLogout }) {
     <aside id="dashboard-navigation" ref={sidebarRef} className={`perf-sidebar ${mobileOpen ? 'is-open' : ''}`} aria-label="Dashboard navigation" aria-hidden={isMobile && !mobileOpen ? true : undefined} inert={isMobile && !mobileOpen ? '' : undefined} onKeyDown={mobileOpen ? trapFocus : undefined}>
       <div className="sidebar-top"><span>PERFORMANCE HUB</span><button className="mobile-only icon-button" aria-label="Close navigation" onClick={() => setMobileOpen(false)}><X size={19} /></button></div>
       <nav className="perf-nav">
-        <button className={`perf-nav-item ${page === 'executive' ? 'active' : ''}`} aria-current={page === 'executive' ? 'page' : undefined} onClick={() => navigate('executive')}><House size={17} /><span>Executive Performance</span></button>
+        <button className={`perf-nav-item ${page === 'executive' ? 'active' : ''}`} aria-current={page === 'executive' ? 'page' : undefined} onClick={() => navigate('executive')}><House size={17} /><span>Executive Overview</span></button>
         <div className={`platform-parent ${page === 'platform' ? 'selected' : ''}`}><button className="perf-nav-item" aria-current={page === 'platform' && !platform ? 'page' : undefined} onClick={() => { navigate('platform'); setPlatformOpen(true); }}><BarChart3 size={17} /><span>Platform Performance</span></button><button className="submenu-toggle" aria-label="Toggle platform submenu" aria-expanded={platformOpen} aria-controls="platform-submenu" onClick={() => setPlatformOpen(!platformOpen)}>{platformOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button></div>
         {platformOpen && <div className="platform-submenu" id="platform-submenu">{PLATFORMS.map(item => <button className={`perf-nav-item ${platform === item.name ? 'active' : ''}`} key={item.name} aria-current={platform === item.name ? 'page' : undefined} onClick={() => navigate('platform', item.name)}><PlatformIcon name={item.name} /><span>{item.name}</span>{platform === item.name && <i />}</button>)}</div>}
       </nav>
@@ -321,7 +344,8 @@ export default function PerformanceDashboard({ onLogout }) {
       {import.meta.env.DEV && import.meta.env.VITE_UI_PREVIEW === 'true' && <div className="preview-notice">UI preview · Synthetic test data · Not connected to the live database</div>}
       <header className="perf-header"><div className="header-brand"><button className="mobile-only icon-button" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={22} /></button><span className="cimb-wordmark"><img src="/cimb-logo.jpg?v=2" alt="CIMB" width="144" height="40" /></span><div className="header-titles"><h1>Social Media Performance Dashboard</h1><p>{title}</p></div></div><div className="header-actions"><DateFilter range={range} onApply={value => { setRange(value); setShowAllPosts(false); }} /><button className="perf-button primary export-button" onClick={() => window.print()} title="Print or save this dashboard as a PDF"><Download size={14} /><span>Download report</span></button></div></header>
 
-      <main id="performance-main" className="perf-main" tabIndex={-1}>
+      <main id="performance-main" ref={mainRef} className="perf-main" tabIndex={-1}>
+        <div className="dashboard-page" key={`${page}-${platform || 'all'}`}>
         {page === 'data-hub' ? <div className="data-hub-view"><div className="section-intro"><h2>Your data, in one place.</h2><p>Upload and manage platform exports. Return to the overview to see updated performance.</p></div><DataHub startDate={range.start} endDate={range.end} /></div> : <>
           <div className="overview-toolbar"><div className="data-status"><span className={`status-dot ${current.errors.length ? 'warning' : ''}`} />{current.loading ? 'Loading data…' : current.errors.length ? 'Connection needs attention' : current.empty ? 'Ready for your data' : 'Connected to Data Hub'}<button className={`icon-button ${current.loading ? 'is-refreshing' : ''}`} title="Refresh data" aria-label="Refresh data" disabled={current.loading} onClick={() => setRefreshKey(key => key + 1)}><RefreshCw size={14} /></button></div></div>
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
@@ -332,20 +356,19 @@ export default function PerformanceDashboard({ onLogout }) {
             <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help="Total engagements across posts in the selected period. Instagram Stories excluded."><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
             <Kpi label={platform ? 'Avg. Post ER%' : 'Engagement Rate (ER%)'} value={percent(model.kpis.er)} icon={BarChart3} help={platform ? 'Mean of individual post engagement rates, as reported by the platform-stats endpoint.' : 'Total engagement / ER denominator. The backend uses views for Facebook/Instagram posts without reach.'}><Delta current={model.kpis.er} previous={previousModel.kpis.er} rate label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
           </div>
-          {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published posts</small></h2></div><div className="detail-tabs" role="group" aria-label="Platform view">{['overview', 'content', 'formats', ...(platform === 'Instagram' ? ['stories'] : [])].map(tab => <button key={tab} aria-pressed={detailTab === tab} onClick={() => setDetailTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</div></div>}
-          {(page === 'executive' || detailTab === 'overview') && <div className="perf-grid" aria-busy={current.loading}>
+          {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published posts</small></h2></div></div>}
+          <div className="perf-grid" aria-busy={current.loading}>
             <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} /><Formats rows={model.formats} />
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} />
             <Posts posts={model.posts} onExpand={() => { setShowAllPosts(!showAllPosts); }} platform={platform} thumbnails={thumbnailState.items} />
             <Insights model={model} ai={platform ? null : aiState.data} loading={aiState.loading} onGenerate={platform ? () => setLegacy(true) : generateInsights} platform={platform} />
-          </div>}
-          {(showAllPosts || (page === 'platform' && detailTab === 'content')) && <Posts posts={model.posts} platform={platform} thumbnails={thumbnailState.items} expanded />}
-          {page === 'platform' && detailTab === 'formats' && <div className="format-detail"><Formats rows={model.formats} /><Panel title="Format breakdown" subtitle="Organic posts only"><div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Format</th><th>Posts</th><th>Reach</th><th>Engagement</th><th>Avg. ER%</th></tr></thead><tbody>{model.formats.map(row => <tr key={row.name}><td>{row.name}</td><td>{full(row.posts)}</td><td>{compact(row.reach)}</td><td>{compact(row.engagement)}</td><td>{percent(row.er)}</td></tr>)}</tbody></table>{!model.formats.length && <Empty />}</div></Panel></div>}
-          {page === 'platform' && detailTab === 'stories' && <Panel title="Instagram Stories" subtitle="Reported separately; not included in the main post totals">{current.data.stats?.['Instagram Stories'] ? <div className="story-kpis"><Kpi label="Stories" value={full(current.data.stats['Instagram Stories'].stories_count)} icon={Camera} /><Kpi label="Average reach" value={full(current.data.stats['Instagram Stories'].avg_reach)} icon={Users} /><Kpi label="Average ER%" value={percent(current.data.stats['Instagram Stories'].avg_engagement_rate)} icon={Heart} /></div> : <Empty icon={Camera} title="No Instagram Stories in this period">Upload an Instagram Stories export in Data Hub to populate this view.</Empty>}</Panel>}
+          </div>
+          {showAllPosts && <Posts posts={model.posts} platform={platform} thumbnails={thumbnailState.items} expanded />}
           <footer className="perf-footer"><span>{current.updatedAt && `Updated ${current.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</span></footer>
         </>}
+        </div>
       </main>
     </div>
     <ChatWidget

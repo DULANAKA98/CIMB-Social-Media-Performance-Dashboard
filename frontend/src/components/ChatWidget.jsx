@@ -143,7 +143,6 @@ export default function ChatWidget({ startDate, endDate, activeTab, currentPage,
         />
         <button type="submit" disabled={!input.trim() || isLoading} aria-label="Send question"><Send size={17} /></button>
       </form>
-      <p className="cimb-chat-disclaimer">Read-only access to CIMB dashboard data. Review before sharing.</p>
     </section>}
 
     <button
