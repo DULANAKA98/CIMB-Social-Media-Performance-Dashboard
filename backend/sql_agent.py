@@ -17,6 +17,7 @@ import time
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import requests as http_requests
 
@@ -215,7 +216,56 @@ Semantics that matter:
     return doc
 
 
-# -- Groq ---------------------------------------------------------------------
+# -- Model providers ----------------------------------------------------------
+def worker_sql_url() -> Optional[str]:
+    """The Worker's /sql route, derived from the configured insights URL."""
+    raw = os.getenv("CIMB_INSIGHTS_URL", "").strip()
+    key = os.getenv("CIMB_INSIGHTS_KEY", "").strip()
+    if not raw or not key:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme != "https" or not parsed.netloc:
+        return None
+    return parsed._replace(path="/sql", params="", query="", fragment="").geturl()
+
+
+def _worker_json(url: str, messages: List[Dict[str, str]], max_tokens: int) -> Dict[str, Any]:
+    headers = {
+        "x-api-key": os.getenv("CIMB_INSIGHTS_KEY", "").strip(),
+        "content-type": "application/json",
+    }
+    try:
+        response = http_requests.post(
+            url, headers=headers, json={"messages": messages, "max_tokens": max_tokens}, timeout=60
+        )
+    except http_requests.RequestException as exc:
+        raise SqlAgentError("The CIMB AI service is unreachable (%s)." % type(exc).__name__)
+    if response.status_code != 200:
+        raise SqlAgentError("The CIMB AI service returned HTTP %d." % response.status_code)
+    try:
+        output = response.json()["output"]
+    except (KeyError, ValueError) as exc:
+        raise SqlAgentError("The CIMB AI service returned an unreadable response (%s)."
+                            % type(exc).__name__)
+    if not isinstance(output, dict):
+        raise SqlAgentError("The CIMB AI service did not return a JSON object.")
+    return output
+
+
+def _llm_json(messages: List[Dict[str, str]], max_tokens: int) -> Dict[str, Any]:
+    """Call the configured provider: the Cloudflare Worker, else Groq."""
+    url = worker_sql_url()
+    if url:
+        return _worker_json(url, messages, max_tokens)
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if groq_key:
+        return _groq_json(groq_key, messages, max_tokens)
+    raise SqlAgentError(
+        "The AI chat is not configured. Set CIMB_INSIGHTS_URL and CIMB_INSIGHTS_KEY "
+        "to use the Cloudflare Worker, or GROQ_API_KEY to use Groq."
+    )
+
+
 def _groq_json(api_key: str, messages: List[Dict[str, str]], max_tokens: int) -> Dict[str, Any]:
     headers = {"Authorization": "Bearer %s" % api_key, "Content-Type": "application/json"}
     last_error = "no model attempted"
@@ -249,7 +299,7 @@ def _history_text(history: List[Dict[str, str]]) -> str:
     return "\n".join("%s: %s" % (item["role"], item["content"]) for item in history[-6:])
 
 
-def generate_sql(api_key: str, question: str, history: List[Dict[str, str]],
+def generate_sql(question: str, history: List[Dict[str, str]],
                  hints: Dict[str, Any], previous_error: Optional[str],
                  previous_sql: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     """Ask the model for one SELECT. Returns (sql, refusal_reason)."""
@@ -300,14 +350,14 @@ or, only if no query over this schema could answer it:
             "read-only SQL SELECT. Reply only with JSON."},
         {"role": "user", "content": prompt},
     ]
-    output = _groq_json(api_key, messages, max_tokens=900)
+    output = _llm_json(messages, max_tokens=900)
     sql = output.get("sql")
     if not sql:
         return None, str(output.get("reason") or "That question cannot be answered from this database.")
     return str(sql), None
 
 
-def phrase_answer(api_key: str, question: str, history: List[Dict[str, str]],
+def phrase_answer(question: str, history: List[Dict[str, str]],
                   sql: str, rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     shown = rows[:ROWS_SHOWN_TO_MODEL]
     prompt = """Question: %s
@@ -345,7 +395,7 @@ Reply with JSON:
             "Reply only with JSON."},
         {"role": "user", "content": prompt},
     ]
-    output = _groq_json(api_key, messages, max_tokens=900)
+    output = _llm_json(messages, max_tokens=900)
     reply = str(output.get("reply") or "").strip()
     if not reply:
         raise SqlAgentError("The model returned an empty answer.")
@@ -361,14 +411,10 @@ Reply with JSON:
 # -- Orchestration ------------------------------------------------------------
 def answer_question(question: str, history: List[Dict[str, str]],
                     hints: Dict[str, Any]) -> Dict[str, Any]:
-    api_key = os.getenv("GROQ_API_KEY", "").strip()
-    if not api_key:
-        raise SqlAgentError("The AI chat is not configured: GROQ_API_KEY is not set.")
-
     error: Optional[str] = None
     raw_sql: Optional[str] = None
     for _ in range(SQL_ATTEMPTS):
-        raw_sql, refusal = generate_sql(api_key, question, history, hints, error, raw_sql)
+        raw_sql, refusal = generate_sql(question, history, hints, error, raw_sql)
         if refusal:
             return {"reply": refusal, "suggested_questions": [], "sql": None, "row_count": 0}
         try:
@@ -380,7 +426,7 @@ def answer_question(question: str, history: List[Dict[str, str]],
         except Exception as exc:
             error = "%s: %s" % (type(exc).__name__, str(exc)[:300])
             continue
-        answer = phrase_answer(api_key, question, history, raw_sql, rows)
+        answer = phrase_answer(question, history, raw_sql, rows)
         answer.update({"sql": raw_sql, "row_count": len(rows)})
         return answer
 

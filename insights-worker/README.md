@@ -23,4 +23,9 @@ Never put the key in the frontend, source control, chat, or screenshots.
 
 - `GET /healthz` — public service health check.
 - `POST /insights` — protected Key Insights generation.
-- `POST /chat` — protected, read-only dashboard question answering.
+- `POST /chat` — protected; superseded by `/sql`, kept for rollback.
+- `POST /sql` — protected LLM proxy for the dashboard chat agent. The backend
+  sends `{messages, max_tokens}` and receives `{output}`. The Worker holds no
+  schema knowledge and no database access; it never sees the query results it
+  is not given. Uses a larger model than the other routes, since the backend
+  asks it to write SQL.

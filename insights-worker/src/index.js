@@ -1,4 +1,6 @@
 const MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
+// Query generation and result phrasing need more capability than the 8B model.
+const SQL_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_BODY_BYTES = 96 * 1024;
 
 const RESPONSE_SCHEMA = {
@@ -291,7 +293,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/healthz") {
       return json({ ok: true, service: "cimb-dashboard-insights" });
     }
-    if (!["/insights", "/chat"].includes(url.pathname)) return json({ error: "not_found" }, 404);
+    if (!["/insights", "/chat", "/sql"].includes(url.pathname)) return json({ error: "not_found" }, 404);
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405, { allow: "POST" });
     if (!env.CIMB_INSIGHTS_KEY) return json({ error: "service_not_configured" }, 503);
     if (!safeEqual(request.headers.get("x-api-key"), env.CIMB_INSIGHTS_KEY)) {
@@ -299,6 +301,27 @@ export default {
     }
     const parsed = await readJsonBody(request);
     if (parsed.error) return parsed.error;
+
+    if (url.pathname === "/sql") {
+      const messages = parsed.value?.messages;
+      const wellFormed = Array.isArray(messages)
+        && messages.length > 0
+        && messages.length <= 8
+        && messages.every((m) => m
+          && (m.role === "system" || m.role === "user" || m.role === "assistant")
+          && typeof m.content === "string"
+          && m.content.length > 0);
+      if (!wellFormed) return json({ error: "invalid_sql_request" }, 422);
+
+      const maxTokens = Math.min(Number(parsed.value.max_tokens) || 900, 1200);
+      try {
+        const result = await env.AI.run(SQL_MODEL, { messages, temperature: 0.1, max_tokens: maxTokens });
+        return json({ output: unwrapModelResponse(result), _meta: { model: SQL_MODEL } });
+      } catch (error) {
+        console.error("SQL proxy generation failed", error instanceof Error ? error.message : "unknown error");
+        return json({ error: "generation_failed" }, 502);
+      }
+    }
 
     if (url.pathname === "/chat") {
       const errors = validateChatPayload(parsed.value);

@@ -12,9 +12,11 @@ from sql_agent import (  # noqa: E402
     MAX_ROWS,
     SqlAgentError,
     _json_safe,
+    _llm_json,
     strip_sql_fences,
     strip_string_literals,
     validate_sql,
+    worker_sql_url,
 )
 
 
@@ -114,6 +116,44 @@ class Helpers(unittest.TestCase):
     def test_json_safe_serialises_dates(self):
         from datetime import datetime
         self.assertEqual(_json_safe(datetime(2026, 5, 1, 9, 30)), "2026-05-01T09:30:00")
+
+
+class ProviderSelection(unittest.TestCase):
+    """The Cloudflare Worker is the primary provider; Groq is optional."""
+
+    def setUp(self):
+        self._saved = {k: os.environ.get(k)
+                       for k in ("CIMB_INSIGHTS_URL", "CIMB_INSIGHTS_KEY", "GROQ_API_KEY")}
+        for k in self._saved:
+            os.environ.pop(k, None)
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_worker_url_is_derived_from_the_insights_url(self):
+        os.environ["CIMB_INSIGHTS_URL"] = "https://example.workers.dev/insights"
+        os.environ["CIMB_INSIGHTS_KEY"] = "k"
+        self.assertEqual(worker_sql_url(), "https://example.workers.dev/sql")
+
+    def test_worker_url_requires_both_url_and_key(self):
+        os.environ["CIMB_INSIGHTS_URL"] = "https://example.workers.dev/insights"
+        self.assertIsNone(worker_sql_url())
+
+    def test_worker_url_rejects_non_https(self):
+        os.environ["CIMB_INSIGHTS_URL"] = "http://example.workers.dev/insights"
+        os.environ["CIMB_INSIGHTS_KEY"] = "k"
+        self.assertIsNone(worker_sql_url())
+
+    def test_unconfigured_error_names_both_providers(self):
+        with self.assertRaises(SqlAgentError) as caught:
+            _llm_json([{"role": "user", "content": "hi"}], 10)
+        message = str(caught.exception)
+        self.assertIn("CIMB_INSIGHTS_URL", message)
+        self.assertIn("GROQ_API_KEY", message)
 
 
 if __name__ == "__main__":
