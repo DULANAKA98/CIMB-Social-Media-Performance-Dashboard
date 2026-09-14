@@ -11,6 +11,9 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/.env.local
+insights-worker/.wrangler/
+insights-worker/.dev.vars
+insights-worker/.secret-handoff/
 
 # Debug / temp files
 backend/debug_*.py

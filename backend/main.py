@@ -1844,8 +1844,109 @@ def get_metricool_follower_growth(
     return result
 
 
+def _cimb_insight_snapshot(df: pd.DataFrame, start_date: Optional[str], end_date: Optional[str]):
+    """Build the aggregate-only payload sent to the CIMB-owned AI Worker."""
+    platform_rows = []
+    for platform in ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']:
+        pdf = df[df['platform'] == platform]
+        if pdf.empty:
+            continue
+        platform_rows.append({
+            "name": platform,
+            "posts": int(len(pdf)),
+            "reach": int(pdf['reach'].sum()),
+            "engagement": int(pdf['engagement'].sum()),
+            "engagement_rate": round(float(pdf['engagement_rate'].mean()), 2),
+        })
+
+    format_rows = []
+    if 'format' in df.columns:
+        clean_formats = df[df['format'].fillna('').astype(str).str.strip().ne('')]
+        for content_format, group in clean_formats.groupby('format'):
+            format_rows.append({
+                "name": str(content_format).strip(),
+                "posts": int(len(group)),
+                "reach": int(group['reach'].sum()),
+                "engagement": int(group['engagement'].sum()),
+                "engagement_rate": round(float(group['engagement_rate'].mean()), 2),
+            })
+        format_rows.sort(key=lambda row: row['engagement_rate'], reverse=True)
+
+    category_rows = []
+    categorized = df.copy()
+    categorized['_category'] = categorized['title'].fillna('').map(lambda value: classify_content_type(str(value)))
+    for category, group in categorized.groupby('_category'):
+        if category == FALLBACK_TYPE:
+            continue
+        category_rows.append({
+            "name": category,
+            "posts": int(len(group)),
+            "reach": int(group['reach'].sum()),
+            "engagement": int(group['engagement'].sum()),
+            "engagement_rate": round(float(group['engagement_rate'].mean()), 2),
+        })
+    category_rows.sort(key=lambda row: row['reach'], reverse=True)
+
+    observed_start = pd.to_datetime(df['date'].min()).date().isoformat()
+    observed_end = pd.to_datetime(df['date'].max()).date().isoformat()
+    return {
+        "date_range": {
+            "start": start_date or observed_start,
+            "end": end_date or observed_end,
+        },
+        "platforms": platform_rows,
+        "top_formats": format_rows[:6],
+        "categories": category_rows[:7],
+        "measurement_notes": [
+            "Reach is reported post reach and is not deduplicated people.",
+            "Engagement rate is the average of the post-level engagement rates shown by the dashboard.",
+            "Instagram Stories are excluded from these standard performance totals.",
+        ],
+    }
+
+
 @app.get("/api/executive-summary")
 def get_executive_summary(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None)
+):
+    """Generate Key Insights through the CIMB-owned Cloudflare Worker."""
+    insights_url = os.getenv("CIMB_INSIGHTS_URL", "").strip()
+    insights_key = os.getenv("CIMB_INSIGHTS_KEY", "").strip()
+    if not insights_url or not insights_key:
+        raise HTTPException(status_code=503, detail="The CIMB insights service is not configured.")
+
+    parsed_url = urlparse(insights_url)
+    if parsed_url.scheme != "https" or not parsed_url.netloc:
+        raise HTTPException(status_code=503, detail="The CIMB insights service URL is invalid.")
+
+    df = get_filtered_data(start_date, end_date)
+    snapshot = _cimb_insight_snapshot(df, start_date, end_date)
+    try:
+        response = http_requests.post(
+            insights_url,
+            headers={"x-api-key": insights_key, "content-type": "application/json"},
+            json=snapshot,
+            timeout=30,
+        )
+    except http_requests.RequestException as exc:
+        print(f"CIMB insights request failed: {type(exc).__name__}")
+        raise HTTPException(status_code=502, detail="The CIMB insights service is temporarily unavailable.") from exc
+
+    if response.status_code != 200:
+        print(f"CIMB insights service returned HTTP {response.status_code}")
+        raise HTTPException(status_code=502, detail="The CIMB insights service could not generate insights.")
+    try:
+        result = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="The CIMB insights service returned an invalid response.") from exc
+    if not isinstance(result.get("key_highlights"), list):
+        raise HTTPException(status_code=502, detail="The CIMB insights response is incomplete.")
+    return result
+
+
+@app.get("/api/executive-summary/groq-legacy", include_in_schema=False)
+def get_executive_summary_groq_legacy(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
 ):

@@ -8,6 +8,10 @@ services:
     envVars:
       - key: GROQ_API_KEY
         sync: false   # you will paste this manually in Render dashboard
+      - key: CIMB_INSIGHTS_URL
+        sync: false
+      - key: CIMB_INSIGHTS_KEY
+        sync: false
       - key: META_PAGE_ACCESS_TOKEN
         sync: false
       - key: META_PAGE_ID

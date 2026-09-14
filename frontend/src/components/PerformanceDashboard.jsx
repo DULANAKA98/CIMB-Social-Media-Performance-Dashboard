@@ -207,7 +207,7 @@ function Insights({ model, ai, loading, onGenerate, platform }) {
     {highlights.length ? <ul className="insights-list">{highlights.slice(0, 4).map((text, index) => <li key={index}><Check size={14} /><span>{text.replace(/\*\*/g, '')}</span></li>)}</ul> : <Empty icon={Lightbulb} title="Your next insight starts here">Performance highlights will appear when data is available.</Empty>}
     {ai?.error && <p role="alert" className="form-error">AI insights are currently unavailable. Check the AI service configuration in the reporting tools.</p>}
     <button className="text-button" disabled={loading || !model.kpis.posts} onClick={onGenerate}>{loading ? 'Generating insights…' : platform ? 'Open AI reporting tools' : 'Generate AI insights'} <ArrowUpRight size={12} /></button>
-    <p className="panel-footnote">{ai?.key_highlights ? 'AI-generated · review before sharing' : 'Calculated highlights · not causal findings'}</p>
+    <p className="panel-footnote">{ai?.key_highlights && !ai?._meta?.fallback ? 'AI-generated with CIMB Insights · review before sharing' : 'Calculated highlights · not causal findings'}</p>
   </Panel>;
 }
 
