@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Camera, Chec
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
+import ChatWidget from './ChatWidget';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
 import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './performance/model';
 import './performance/performance.css';
@@ -347,5 +348,11 @@ export default function PerformanceDashboard({ onLogout }) {
         </>}
       </main>
     </div>
+    <ChatWidget
+      startDate={range.start}
+      endDate={range.end}
+      currentPage={page}
+      selectedPlatform={platform}
+    />
   </div>;
 }

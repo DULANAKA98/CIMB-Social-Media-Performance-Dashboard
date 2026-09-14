@@ -1,226 +1,160 @@
-import React, { useState, useRef, useEffect } from 'react';
+/* eslint-disable react/prop-types */
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { MessageCircle, X, Send, Sparkles } from 'lucide-react';
+import { Bot, Database, MessageCircle, Send, Sparkles, Trash2, X } from 'lucide-react';
+import './ChatWidget.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const STARTERS = [
+  'Which platform performed best?',
+  'Which content format had the strongest engagement rate?',
+  'What were the top-performing posts?',
+];
+const GREETING = {
+  role: 'assistant',
+  content: 'Hi — ask me about performance, platforms, formats, categories, followers or top posts for the selected dashboard period.',
+  greeting: true,
+};
 
-const ChatWidget = ({ startDate, endDate, activeTab, executiveSummary, strategyData }) => {
+function periodLabel(startDate, endDate, platform) {
+  const scope = platform || 'All platforms';
+  if (!startDate || !endDate) return `${scope} · All available dates`;
+  const date = value => new Intl.DateTimeFormat('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`));
+  return `${scope} · ${date(startDate)} – ${date(endDate)}`;
+}
+
+export default function ChatWidget({ startDate, endDate, activeTab, currentPage, selectedPlatform }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hi! I am your AI Data Analyst. Ask me anything about the currently selected dataset!' }
-  ]);
+  const [messages, setMessages] = useState([GREETING]);
+  const [suggestions, setSuggestions] = useState(STARTERS);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, isLoading]);
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    inputRef.current?.focus();
+    const close = event => { if (event.key === 'Escape') setIsOpen(false); };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [isOpen]);
 
-    const userMessage = { role: 'user', content: input.trim() };
-    setMessages((prev) => [...prev, userMessage]);
+  const clearChat = () => {
+    setMessages([GREETING]);
+    setSuggestions(STARTERS);
+    setInput('');
+    inputRef.current?.focus();
+  };
+
+  const send = async value => {
+    const question = value.trim();
+    if (!question || isLoading) return;
+    const userMessage = { role: 'user', content: question };
+    setMessages(previous => [...previous, userMessage]);
+    setSuggestions([]);
     setInput('');
     setIsLoading(true);
-
     try {
-      // Send message, history (excluding the very first greeting if preferred, but sending it is fine), and dates
-      const payload = {
-        message: userMessage.content,
-        history: messages.filter(m => m.role !== 'system'), // Exclude local system prompts if any
+      const history = messages
+        .filter(message => !message.greeting)
+        .slice(-8)
+        .map(({ role, content }) => ({ role, content }));
+      const response = await axios.post(`${API_URL}/chat`, {
+        message: question,
+        history,
         start_date: startDate || null,
         end_date: endDate || null,
-        active_tab: activeTab || null,
-        executive_summary: executiveSummary || null,
-        strategy_data: strategyData || null,
-      };
-
-      const res = await axios.post(`${API_URL}/chat`, payload);
-      
-      if (res.data.error) {
-        setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${res.data.error}` }]);
-      } else {
-        setMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply }]);
-      }
-    } catch (err) {
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error communicating with the server.' }]);
+        active_tab: currentPage || activeTab || 'executive',
+        platform: selectedPlatform || null,
+      }, { timeout: 60000 });
+      setMessages(previous => [...previous, {
+        role: 'assistant',
+        content: response.data.reply,
+        fallback: Boolean(response.data?._meta?.fallback),
+      }]);
+      setSuggestions(Array.isArray(response.data.suggested_questions) ? response.data.suggested_questions : STARTERS);
+    } catch (error) {
+      const detail = error.response?.data?.detail;
+      setMessages(previous => [...previous, {
+        role: 'assistant',
+        content: typeof detail === 'string' ? detail : 'I could not reach the dashboard data right now. Please try again in a moment.',
+        error: true,
+      }]);
+      setSuggestions(STARTERS);
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div style={styles.widgetContainer}>
-      {/* Chat Window */}
-      {isOpen && (
-        <div style={styles.chatWindow} className="glass-panel">
-          <div style={styles.header}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Sparkles size={18} color="var(--accent-purple)" />
-              <h3 style={{ fontSize: 'calc(1rem + 2px)', margin: 0, color: 'var(--text-primary)' }}>AI Analyst</h3>
-            </div>
-            <button onClick={() => setIsOpen(false)} style={styles.closeBtn}>
-              <X size={18} />
-            </button>
+  const handleSubmit = event => {
+    event.preventDefault();
+    send(input);
+  };
+
+  return <div className="cimb-chat-shell">
+    {isOpen && <section className="cimb-chat-window" role="dialog" aria-label="CIMB data assistant" aria-live="polite">
+      <header className="cimb-chat-header">
+        <span className="cimb-chat-avatar"><Sparkles size={18} /></span>
+        <div><h2>CIMB Data Assistant</h2><p><span /> Connected to dashboard data</p></div>
+        <button type="button" className="cimb-chat-icon" onClick={clearChat} title="Clear conversation" aria-label="Clear conversation"><Trash2 size={16} /></button>
+        <button type="button" className="cimb-chat-icon" onClick={() => setIsOpen(false)} aria-label="Close data assistant"><X size={18} /></button>
+      </header>
+
+      <div className="cimb-chat-context"><Database size={13} /><span>{periodLabel(startDate, endDate, selectedPlatform)}</span></div>
+
+      <div className="cimb-chat-messages">
+        {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`cimb-chat-row ${message.role}`}>
+          {message.role === 'assistant' && <span className="cimb-chat-mini-avatar"><Bot size={14} /></span>}
+          <div className={`cimb-chat-bubble ${message.error ? 'error' : ''}`}>
+            {message.content}
+            {message.fallback && <small>Calculated fallback answer</small>}
           </div>
-          
-          <div style={styles.messagesContainer}>
-            {messages.map((msg, idx) => (
-              <div key={idx} style={{
-                display: 'flex',
-                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                marginBottom: '1rem'
-              }}>
-                <div style={{
-                  maxWidth: '85%',
-                  padding: '0.8rem 1rem',
-                  borderRadius: '12px',
-                  background: msg.role === 'user' ? 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))' : 'rgba(255, 255, 255, 0.05)',
-                  color: 'white',
-                  fontSize: 'calc(0.9rem + 2px)',
-                  lineHeight: '1.4',
-                  wordWrap: 'break-word',
-                  whiteSpace: 'pre-wrap'
-                }}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1rem' }}>
-                <div style={{ padding: '0.8rem 1rem', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)' }}>
-                  <div className="spinner" style={{ width: '16px', height: '16px', borderTopColor: 'var(--accent-purple)', borderWidth: '2px' }} />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+        </div>)}
+        {isLoading && <div className="cimb-chat-row assistant"><span className="cimb-chat-mini-avatar"><Bot size={14} /></span><div className="cimb-chat-bubble typing"><i /><i /><i /><span className="sr-only">Analyzing dashboard data</span></div></div>}
+        <div ref={messagesEndRef} />
+      </div>
 
-          <form onSubmit={handleSend} style={styles.inputArea}>
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about the dataset..."
-              style={styles.input}
-              disabled={isLoading}
-            />
-            <button type="submit" disabled={!input.trim() || isLoading} style={{
-              ...styles.sendBtn,
-              opacity: !input.trim() || isLoading ? 0.5 : 1,
-              cursor: !input.trim() || isLoading ? 'not-allowed' : 'pointer'
-            }}>
-              <Send size={18} />
-            </button>
-          </form>
-        </div>
-      )}
+      {!isLoading && suggestions.length > 0 && <div className="cimb-chat-suggestions" aria-label="Suggested questions">
+        {suggestions.slice(0, 3).map(suggestion => <button type="button" key={suggestion} onClick={() => send(suggestion)}>{suggestion}</button>)}
+      </div>}
 
-      {/* Floating Button */}
-      {!isOpen && (
-        <button onClick={() => setIsOpen(true)} style={styles.floatingBtn}>
-          <MessageCircle size={28} />
-        </button>
-      )}
-    </div>
-  );
-};
+      <form className="cimb-chat-form" onSubmit={handleSubmit}>
+        <label className="sr-only" htmlFor="cimb-chat-input">Ask the dashboard</label>
+        <textarea
+          id="cimb-chat-input"
+          ref={inputRef}
+          rows={1}
+          maxLength={600}
+          value={input}
+          onChange={event => setInput(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              if (input.trim()) send(input);
+            }
+          }}
+          placeholder="Ask about your dashboard…"
+          disabled={isLoading}
+        />
+        <button type="submit" disabled={!input.trim() || isLoading} aria-label="Send question"><Send size={17} /></button>
+      </form>
+      <p className="cimb-chat-disclaimer">Answers use the selected dashboard data. Review before sharing.</p>
+    </section>}
 
-const styles = {
-  widgetContainer: {
-    position: 'fixed',
-    bottom: '30px',
-    right: '30px',
-    zIndex: 9999,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-  },
-  floatingBtn: {
-    width: '60px',
-    height: '60px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
-    color: 'white',
-    border: 'none',
-    boxShadow: '0 8px 32px rgba(139, 92, 246, 0.4)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    transition: 'transform 0.2s ease',
-  },
-  chatWindow: {
-    width: '380px',
-    height: '550px',
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '0', // Overriding glass-panel padding
-    overflow: 'hidden',
-    boxShadow: '0 15px 45px rgba(0, 0, 0, 0.4)',
-    marginBottom: '1rem',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '1rem 1.2rem',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-    background: 'rgba(0, 0, 0, 0.2)',
-  },
-  closeBtn: {
-    background: 'transparent',
-    border: 'none',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '4px',
-  },
-  messagesContainer: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '1.2rem',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  inputArea: {
-    display: 'flex',
-    padding: '1rem',
-    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-    background: 'rgba(0, 0, 0, 0.2)',
-    gap: '0.8rem',
-  },
-  input: {
-    flex: 1,
-    background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '8px',
-    padding: '0.8rem 1rem',
-    color: 'white',
-    outline: 'none',
-    fontFamily: 'inherit',
-    fontSize: 'calc(0.9rem + 2px)',
-  },
-  sendBtn: {
-    background: 'var(--accent-blue)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    width: '42px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'opacity 0.2s ease',
-  }
-};
-
-export default ChatWidget;
+    <button
+      type="button"
+      className={`cimb-chat-launcher ${isOpen ? 'is-open' : ''}`}
+      onClick={() => setIsOpen(value => !value)}
+      aria-expanded={isOpen}
+      aria-label={isOpen ? 'Close CIMB data assistant' : 'Open CIMB data assistant'}
+    >
+      {isOpen ? <X size={23} /> : <MessageCircle size={24} />}
+      {!isOpen && <span>Ask CIMB data</span>}
+    </button>
+  </div>;
+}

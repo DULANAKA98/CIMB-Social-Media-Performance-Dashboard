@@ -3,7 +3,8 @@
 This Worker belongs only to the new `CIMB-Social-Media-Performance-Dashboard`.
 It uses Cloudflare Workers AI and never connects to the dashboard database.
 The dashboard backend sends a small aggregate snapshot and receives structured
-insight text.
+insight text. The same protected Worker also answers dashboard chat questions
+at `/chat`; it never receives database credentials or direct database access.
 
 ## Deploy
 
@@ -17,3 +18,9 @@ insight text.
    - `CIMB_INSIGHTS_KEY` to the same private value.
 
 Never put the key in the frontend, source control, chat, or screenshots.
+
+## Routes
+
+- `GET /healthz` — public service health check.
+- `POST /insights` — protected Key Insights generation.
+- `POST /chat` — protected, read-only dashboard question answering.

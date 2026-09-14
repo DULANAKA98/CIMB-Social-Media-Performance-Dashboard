@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { validateOutput, validateSnapshot } from "../src/index.js";
+import worker, { validateChatPayload, validateOutput, validateSnapshot } from "../src/index.js";
 
 const snapshot = {
   date_range: { start: "2026-07-01", end: "2026-07-31" },
@@ -8,6 +8,16 @@ const snapshot = {
     { name: "Instagram", posts: 10, reach: 12000, engagement: 900, engagement_rate: 7.5 },
     { name: "Facebook", posts: 8, reach: 15000, engagement: 600, engagement_rate: 4 },
   ],
+};
+
+const chatPayload = {
+  question: "Which platform had the highest engagement rate?",
+  history: [],
+  context: {
+    date_range: { start: "2026-07-01", end: "2026-07-31" },
+    totals: { posts: 18, reach: 27000, engagement: 1500, engagement_rate: 5.56 },
+    platforms: snapshot.platforms,
+  },
 };
 
 test("validates dashboard snapshots", () => {
@@ -21,6 +31,12 @@ test("validates AI response shape", () => {
     audience_behaviour: ["Video-led content attracted stronger audience response."],
     recommendations: ["Maintain the strongest content pattern and test one variation."],
   }), true);
+});
+
+test("validates bounded chat requests", () => {
+  assert.deepEqual(validateChatPayload(chatPayload), []);
+  assert.ok(validateChatPayload({ question: "", history: [], context: {} }).length >= 2);
+  assert.ok(validateChatPayload({ ...chatPayload, history: Array(9).fill({ role: "user", content: "Hi" }) }).length >= 1);
 });
 
 test("protects the endpoint and returns grounded insights", async () => {
@@ -78,4 +94,48 @@ test("falls back safely when the model invents a number", async () => {
   assert.equal(response.status, 200);
   assert.equal(body._meta.fallback, true);
   assert.match(body.key_highlights[0], /7\.5%/);
+});
+
+test("answers chat questions from supplied dashboard context", async () => {
+  const response = await worker.fetch(new Request("https://example.com/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": "test-secret" },
+    body: JSON.stringify(chatPayload),
+  }), {
+    CIMB_INSIGHTS_KEY: "test-secret",
+    AI: {
+      run: async () => ({
+        response: {
+          reply: "Instagram had the highest displayed engagement rate at 7.5%.",
+          suggested_questions: ["Which platform had the most reach?", "What content format performed best?"],
+        },
+      }),
+    },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body._meta.fallback, false);
+  assert.match(body.reply, /Instagram/);
+});
+
+test("chat falls back when the model invents a metric", async () => {
+  const response = await worker.fetch(new Request("https://example.com/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": "test-secret" },
+    body: JSON.stringify(chatPayload),
+  }), {
+    CIMB_INSIGHTS_KEY: "test-secret",
+    AI: {
+      run: async () => ({
+        response: {
+          reply: "Instagram improved by 99% during the selected period.",
+          suggested_questions: ["Which platform had the most reach?", "What content format performed best?"],
+        },
+      }),
+    },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body._meta.fallback, true);
+  assert.match(body.reply, /18 posts/);
 });

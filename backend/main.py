@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Query, HTTPException, Response, Depends, File, UploadFile, Header
+from fastapi import FastAPI, Query, HTTPException, Response, Depends, File, UploadFile, Header, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from data_processor import calculate_fb_ig_engagement_rate, process_data, read_platform_file
 from database import init_db, get_db, Post, AiReport, FollowerSnapshot
 from sqlalchemy.orm import Session
@@ -22,6 +22,9 @@ from html import unescape
 from urllib.parse import urlparse
 import hmac
 import re
+import time
+from collections import deque
+from threading import Lock
 
 load_dotenv()  # Load GROQ_API_KEY and DATABASE_URL from .env
 
@@ -2595,147 +2598,262 @@ def get_wip_summary(
     return result
 
 
-# ── Helper: call Groq for chat with history ───────────────────────────────────
-def _call_groq_chat(api_key: str, messages: List[Dict[str, str]], max_tokens: int = 3000):
-    GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-    # Using the best models for conversational / reporting stuff
-    GROQ_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile"]
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    last_error = None
-    for model in GROQ_MODELS:
-        try:
-            payload = {
-                "model": model, 
-                "messages": messages,
-                "temperature": 0.3, 
-                "max_tokens": max_tokens
-            }
-            resp = http_requests.post(GROQ_URL, headers=headers, json=payload, timeout=90)
-            if resp.status_code == 200:
-                raw = resp.json()["choices"][0]["message"]["content"].strip()
-                return raw
-            elif resp.status_code in (404, 400):
-                last_error = resp.text
-                continue
-            else:
-                return {"error": f"Groq API error {resp.status_code}: {resp.text}"}
-        except Exception as e:
-            last_error = str(e)
-            continue
-    return {"error": f"No Groq model succeeded. Last error: {last_error}"}
+# ── CIMB-owned dashboard chat ────────────────────────────────────────────────
+CHAT_PLATFORMS = ["Facebook", "Instagram", "TikTok", "YouTube", "LinkedIn"]
+CHAT_RATE_LIMIT = 30
+CHAT_RATE_WINDOW_SECONDS = 10 * 60
+_chat_rate_buckets: Dict[str, deque] = {}
+_chat_rate_lock = Lock()
+
 
 class ChatMessage(BaseModel):
     role: str
     content: str
 
+
 class ChatRequest(BaseModel):
     message: str
-    history: List[ChatMessage] = []
+    history: List[ChatMessage] = Field(default_factory=list)
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     active_tab: Optional[str] = None
-    executive_summary: Optional[Dict[str, Any]] = None
-    strategy_data: Optional[Dict[str, Any]] = None
+    platform: Optional[str] = None
+
+
+def _chat_rate_key(http_request: Request) -> str:
+    forwarded = http_request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()
+    return (forwarded or (http_request.client.host if http_request.client else "unknown"))[:80]
+
+
+def _enforce_chat_rate_limit(http_request: Request):
+    now = time.monotonic()
+    key = _chat_rate_key(http_request)
+    with _chat_rate_lock:
+        bucket = _chat_rate_buckets.setdefault(key, deque())
+        while bucket and now - bucket[0] >= CHAT_RATE_WINDOW_SECONDS:
+            bucket.popleft()
+        if len(bucket) >= CHAT_RATE_LIMIT:
+            retry_after = max(1, int(CHAT_RATE_WINDOW_SECONDS - (now - bucket[0])))
+            raise HTTPException(
+                status_code=429,
+                detail="Too many chat questions. Please try again shortly.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        bucket.append(now)
+
+
+def _valid_chat_date(value: Optional[str]) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    try:
+        parsed = pd.to_datetime(value, format="%Y-%m-%d", errors="raise").date()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Chat dates must use YYYY-MM-DD.") from exc
+    return parsed.isoformat()
+
+
+def _chat_post_row(row) -> Dict[str, Any]:
+    title = str(row.get("title") or "").strip()
+    if not title or title.lower() in ("nan", "none"):
+        title = "Untitled post"
+    return {
+        "date": pd.to_datetime(row["date"]).date().isoformat(),
+        "platform": str(row.get("platform") or ""),
+        "format": str(row.get("format") or "Unspecified"),
+        "title": title[:180],
+        "reach": int(float(row.get("reach") or 0)),
+        "engagement": int(float(row.get("engagement") or 0)),
+        "engagement_rate": round(float(row.get("engagement_rate") or 0), 2),
+    }
+
+
+def _chat_follower_context(start_date: str, end_date: str, platform: Optional[str]) -> List[Dict[str, Any]]:
+    db = next(get_db())
+    try:
+        query = db.query(FollowerSnapshot).filter(
+            FollowerSnapshot.snapshot_date >= pd.to_datetime(start_date).date(),
+            FollowerSnapshot.snapshot_date <= pd.to_datetime(end_date).date(),
+        )
+        if platform:
+            query = query.filter(FollowerSnapshot.platform == platform)
+        rows = query.order_by(FollowerSnapshot.platform, FollowerSnapshot.snapshot_date).all()
+        result = []
+        for name in ([platform] if platform else CHAT_PLATFORMS):
+            platform_rows = [row for row in rows if row.platform == name]
+            if not platform_rows:
+                continue
+            first = platform_rows[0]
+            latest = platform_rows[-1]
+            result.append({
+                "platform": name,
+                "first_date": first.snapshot_date.isoformat(),
+                "first_followers": int(first.followers),
+                "latest_date": latest.snapshot_date.isoformat(),
+                "latest_followers": int(latest.followers),
+                "growth": int(latest.followers - first.followers) if len(platform_rows) > 1 else None,
+                "observations": len(platform_rows),
+            })
+        return result
+    finally:
+        db.close()
+
+
+def _cimb_chat_context(
+    df: pd.DataFrame,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    active_tab: Optional[str],
+    platform: Optional[str],
+) -> Dict[str, Any]:
+    if platform and platform not in CHAT_PLATFORMS:
+        raise HTTPException(status_code=400, detail="Unsupported dashboard platform.")
+    scoped = df[df["platform"] == platform].copy() if platform else df.copy()
+    if scoped.empty:
+        raise HTTPException(status_code=400, detail="No data is available for the selected dashboard view.")
+
+    observed_start = pd.to_datetime(scoped["date"].min()).date().isoformat()
+    observed_end = pd.to_datetime(scoped["date"].max()).date().isoformat()
+    period_start = start_date or observed_start
+    period_end = end_date or observed_end
+
+    er_denominator = scoped["reach"].fillna(0).astype(float).copy()
+    meta_without_reach = scoped["platform"].isin(["Facebook", "Instagram"]) & (er_denominator <= 0)
+    er_denominator.loc[meta_without_reach] = scoped.loc[meta_without_reach, "views"].fillna(0).astype(float)
+    denominator_total = float(er_denominator.sum())
+    engagement_total = float(scoped["engagement"].fillna(0).sum())
+
+    platform_rows = []
+    for name in CHAT_PLATFORMS:
+        group = scoped[scoped["platform"] == name]
+        if group.empty:
+            continue
+        platform_rows.append({
+            "name": name,
+            "posts": int(len(group)),
+            "reach": int(group["reach"].fillna(0).sum()),
+            "engagement": int(group["engagement"].fillna(0).sum()),
+            "views": int(group["views"].fillna(0).sum()),
+            "engagement_rate": round(float(group["engagement_rate"].fillna(0).mean()), 2),
+        })
+
+    organic = scoped[scoped["is_organic"] == True].copy()
+    format_rows = []
+    for content_format, group in organic.groupby("format", dropna=True):
+        name = str(content_format or "").strip()
+        if not name or name.lower() in ("nan", "none"):
+            continue
+        format_rows.append({
+            "name": name,
+            "posts": int(len(group)),
+            "reach": int(group["reach"].fillna(0).sum()),
+            "engagement": int(group["engagement"].fillna(0).sum()),
+            "engagement_rate": round(float(group["engagement_rate"].fillna(0).mean()), 2),
+        })
+    format_rows.sort(key=lambda row: (row["engagement_rate"], row["engagement"]), reverse=True)
+
+    categorized = scoped.copy()
+    categorized["_category"] = categorized["title"].fillna("").map(lambda value: classify_content_type(str(value)))
+    category_rows = []
+    for category, group in categorized.groupby("_category"):
+        group_base = group["reach"].fillna(0).astype(float).copy()
+        group_meta_without_reach = group["platform"].isin(["Facebook", "Instagram"]) & (group_base <= 0)
+        group_base.loc[group_meta_without_reach] = group.loc[group_meta_without_reach, "views"].fillna(0).astype(float)
+        category_engagement = float(group["engagement"].fillna(0).sum())
+        category_denominator = float(group_base.sum())
+        category_rows.append({
+            "name": str(category),
+            "posts": int(len(group)),
+            "reach": int(group["reach"].fillna(0).sum()),
+            "engagement": int(category_engagement),
+            "engagement_rate": round(category_engagement / category_denominator * 100, 2) if category_denominator > 0 else None,
+        })
+    category_rows.sort(key=lambda row: row["reach"], reverse=True)
+
+    ranked_posts = organic.sort_values(["engagement", "reach"], ascending=False).head(8)
+    recent_posts = organic.sort_values("date", ascending=False).head(5)
+    return {
+        "date_range": {"start": period_start, "end": period_end},
+        "dashboard_view": active_tab or "executive",
+        "platform_filter": platform or "All platforms",
+        "totals": {
+            "posts": int(len(scoped)),
+            "reach": int(scoped["reach"].fillna(0).sum()),
+            "engagement": int(engagement_total),
+            "views": int(scoped["views"].fillna(0).sum()),
+            "likes": int(scoped["likes"].fillna(0).sum()),
+            "comments": int(scoped["comments"].fillna(0).sum()),
+            "shares": int(scoped["shares"].fillna(0).sum()),
+            "engagement_rate": round(engagement_total / denominator_total * 100, 2) if denominator_total > 0 else 0,
+        },
+        "platforms": platform_rows,
+        "content_formats": format_rows[:10],
+        "content_categories": category_rows[:10],
+        "top_posts": [_chat_post_row(row) for _, row in ranked_posts.iterrows()],
+        "recent_posts": [_chat_post_row(row) for _, row in recent_posts.iterrows()],
+        "followers": _chat_follower_context(period_start, period_end, platform),
+        "measurement_notes": [
+            "Reach is reported post reach and is not deduplicated people.",
+            "Instagram Stories are excluded from standard performance totals.",
+            "Content formats include organic posts only.",
+            "Content categories are identified from post titles using configured rules.",
+            "Follower growth uses stored daily snapshots and may be unavailable when the period has fewer than two observations.",
+        ],
+    }
+
+
+def _cimb_worker_route(path: str) -> tuple[str, str]:
+    worker_url = os.getenv("CIMB_INSIGHTS_URL", "").strip()
+    worker_key = os.getenv("CIMB_INSIGHTS_KEY", "").strip()
+    parsed = urlparse(worker_url)
+    if not worker_key or parsed.scheme != "https" or not parsed.netloc:
+        raise HTTPException(status_code=503, detail="The CIMB AI service is not configured.")
+    return parsed._replace(path=path, params="", query="", fragment="").geturl(), worker_key
+
 
 @app.post("/api/chat")
-def chat_with_data(request: ChatRequest):
-    api_key = os.getenv("GROQ_API_KEY", "")
-    if not api_key:
-        return {"error": "GROQ_API_KEY not set."}
+def chat_with_data(chat_request: ChatRequest, http_request: Request):
+    _enforce_chat_rate_limit(http_request)
+    message = chat_request.message.strip()
+    if not message or len(message) > 600:
+        raise HTTPException(status_code=400, detail="Questions must contain 1 to 600 characters.")
+    if len(chat_request.history) > 8:
+        raise HTTPException(status_code=400, detail="Chat history cannot exceed 8 messages.")
 
-    df = get_filtered_data(request.start_date, request.end_date)
-    if df.empty:
-        return {"error": "No data available for the selected period."}
+    history = []
+    for item in chat_request.history[-8:]:
+        content = item.content.strip()
+        if item.role not in ("user", "assistant") or not content or len(content) > 800:
+            raise HTTPException(status_code=400, detail="Chat history contains an invalid message.")
+        history.append({"role": item.role, "content": content})
 
-    # Build a summarized context of the dataset for the AI
-    # Reusing logic from the strategy endpoint for a rich context
-    PLATS = ["Facebook", "Instagram", "TikTok", "YouTube", "LinkedIn"]
-    plat_stats = {}
-    
-    def _r(v, n=2): return round(float(v), n) if v is not None else 0
-    
-    for plat in PLATS:
-        pdf = df[df["platform"] == plat]
-        if pdf.empty: continue
-        
-        all_er = _r(pdf["engagement_rate"].mean())
-        
-        fmt_rows = []
-        if "format" in pdf.columns:
-            for fmt, grp in pdf.groupby("format"):
-                fmt = str(fmt).strip()
-                if not fmt or fmt == "nan" or len(grp) == 0: continue
-                fmt_rows.append({
-                    "format": fmt,
-                    "posts": len(grp),
-                    "avg_er": _r(grp["engagement_rate"].mean()),
-                })
-                
-        # Top 5 and bottom 5 posts for context
-        title_col = "title" if "title" in pdf.columns else None
-        def _title(row):
-            t = str(row.get(title_col, "") or "").strip() if title_col else ""
-            return t[:100] if t and t != "nan" else "(no title)"
-            
-        top5 = pdf.sort_values("engagement_rate", ascending=False).head(5)
-        bot5 = pdf[pdf["engagement_rate"] > 0].sort_values("engagement_rate").head(5)
-        
-        plat_stats[plat] = {
-            "total_posts": len(pdf),
-            "avg_er": all_er,
-            "avg_reach": int(pdf["reach"].mean()) if not pdf.empty else 0,
-            "format_performance": fmt_rows,
-            "top5_posts": [{"er": _r(r["engagement_rate"]), "title": _title(r)} for _, r in top5.iterrows()],
-            "bot5_posts": [{"er": _r(r["engagement_rate"]), "title": _title(r)} for _, r in bot5.iterrows()],
-        }
+    start_date = _valid_chat_date(chat_request.start_date)
+    end_date = _valid_chat_date(chat_request.end_date)
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(status_code=400, detail="Chat start date must not be after end date.")
 
-    data_str = json.dumps(plat_stats, indent=2)
-    
-    period_label = f"{request.start_date or 'the beginning'} to {request.end_date or 'present'}"
-
-    system_prompt = f"""You are an expert Social Media Data Analyst for CIMB Bank Malaysia. 
-Your job is to answer the user's questions accurately based ONLY on the data provided below.
-If the data does not contain the answer, say "I don't have enough data to answer that."
-
-Period: {period_label}
-
-DATASET CONTEXT (Aggregated Stats and Top/Bottom Posts):
-{data_str}
-"""
-
-    if request.active_tab:
-        system_prompt += f"\nCURRENT DASHBOARD SECTION: The user is currently looking at the '{request.active_tab}' tab.\n"
-        if request.active_tab == 'executive' and request.executive_summary:
-            system_prompt += f"Here is the AI-generated Executive Summary currently on their screen:\n{json.dumps(request.executive_summary, indent=2)}\n"
-            system_prompt += "If the user asks to rewrite, adjust, or change the executive summary, provide the revised version in your response.\n"
-        elif request.active_tab in ['strategy', 'learnings'] and request.strategy_data:
-            system_prompt += f"Here is the AI-generated Strategy/Learnings data currently on their screen:\n{json.dumps(request.strategy_data, indent=2)}\n"
-            system_prompt += "If the user asks to modify these strategies or learnings, provide the revised version in your response.\n"
-
-    system_prompt += """
-Guidelines:
-- Be concise, professional, and helpful.
-- When referencing posts, describe them based on their titles.
-- Use markdown for formatting (bolding, lists).
-"""
-
-    messages = [{"role": "system", "content": system_prompt}]
-    
-    # Add history
-    for msg in request.history:
-        # Groq allows role: 'user' or 'assistant' (or 'system')
-        if msg.role in ["user", "assistant"]:
-            messages.append({"role": msg.role, "content": msg.content})
-            
-    # Add current message
-    messages.append({"role": "user", "content": request.message})
-    
-    response = _call_groq_chat(api_key, messages)
-    
-    if isinstance(response, dict) and "error" in response:
-        return {"error": response["error"]}
-        
-    return {"reply": response}
+    df = get_filtered_data(start_date, end_date)
+    context = _cimb_chat_context(df, start_date, end_date, chat_request.active_tab, chat_request.platform)
+    worker_url, worker_key = _cimb_worker_route("/chat")
+    try:
+        response = http_requests.post(
+            worker_url,
+            headers={"x-api-key": worker_key, "content-type": "application/json"},
+            json={"question": message, "history": history, "context": context},
+            timeout=35,
+        )
+    except http_requests.RequestException as exc:
+        print(f"CIMB chat request failed: {type(exc).__name__}")
+        raise HTTPException(status_code=502, detail="The CIMB AI chat is temporarily unavailable.") from exc
+    if response.status_code != 200:
+        print(f"CIMB chat service returned HTTP {response.status_code}")
+        raise HTTPException(status_code=502, detail="The CIMB AI chat could not answer that question.")
+    try:
+        result = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="The CIMB AI chat returned an invalid response.") from exc
+    if not isinstance(result.get("reply"), str):
+        raise HTTPException(status_code=502, detail="The CIMB AI chat response is incomplete.")
+    return result
 
 
 # ── Export PPTX Platform Highlights ──────────────────────────────────────────
