@@ -6,7 +6,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, Lin
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
-import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, followerModel, full, percent, safeLink, thumbnailForPost } from './performance/model';
+import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './performance/model';
 import './performance/performance.css';
 
 const LegacyDashboard = lazy(() => import('./Dashboard'));
@@ -119,12 +119,14 @@ function refreshedLabel(value) {
 
 function Followers({ followers, loading, error }) {
   const refreshed = refreshedLabel(followers.lastRefreshedAt);
+  const markers = followerChartMarkers(followers.rows);
+  const markerIndexes = new Set(markers.indexes);
   return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart">
     {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Daily follower growth">
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><LineChart data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
-        <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="label" tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => value.split(' ').slice(0, 2).join(' ')} />
+        <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="month" ticks={markers.ticks} interval="preserveStartEnd" minTickGap={14} tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => followerTickLabel(value, markers.spanDays)} />
         <YAxis tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={47} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={full} /><Line dataKey="followers" name="Followers" stroke="#ed0027" strokeWidth={2} dot={{ r: 3, fill: '#ed0027', stroke: '#fff', strokeWidth: 1 }} />
+        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={full} labelFormatter={dateLabel} /><Line dataKey="followers" name="Followers" stroke="#ed0027" strokeWidth={2} dot={props => markerIndexes.has(props.index) ? <circle cx={props.cx} cy={props.cy} r={3} fill="#ed0027" stroke="#fff" strokeWidth={1} /> : null} activeDot={{ r: 4, fill: '#ed0027', stroke: '#fff', strokeWidth: 1.5 }} />
       </LineChart></ResponsiveContainer>
     </div> : <Empty icon={TrendingUp} title={error ? 'Follower data unavailable' : 'Waiting for the first daily snapshot'}>
       {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms supplied. Matching daily snapshots are needed for a combined total.` : 'Follower counts will appear after the scheduled refresh runs.')}

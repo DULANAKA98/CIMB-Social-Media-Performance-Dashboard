@@ -125,3 +125,25 @@ export function followerModel(data, platform = null) {
   const rows = months.map(month => ({ month, label: data[names[0]].find(row => row.month === month).month_label, followers: sum(names.map(name => data[name].find(row => row.month === month).followers)) }));
   return { total: rows.at(-1)?.followers ?? null, rows, coverage: available.length, expected: names.length, ...metadata };
 }
+
+export function followerChartMarkers(rows = []) {
+  if (!rows.length) return { indexes: [], ticks: [], spanDays: 0 };
+  const start = Date.parse(`${rows[0]?.month}T00:00:00Z`);
+  const end = Date.parse(`${rows.at(-1)?.month}T00:00:00Z`);
+  const spanDays = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.round((end - start) / 86400000)) : Math.max(0, rows.length - 1);
+  const target = spanDays <= 7 ? 7 : spanDays <= 45 ? 6 : spanDays <= 180 ? 7 : 8;
+  const count = Math.min(rows.length, target);
+  const indexes = count === 1 ? [0] : Array.from({ length: count }, (_, index) => Math.round(index * (rows.length - 1) / (count - 1)));
+  return { indexes, ticks: indexes.map(index => rows[index].month), spanDays };
+}
+
+export function followerTickLabel(value, spanDays) {
+  const date = new Date(`${String(value || '').slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return '';
+  const options = spanDays <= 45
+    ? { day: 'numeric', month: 'short', timeZone: 'UTC' }
+    : spanDays <= 400
+      ? { month: 'short', timeZone: 'UTC' }
+      : { month: 'short', year: '2-digit', timeZone: 'UTC' };
+  return new Intl.DateTimeFormat('en-GB', options).format(date);
+}

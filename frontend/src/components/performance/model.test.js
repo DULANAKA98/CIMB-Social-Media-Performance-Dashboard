@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildModel, change, comparisonRange, filterFollowerData, followerModel, full, percent, safeLink, thumbnailForPost } from './model.js';
+import { buildModel, change, comparisonRange, filterFollowerData, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './model.js';
 
 test('previous period uses inclusive day bounds and crosses month/year boundaries', () => {
   assert.deepEqual(comparisonRange({ start: '2026-01-01', end: '2026-01-31' }), { start: '2025-12-01', end: '2025-12-31' });
@@ -75,6 +75,21 @@ test('follower totals require matching daily snapshots across all selected platf
   assert.equal(followerModel(complete).lastRefreshedAt, '2026-09-11T00:00:00Z');
   complete.LinkedIn[0].month = '2026-09-12';
   assert.equal(followerModel(complete).total, null);
+});
+
+test('follower chart markers adapt to the reporting period without dropping the trend line data', () => {
+  const daily = Array.from({ length: 31 }, (_, index) => ({ month: `2026-08-${String(index + 1).padStart(2, '0')}` }));
+  const monthlyPlan = followerChartMarkers(daily);
+  assert.deepEqual(monthlyPlan.indexes, [0, 6, 12, 18, 24, 30]);
+  assert.deepEqual(monthlyPlan.ticks, ['2026-08-01', '2026-08-07', '2026-08-13', '2026-08-19', '2026-08-25', '2026-08-31']);
+  assert.equal(followerTickLabel('2026-08-19', monthlyPlan.spanDays), '19 Aug');
+
+  const longPeriod = Array.from({ length: 235 }, (_, index) => ({ month: new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10) }));
+  const longPlan = followerChartMarkers(longPeriod);
+  assert.equal(longPlan.indexes.length, 8);
+  assert.equal(longPlan.indexes[0], 0);
+  assert.equal(longPlan.indexes.at(-1), 234);
+  assert.equal(followerTickLabel('2026-08-23', longPlan.spanDays), 'Aug');
 });
 
 test('only http(s) post links are rendered', () => {
