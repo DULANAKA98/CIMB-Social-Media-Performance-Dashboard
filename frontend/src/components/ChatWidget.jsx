@@ -12,7 +12,7 @@ const STARTERS = [
 ];
 const GREETING = {
   role: 'assistant',
-  content: 'Hi — ask me about performance, platforms, formats, categories, followers or top posts for the selected dashboard period.',
+  content: 'Hey! Ask me anything about the CIMB social data — any platform, post, format, metric, or date range. I can also help you figure out what to look at next.',
   greeting: true,
 };
 
@@ -143,7 +143,7 @@ export default function ChatWidget({ startDate, endDate, activeTab, currentPage,
         />
         <button type="submit" disabled={!input.trim() || isLoading} aria-label="Send question"><Send size={17} /></button>
       </form>
-      <p className="cimb-chat-disclaimer">Answers use the selected dashboard data. Review before sharing.</p>
+      <p className="cimb-chat-disclaimer">Read-only access to CIMB dashboard data. Review before sharing.</p>
     </section>}
 
     <button

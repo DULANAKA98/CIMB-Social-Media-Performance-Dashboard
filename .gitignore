@@ -5,6 +5,7 @@ backend/*.pyc
 backend/*.pyo
 backend/*.db
 backend/.env
+.test-deps/
 
 # Node
 node_modules/

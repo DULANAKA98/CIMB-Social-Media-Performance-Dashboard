@@ -2848,7 +2848,14 @@ def chat_with_data(chat_request: ChatRequest, http_request: Request):
     try:
         result = sql_agent.answer_question(message, history, hints)
     except sql_agent.SqlAgentError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        print(f"Chat SQL agent could not answer: {str(exc)[:300]}")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "I hit a snag while checking the dashboard data. Try asking that once more "
+                "in a slightly different way."
+            ),
+        ) from exc
     except Exception as exc:
         print(f"Chat SQL agent failed: {type(exc).__name__}")
         raise HTTPException(status_code=502, detail="The CIMB AI chat is temporarily unavailable.") from exc

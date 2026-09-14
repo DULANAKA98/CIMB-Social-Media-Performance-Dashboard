@@ -5,6 +5,7 @@ so both what it accepts and what it rejects are covered here.
 """
 import os
 import unittest
+from unittest.mock import patch
 
 os.environ.setdefault("DATABASE_URL", "sqlite://")  # in-memory; no queries run here
 
@@ -13,6 +14,7 @@ from sql_agent import (  # noqa: E402
     SqlAgentError,
     _json_safe,
     _llm_json,
+    answer_question,
     strip_sql_fences,
     strip_string_literals,
     validate_sql,
@@ -50,6 +52,19 @@ class ValidateSqlAccepts(unittest.TestCase):
         self.assertIn("SELECT 1 FROM posts",
                       validate_sql("```sql\nSELECT 1 FROM posts\n```"))
 
+    def test_extract_from_date_is_not_mistaken_for_a_table(self):
+        sql = (
+            "SELECT title, engagement FROM posts "
+            "WHERE platform = 'TikTok' "
+            "AND EXTRACT(MONTH FROM date) = 5 "
+            "AND EXTRACT(YEAR FROM date) = 2026 "
+            "ORDER BY engagement DESC LIMIT 1"
+        )
+        self.assertIn("EXTRACT(MONTH FROM date)", validate_sql(sql))
+
+    def test_public_schema_on_allowed_table_is_accepted(self):
+        self.assertIn("public.posts", validate_sql("SELECT title FROM public.posts"))
+
 
 class ValidateSqlRejects(unittest.TestCase):
     def assert_rejected(self, sql):
@@ -85,6 +100,12 @@ class ValidateSqlRejects(unittest.TestCase):
     def test_join_onto_a_disallowed_table(self):
         self.assert_rejected(
             "SELECT p.title FROM posts p JOIN pg_user u ON true")
+
+    def test_disallowed_schema_is_rejected(self):
+        self.assert_rejected("SELECT * FROM auth.users")
+
+    def test_sensitive_functions_are_rejected(self):
+        self.assert_rejected("SELECT pg_read_file('/etc/passwd') FROM posts LIMIT 1")
 
     def test_transaction_control(self):
         self.assert_rejected("SELECT 1 FROM posts ROLLBACK")
@@ -154,6 +175,21 @@ class ProviderSelection(unittest.TestCase):
         message = str(caught.exception)
         self.assertIn("CIMB_INSIGHTS_URL", message)
         self.assertIn("GROQ_API_KEY", message)
+
+
+class ConversationRouting(unittest.TestCase):
+    @patch("sql_agent._llm_json")
+    def test_casual_message_returns_natural_reply_without_query(self, model):
+        model.return_value = {
+            "action": "respond",
+            "sql": None,
+            "reply": "Hey! I can dig into posts, platforms, performance, or follower trends. What are you curious about?",
+            "suggested_questions": ["What did best in May 2026?"],
+        }
+        result = answer_question("hey, what can you do?", [], {})
+        self.assertIsNone(result["sql"])
+        self.assertEqual(result["row_count"], 0)
+        self.assertIn("I can dig into", result["reply"])
 
 
 if __name__ == "__main__":
