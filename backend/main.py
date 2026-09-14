@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from data_processor import calculate_fb_ig_engagement_rate, process_data, read_platform_file
 from database import init_db, get_db, Post, AiReport, FollowerSnapshot
+import sql_agent
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 import pandas as pd
@@ -2812,6 +2813,11 @@ def _cimb_worker_route(path: str) -> tuple[str, str]:
 
 @app.post("/api/chat")
 def chat_with_data(chat_request: ChatRequest, http_request: Request):
+    """Answer a free-form question by generating and running read-only SQL.
+
+    The dashboard's current date range and platform tab are passed as hints
+    only; a question that names its own period or platform overrides them.
+    """
     _enforce_chat_rate_limit(http_request)
     message = chat_request.message.strip()
     if not message or len(message) > 600:
@@ -2830,30 +2836,31 @@ def chat_with_data(chat_request: ChatRequest, http_request: Request):
     end_date = _valid_chat_date(chat_request.end_date)
     if start_date and end_date and start_date > end_date:
         raise HTTPException(status_code=400, detail="Chat start date must not be after end date.")
+    if chat_request.platform and chat_request.platform not in CHAT_PLATFORMS:
+        raise HTTPException(status_code=400, detail="Unsupported dashboard platform.")
 
-    df = get_filtered_data(start_date, end_date)
-    context = _cimb_chat_context(df, start_date, end_date, chat_request.active_tab, chat_request.platform)
-    worker_url, worker_key = _cimb_worker_route("/chat")
+    hints = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "platform": chat_request.platform,
+        "active_tab": chat_request.active_tab,
+    }
     try:
-        response = http_requests.post(
-            worker_url,
-            headers={"x-api-key": worker_key, "content-type": "application/json"},
-            json={"question": message, "history": history, "context": context},
-            timeout=35,
-        )
-    except http_requests.RequestException as exc:
-        print(f"CIMB chat request failed: {type(exc).__name__}")
+        result = sql_agent.answer_question(message, history, hints)
+    except sql_agent.SqlAgentError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        print(f"Chat SQL agent failed: {type(exc).__name__}")
         raise HTTPException(status_code=502, detail="The CIMB AI chat is temporarily unavailable.") from exc
-    if response.status_code != 200:
-        print(f"CIMB chat service returned HTTP {response.status_code}")
-        raise HTTPException(status_code=502, detail="The CIMB AI chat could not answer that question.")
-    try:
-        result = response.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=502, detail="The CIMB AI chat returned an invalid response.") from exc
-    if not isinstance(result.get("reply"), str):
-        raise HTTPException(status_code=502, detail="The CIMB AI chat response is incomplete.")
-    return result
+
+    return {
+        "reply": result["reply"],
+        "suggested_questions": result.get("suggested_questions", []),
+        "_meta": {
+            "sql": result.get("sql"),
+            "row_count": result.get("row_count", 0),
+        },
+    }
 
 
 # ── Export PPTX Platform Highlights ──────────────────────────────────────────
