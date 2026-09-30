@@ -286,7 +286,7 @@ export default function PerformanceDashboard({ onLogout }) {
   useLayoutEffect(() => {
     const root = mainRef.current;
     if (!root) return undefined;
-    const items = [...root.querySelectorAll('.perf-kpi, .perf-panel, .section-intro, .data-hub-view .glass-panel')];
+    const items = [...root.querySelectorAll('.perf-kpi, .perf-panel, .data-hub-view .glass-panel')];
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion || !('IntersectionObserver' in window)) {
       items.forEach(item => item.classList.add('reveal-item', 'is-visible'));
@@ -375,7 +375,7 @@ export default function PerformanceDashboard({ onLogout }) {
     <a className="skip-link" href="#performance-main">Skip to dashboard</a>
     {mobileOpen && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
     <aside id="dashboard-navigation" ref={sidebarRef} className={`perf-sidebar ${mobileOpen ? 'is-open' : ''}`} aria-label="Dashboard navigation" aria-hidden={isMobile && !mobileOpen ? true : undefined} inert={isMobile && !mobileOpen ? '' : undefined} onKeyDown={mobileOpen ? trapFocus : undefined}>
-      <div className="sidebar-top"><span>PERFORMANCE HUB</span><button className="mobile-only icon-button" aria-label="Close navigation" onClick={() => setMobileOpen(false)}><X size={19} /></button></div>
+      <div className="sidebar-top"><button className="mobile-only icon-button" aria-label="Close navigation" onClick={() => setMobileOpen(false)}><X size={19} /></button></div>
       <nav className="perf-nav">
         <button className={`perf-nav-item ${page === 'executive' ? 'active' : ''}`} aria-current={page === 'executive' ? 'page' : undefined} onClick={() => navigate('executive')}><House size={17} /><span>Executive Overview</span></button>
         <div className={`platform-parent ${page === 'platform' ? 'selected' : ''}`}><button className="perf-nav-item" aria-current={page === 'platform' && !platform ? 'page' : undefined} onClick={() => { navigate('platform'); setPlatformOpen(true); }}><BarChart3 size={17} /><span>Platform Performance</span></button><button className="submenu-toggle" aria-label="Toggle platform submenu" aria-expanded={platformOpen} aria-controls="platform-submenu" onClick={() => setPlatformOpen(!platformOpen)}>{platformOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button></div>
@@ -390,7 +390,7 @@ export default function PerformanceDashboard({ onLogout }) {
 
       <main id="performance-main" ref={mainRef} className="perf-main" tabIndex={-1}>
         <div className="dashboard-page" key={`${page}-${platform || 'all'}`}>
-        {page === 'data-hub' ? <div className="data-hub-view"><div className="section-intro"><h2>Your data, in one place.</h2><p>Upload and manage platform exports. Return to the overview to see updated performance.</p></div><DataHub startDate={range.start} endDate={range.end} /></div> : showAllPosts ? <AllPostsView posts={allPosts} initialPlatform={postsViewPlatform} thumbnails={thumbnailState.items} onBack={() => setShowAllPosts(false)} /> : <>
+        {page === 'data-hub' ? <div className="data-hub-view"><DataHub startDate={range.start} endDate={range.end} /></div> : showAllPosts ? <AllPostsView posts={allPosts} initialPlatform={postsViewPlatform} thumbnails={thumbnailState.items} onBack={() => setShowAllPosts(false)} /> : <>
           <div className="overview-toolbar"><div className="data-status"><span className={`status-dot ${current.errors.length ? 'warning' : ''}`} />{current.loading ? 'Loading data…' : current.errors.length ? 'Connection needs attention' : current.empty ? 'Ready for your data' : 'Connected to Data Hub'}<button className={`icon-button ${current.loading ? 'is-refreshing' : ''}`} title="Refresh data" aria-label="Refresh data" disabled={current.loading} onClick={() => setRefreshKey(key => key + 1)}><RefreshCw size={14} /></button></div></div>
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
