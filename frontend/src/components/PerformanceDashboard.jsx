@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { ArrowDown, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronRight, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Settings2, Target, TrendingUp, Users, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Target, TrendingUp, Users, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
@@ -174,17 +174,60 @@ function PostThumbnail({ post, thumbnails }) {
   return <span className="post-thumbnail"><img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedSrc(src)} /></span>;
 }
 
-function Posts({ posts, expanded, onExpand, platform, thumbnails }) {
+const ALL_PLATFORMS = 'All platforms';
+
+function postsForPlatform(posts, platform) {
+  if (!platform || platform === ALL_PLATFORMS) return posts || [];
+  return (posts || []).filter(post => post.platform === platform);
+}
+
+function PostRows({ posts, thumbnails, detailed = false, startIndex = 0 }) {
+  return posts.map((post, index) => <tr key={post.id ?? `${post.platform}-${startIndex + index}`}>
+    <td><div className="post-identity"><PostThumbnail post={post} thumbnails={thumbnails} /><div>{safeLink(post.link) ? <a href={safeLink(post.link)} target="_blank" rel="noreferrer" title={post.title}>{post.title || 'Untitled post'}<ExternalLink size={10} /></a> : <strong title={post.title}>{post.title || 'Untitled post'}</strong>}<span>{dateLabel(post.date)} · {post.platform}{post.format ? ` · ${post.format}` : ''}</span></div></div></td>
+    <td>{compact(post.reach)}</td><td>{detailed ? compact(post.engagement) : percent(post.engagement_rate)}</td>{detailed && <td>{percent(post.engagement_rate)}</td>}
+  </tr>);
+}
+
+function PlatformSelect({ value, onChange, label = 'Filter posts by platform' }) {
+  return <label className="post-platform-filter"><span className="sr-only">{label}</span><select aria-label={label} value={value} onChange={event => onChange(event.target.value)}><option>{ALL_PLATFORMS}</option>{PLATFORMS.map(item => <option key={item.name}>{item.name}</option>)}</select></label>;
+}
+
+function TopPosts({ posts, onExpand, platform, thumbnails }) {
+  const [selectedPlatform, setSelectedPlatform] = useState(platform || ALL_PLATFORMS);
+  useEffect(() => setSelectedPlatform(platform || ALL_PLATFORMS), [platform]);
+  const filtered = useMemo(() => postsForPlatform(posts, selectedPlatform).slice().sort((a, b) => (b.engagement || 0) - (a.engagement || 0)), [posts, selectedPlatform]);
+  return <Panel title="Top Performing Posts" subtitle={`${selectedPlatform} · ranked by engagement`} className="top-posts" action={<div className="post-card-actions"><PlatformSelect value={selectedPlatform} onChange={setSelectedPlatform} /><button className="text-button" onClick={() => onExpand(selectedPlatform)}>View all <ArrowUpRight size={12} /></button></div>}>
+    {filtered.length ? <div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>Reach</th><th>ER%</th></tr></thead><tbody><PostRows posts={filtered.slice(0, 5)} thumbnails={thumbnails} /></tbody></table></div> : <Empty icon={FileText} title="No posts for this platform">Choose another platform or reporting period.</Empty>}
+  </Panel>;
+}
+
+function AllPostsView({ posts, initialPlatform, thumbnails, onBack }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('engagement');
-  const filtered = (posts || []).filter(post => `${post.title} ${post.format} ${post.platform}`.toLowerCase().includes(search.toLowerCase())).slice().sort((a, b) => (b[sort] || 0) - (a[sort] || 0));
-  return <Panel title={expanded ? 'Organic Content Performance' : 'Top Performing Posts'} subtitle={platform ? `${platform} · organic posts` : 'Across platforms · ranked by engagement'} className={expanded ? 'expanded-posts' : 'top-posts'} action={!expanded && <button className="text-button" onClick={onExpand}>View all <ArrowUpRight size={12} /></button>}>
-    {expanded && <div className="post-controls"><input aria-label="Search posts" placeholder="Search posts, formats or platforms…" value={search} onChange={e => setSearch(e.target.value)} /><label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="engagement">Engagement</option><option value="reach">Reach</option><option value="engagement_rate">ER%</option></select></label></div>}
-    {filtered.length ? <div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>Reach</th><th>{expanded ? 'Engagement' : 'ER%'}</th>{expanded && <th>ER%</th>}</tr></thead><tbody>{filtered.slice(0, expanded ? 100 : 4).map((post, index) => <tr key={post.id ?? `${post.platform}-${index}`}>
-      <td><div className="post-identity"><PostThumbnail post={post} thumbnails={thumbnails} /><div>{safeLink(post.link) ? <a href={safeLink(post.link)} target="_blank" rel="noreferrer" title={post.title}>{post.title || 'Untitled post'}<ExternalLink size={10} /></a> : <strong title={post.title}>{post.title || 'Untitled post'}</strong>}<span>{dateLabel(post.date)} · {post.format || post.platform}</span></div></div></td>
-      <td>{compact(post.reach)}</td><td>{expanded ? compact(post.engagement) : percent(post.engagement_rate)}</td>{expanded && <td>{percent(post.engagement_rate)}</td>}
-    </tr>)}</tbody></table>{expanded && filtered.length > 100 && <p className="panel-footnote">Showing the top 100 matching posts. The full export is available in Data Hub.</p>}</div> : <Empty icon={FileText} title={search ? 'No matching posts' : 'No organic posts yet'}>Posts will appear here once content data is available for this selection.</Empty>}
-  </Panel>;
+  const [selectedPlatform, setSelectedPlatform] = useState(initialPlatform || ALL_PLATFORMS);
+  const [postPage, setPostPage] = useState(1);
+  const pageSize = 12;
+  const filtered = useMemo(() => postsForPlatform(posts, selectedPlatform)
+    .filter(post => `${post.title} ${post.format} ${post.platform}`.toLowerCase().includes(search.trim().toLowerCase()))
+    .slice().sort((a, b) => (b[sort] || 0) - (a[sort] || 0)), [posts, search, selectedPlatform, sort]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(postPage, pageCount);
+  const pageStart = (currentPage - 1) * pageSize;
+  const visible = filtered.slice(pageStart, pageStart + pageSize);
+  useEffect(() => setPostPage(1), [posts, search, selectedPlatform, sort]);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, []);
+  const changePage = nextPage => {
+    setPostPage(Math.max(1, Math.min(pageCount, nextPage)));
+    document.querySelector('.posts-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const pageNumbers = Array.from({ length: pageCount }, (_, index) => index + 1).filter(number => number === 1 || number === pageCount || Math.abs(number - currentPage) <= 1);
+  return <div className="posts-library-view">
+    <div className="posts-library-header"><button className="perf-button back-button" onClick={onBack}><ArrowLeft size={15} /> Back to dashboard</button><div><h2>Top Performing Posts</h2><p>Explore posts from the selected reporting period, ranked by the metric you choose.</p></div></div>
+    <Panel title="Post performance" subtitle={`${filtered.length.toLocaleString('en-GB')} matching ${filtered.length === 1 ? 'post' : 'posts'}`} className="expanded-posts posts-library">
+      <div className="post-controls"><input aria-label="Search posts" placeholder="Search posts, formats or platforms…" value={search} onChange={e => setSearch(e.target.value)} /><div className="post-control-group"><PlatformSelect value={selectedPlatform} onChange={setSelectedPlatform} label="Filter all posts by platform" /><label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="engagement">Engagement</option><option value="reach">Reach</option><option value="engagement_rate">ER%</option></select></label></div></div>
+      {visible.length ? <><div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>Reach</th><th>Engagement</th><th>ER%</th></tr></thead><tbody><PostRows posts={visible} thumbnails={thumbnails} detailed startIndex={pageStart} /></tbody></table></div><nav className="post-pagination" aria-label="Post pages"><span>Showing {pageStart + 1}–{Math.min(pageStart + pageSize, filtered.length)} of {filtered.length}</span><div><button aria-label="Previous page" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}><ChevronLeft size={15} /></button>{pageNumbers.map((number, index) => <span key={number}>{index > 0 && number - pageNumbers[index - 1] > 1 && <i aria-hidden="true">…</i>}<button aria-label={`Page ${number}`} aria-current={number === currentPage ? 'page' : undefined} onClick={() => changePage(number)}>{number}</button></span>)}<button aria-label="Next page" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)}><ChevronRight size={15} /></button></div></nav></> : <Empty icon={FileText} title={search ? 'No matching posts' : 'No posts for this platform'}>Try another search, platform or reporting period.</Empty>}
+    </Panel>
+  </div>;
 }
 
 function Benchmarks({ current, previous, mode, onMode, hasRange, loading, comparison }) {
@@ -222,6 +265,7 @@ export default function PerformanceDashboard({ onLogout }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [benchmarkMode, setBenchmarkMode] = useState('previous');
   const [showAllPosts, setShowAllPosts] = useState(false);
+  const [postsViewPlatform, setPostsViewPlatform] = useState(ALL_PLATFORMS);
   const [followerState, setFollowerState] = useState({ data: null, loading: false, error: '' });
   const [followerHistoryState, setFollowerHistoryState] = useState({ data: null, loading: false, error: '' });
   const [thumbnailState, setThumbnailState] = useState({ items: [] });
@@ -234,6 +278,7 @@ export default function PerformanceDashboard({ onLogout }) {
   const previous = usePerformanceData(comparedRange, refreshKey, !!comparedRange);
   const model = useMemo(() => buildModel(current.data, platform), [current.data, platform]);
   const previousModel = useMemo(() => buildModel(previous.data, platform), [previous.data, platform]);
+  const allPosts = useMemo(() => buildModel(current.data, null).posts || [], [current.data]);
   const latestFollowers = useMemo(() => followerModel(followerState.data, platform), [followerState.data, platform]);
   const followers = useMemo(() => followerModel(followerHistoryState.data, platform), [followerHistoryState.data, platform]);
 
@@ -322,7 +367,7 @@ export default function PerformanceDashboard({ onLogout }) {
       if (!controller.signal.aborted) setAiState({ data: response.data, loading: false });
     } catch { if (!controller.signal.aborted) setAiState({ data: { error: true }, loading: false }); }
   };
-  const title = page === 'data-hub' ? 'Data Hub' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
+  const title = page === 'data-hub' ? 'Data Hub' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
 
   if (legacy) return <><div className="legacy-back"><button onClick={() => { setLegacy(false); setRefreshKey(key => key + 1); }}>← Back to performance dashboard</button><span>Existing reporting workspace</span></div><Suspense fallback={<p>Opening reporting tools…</p>}><LegacyDashboard onLogout={onLogout} /></Suspense></>;
 
@@ -336,16 +381,16 @@ export default function PerformanceDashboard({ onLogout }) {
         <div className={`platform-parent ${page === 'platform' ? 'selected' : ''}`}><button className="perf-nav-item" aria-current={page === 'platform' && !platform ? 'page' : undefined} onClick={() => { navigate('platform'); setPlatformOpen(true); }}><BarChart3 size={17} /><span>Platform Performance</span></button><button className="submenu-toggle" aria-label="Toggle platform submenu" aria-expanded={platformOpen} aria-controls="platform-submenu" onClick={() => setPlatformOpen(!platformOpen)}>{platformOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button></div>
         {platformOpen && <div className="platform-submenu" id="platform-submenu">{PLATFORMS.map(item => <button className={`perf-nav-item ${platform === item.name ? 'active' : ''}`} key={item.name} aria-current={platform === item.name ? 'page' : undefined} onClick={() => navigate('platform', item.name)}><PlatformIcon name={item.name} /><span>{item.name}</span>{platform === item.name && <i />}</button>)}</div>}
       </nav>
-      <div className="perf-sidebar-bottom"><button className={`perf-nav-item ${page === 'data-hub' ? 'active' : ''}`} onClick={() => navigate('data-hub')}><Database size={16} /><span>Data Hub</span></button><button className="perf-nav-item" onClick={() => setLegacy(true)}><Settings2 size={16} /><span>Reporting tools</span><ExternalLink size={12} /></button><button className="perf-nav-item" onClick={onLogout}><LogOut size={16} /><span>Sign out</span></button><p className="brand-tagline">Moving You Forward <span>❯</span></p></div>
+      <div className="perf-sidebar-bottom"><button className={`perf-nav-item ${page === 'data-hub' ? 'active' : ''}`} onClick={() => navigate('data-hub')}><Database size={16} /><span>Data Hub</span></button><button className="perf-nav-item" onClick={onLogout}><LogOut size={16} /><span>Sign out</span></button><p className="brand-tagline">Moving You Forward <span>❯</span></p></div>
     </aside>
 
     <div className="perf-workspace">
       {import.meta.env.DEV && import.meta.env.VITE_UI_PREVIEW === 'true' && <div className="preview-notice">UI preview · Synthetic test data · Not connected to the live database</div>}
-      <header className="perf-header"><div className="header-brand"><button className="mobile-only icon-button" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={22} /></button><span className="cimb-wordmark"><img src="/cimb-logo.jpg?v=2" alt="CIMB" width="144" height="40" /></span><div className="header-titles"><h1>Social Media Performance Dashboard</h1><p>{title}</p></div></div><div className="header-actions"><DateFilter range={range} onApply={value => { setRange(value); setShowAllPosts(false); }} /><button className="perf-button primary export-button" onClick={() => window.print()} title="Print or save this dashboard as a PDF"><Download size={14} /><span>Download report</span></button></div></header>
+      <header className="perf-header"><div className="header-brand"><button className="mobile-only icon-button" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={22} /></button><span className="cimb-wordmark"><img src="/cimb-logo.jpg?v=2" alt="CIMB" width="144" height="40" /></span><div className="header-titles"><h1>Social Media Performance Dashboard</h1><p>{title}</p></div></div><div className="header-actions"><DateFilter range={range} onApply={setRange} /><button className="perf-button primary export-button" onClick={() => window.print()} title="Print or save this dashboard as a PDF"><Download size={14} /><span>Download report</span></button></div></header>
 
       <main id="performance-main" ref={mainRef} className="perf-main" tabIndex={-1}>
         <div className="dashboard-page" key={`${page}-${platform || 'all'}`}>
-        {page === 'data-hub' ? <div className="data-hub-view"><div className="section-intro"><h2>Your data, in one place.</h2><p>Upload and manage platform exports. Return to the overview to see updated performance.</p></div><DataHub startDate={range.start} endDate={range.end} /></div> : <>
+        {page === 'data-hub' ? <div className="data-hub-view"><div className="section-intro"><h2>Your data, in one place.</h2><p>Upload and manage platform exports. Return to the overview to see updated performance.</p></div><DataHub startDate={range.start} endDate={range.end} /></div> : showAllPosts ? <AllPostsView posts={allPosts} initialPlatform={postsViewPlatform} thumbnails={thumbnailState.items} onBack={() => setShowAllPosts(false)} /> : <>
           <div className="overview-toolbar"><div className="data-status"><span className={`status-dot ${current.errors.length ? 'warning' : ''}`} />{current.loading ? 'Loading data…' : current.errors.length ? 'Connection needs attention' : current.empty ? 'Ready for your data' : 'Connected to Data Hub'}<button className={`icon-button ${current.loading ? 'is-refreshing' : ''}`} title="Refresh data" aria-label="Refresh data" disabled={current.loading} onClick={() => setRefreshKey(key => key + 1)}><RefreshCw size={14} /></button></div></div>
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
@@ -361,10 +406,9 @@ export default function PerformanceDashboard({ onLogout }) {
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} /><Formats rows={model.formats} />
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} />
-            <Posts posts={model.posts} onExpand={() => { setShowAllPosts(!showAllPosts); }} platform={platform} thumbnails={thumbnailState.items} />
+            <TopPosts posts={allPosts} onExpand={selectedPlatform => { setPostsViewPlatform(selectedPlatform); setShowAllPosts(true); }} platform={platform} thumbnails={thumbnailState.items} />
             <Insights model={model} ai={platform ? null : aiState.data} loading={aiState.loading} onGenerate={platform ? () => setLegacy(true) : generateInsights} platform={platform} />
           </div>
-          {showAllPosts && <Posts posts={model.posts} platform={platform} thumbnails={thumbnailState.items} expanded />}
           <footer className="perf-footer"><span>{current.updatedAt && `Updated ${current.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</span></footer>
         </>}
         </div>
