@@ -361,8 +361,8 @@ const DataHub = ({ startDate, endDate }) => {
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             style={{
               width: '100%', paddingLeft: '34px', padding: '0.6rem 0.9rem 0.6rem 34px',
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '8px', color: 'white', fontFamily: 'inherit', fontSize: 'calc(0.85rem + 2px)', outline: 'none',
+              background: '#fff', border: '1px solid #e5dde8',
+              borderRadius: '8px', color: '#4f4456', fontFamily: 'inherit', fontSize: 'calc(0.85rem + 2px)', outline: 'none',
             }}
           />
         </div>
@@ -370,8 +370,8 @@ const DataHub = ({ startDate, endDate }) => {
           value={filterPlatform}
           onChange={e => { setFilterPlatform(e.target.value); setPage(1); }}
           style={{
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '8px', color: 'white', padding: '0.6rem 0.9rem', fontFamily: 'inherit',
+            background: '#fff', border: '1px solid #e5dde8',
+            borderRadius: '8px', color: '#4f4456', padding: '0.6rem 0.9rem', fontFamily: 'inherit',
             fontSize: 'calc(0.85rem + 2px)', cursor: 'pointer', outline: 'none',
           }}
         >
@@ -384,8 +384,8 @@ const DataHub = ({ startDate, endDate }) => {
           onChange={e => { setDateSort(e.target.value); setPage(1); }}
           aria-label="Sort records by date"
           style={{
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '8px', color: 'white', padding: '0.6rem 0.9rem', fontFamily: 'inherit',
+            background: '#fff', border: '1px solid #e5dde8',
+            borderRadius: '8px', color: '#4f4456', padding: '0.6rem 0.9rem', fontFamily: 'inherit',
             fontSize: 'calc(0.85rem + 2px)', cursor: 'pointer', outline: 'none',
           }}
         >
