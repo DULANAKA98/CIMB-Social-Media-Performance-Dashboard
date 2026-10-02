@@ -10,7 +10,7 @@ import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, fol
 import './performance/performance.css';
 
 const LegacyDashboard = lazy(() => import('./Dashboard'));
-const BRAND_ICONS = { Facebook: FaFacebookF, Instagram: FaInstagram, TikTok: FaTiktok, YouTube: FaYoutube, LinkedIn: FaLinkedinIn };
+const BRAND_ICONS = { Facebook: FaFacebookF, Instagram: FaInstagram, 'Instagram Stories': FaInstagram, TikTok: FaTiktok, YouTube: FaYoutube, LinkedIn: FaLinkedinIn };
 const CHART_STYLE = { fontSize: 12, fill: '#818493' };
 const TOOLTIP_STYLE = { background: '#fff', border: '1px solid #e9e9ef', borderRadius: 8, fontSize: 14, color: '#25232a', boxShadow: '0 5px 25px #26081510' };
 
@@ -230,8 +230,8 @@ function AllPostsView({ posts, initialPlatform, thumbnails, onBack }) {
   </div>;
 }
 
-function Benchmarks({ current, previous, mode, onMode, hasRange, loading, comparison }) {
-  const metrics = [['Reach', 'reach'], ['Engagement', 'engagement'], ['Engagement rate', 'er'], ['Followers', 'followers']];
+function Benchmarks({ current, previous, mode, onMode, hasRange, loading, comparison, showFollowers = true }) {
+  const metrics = [['Reach', 'reach'], ['Engagement', 'engagement'], ['Engagement rate', 'er'], ...(showFollowers ? [['Followers', 'followers']] : [])];
   return <Panel title="Benchmarking" className="benchmark-panel">
     <div className="benchmark-tabs" role="group" aria-label="Benchmark comparison"><button aria-pressed={mode === 'previous'} onClick={() => onMode('previous')}>Previous period</button><button aria-pressed={mode === 'year'} onClick={() => onMode('year')}>Same period last year</button><button disabled title="Industry benchmark source not connected">Industry avg.</button><button disabled title="Campaign mapping not connected">Similar campaigns</button></div>
     <div className="benchmark-metrics">{metrics.map(([label, key]) => { const delta = !loading && change(current[key], previous[key], key === 'er'); return <div key={key}><span>{label}</span><strong className={delta && delta.value < 0 ? 'negative' : ''}>{delta ? delta.label : '—'}</strong><small>{loading ? 'Loading…' : delta ? key === 'er' ? 'percentage points' : 'change' : 'Not available'}</small></div>; })}</div>
@@ -281,6 +281,10 @@ export default function PerformanceDashboard({ onLogout }) {
   const allPosts = useMemo(() => buildModel(current.data, null).posts || [], [current.data]);
   const latestFollowers = useMemo(() => followerModel(followerState.data, platform), [followerState.data, platform]);
   const followers = useMemo(() => followerModel(followerHistoryState.data, platform), [followerHistoryState.data, platform]);
+  const selectedPlatform = PLATFORMS.find(item => item.name === platform);
+  const supportsFollowers = selectedPlatform?.supportsFollowers !== false;
+  const supportsFormats = selectedPlatform?.supportsFormats !== false;
+  const isInstagramStories = platform === 'Instagram Stories';
 
   const navigate = (next, name = null) => { setPage(next); setPlatform(name); setShowAllPosts(false); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
   useLayoutEffect(() => {
@@ -395,17 +399,17 @@ export default function PerformanceDashboard({ onLogout }) {
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
           <div className={`perf-kpis ${page === 'executive' ? 'executive-kpis' : ''} ${current.loading ? 'is-loading' : ''}`} aria-busy={current.loading}>
-            <Kpi label="Total Followers" value={full(latestFollowers.total)} icon={Users} help="Sum of the latest matching daily follower snapshot across the selected platforms."><span className="delta neutral">{latestFollowers.total == null ? 'Waiting for follower refresh' : `Last refreshed ${refreshedLabel(latestFollowers.lastRefreshedAt)}`}</span></Kpi>
-            <Kpi label="Total Reach" value={full(model.kpis.reach)} icon={Megaphone} help="Sum of post reach, not deduplicated people. Instagram Stories excluded."><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
-            <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help="Total engagements across posts in the selected period. Instagram Stories excluded."><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
-            {page === 'platform' && <Kpi label={platform ? 'Avg. Post ER%' : 'Engagement Rate (ER%)'} value={percent(model.kpis.er)} icon={BarChart3} help={platform ? 'Mean of individual post engagement rates, as reported by the platform-stats endpoint.' : 'Total engagement / ER denominator. The backend uses views for Facebook/Instagram posts without reach.'}><Delta current={model.kpis.er} previous={previousModel.kpis.er} rate label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>}
+            {(page === 'executive' || supportsFollowers) && <Kpi label="Total Followers" value={full(latestFollowers.total)} icon={Users} help="Sum of the latest matching daily follower snapshot across the selected social accounts."><span className="delta neutral">{latestFollowers.total == null ? 'Waiting for follower refresh' : `Last refreshed ${refreshedLabel(latestFollowers.lastRefreshedAt)}`}</span></Kpi>}
+            <Kpi label="Total Reach" value={full(model.kpis.reach)} icon={Megaphone} help="Sum of reported content reach, not deduplicated people. Instagram Stories are included as a separate performance platform."><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
+            <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help="Total engagements across content in the selected period. Instagram Stories are included as a separate performance platform."><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
+            {page === 'platform' && <Kpi label={isInstagramStories ? 'Avg. Story ER%' : platform ? 'Avg. Post ER%' : 'Engagement Rate (ER%)'} value={percent(model.kpis.er)} icon={BarChart3} help={isInstagramStories ? 'Mean of individual Story engagement rates, calculated using reach.' : platform ? 'Mean of individual post engagement rates, as reported by the platform-stats endpoint.' : 'Total engagement / ER denominator. The backend uses views for Facebook/Instagram posts without reach.'}><Delta current={model.kpis.er} previous={previousModel.kpis.er} rate label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>}
           </div>
-          {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published posts</small></h2></div></div>}
-          <div className={`perf-grid ${page === 'executive' ? 'executive-grid' : ''}`} aria-busy={current.loading}>
-            <PerformanceChart model={model} /><ReachBreakdown model={model} /><Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />
+          {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published {isInstagramStories ? 'stories' : 'posts'}</small></h2></div></div>}
+          <div className={`perf-grid ${page === 'executive' ? 'executive-grid' : ''} ${isInstagramStories ? 'story-grid' : ''}`} aria-busy={current.loading}>
+            <PerformanceChart model={model} /><ReachBreakdown model={model} />{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />}
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
-            <Categories rows={model.categories} />{page === 'platform' && <Formats rows={model.formats} />}
-            <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} />
+            <Categories rows={model.categories} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} />}
+            <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} showFollowers={supportsFollowers} />
             <TopPosts posts={allPosts} onExpand={selectedPlatform => { setPostsViewPlatform(selectedPlatform); setShowAllPosts(true); }} platform={platform} thumbnails={thumbnailState.items} />
             <Insights model={model} ai={platform ? null : aiState.data} loading={aiState.loading} onGenerate={platform ? () => setLegacy(true) : generateInsights} platform={platform} />
           </div>

@@ -1,5 +1,6 @@
 export const PLATFORMS = [
   { name: 'Instagram', short: 'IG', color: '#c72c75' },
+  { name: 'Instagram Stories', short: 'IGS', color: '#e04a93', supportsFollowers: false, supportsFormats: false },
   { name: 'Facebook', short: 'FB', color: '#1877f2' },
   { name: 'TikTok', short: 'TT', color: '#20212a' },
   { name: 'YouTube', short: 'YT', color: '#ed0027' },
@@ -89,8 +90,6 @@ export function buildModel(data, platform = null) {
     posts: data.engagement?.overall?.posts_count ?? null,
   };
   const organicReach = posts == null ? null : sum(posts.map(post => post.reach));
-  // Both source endpoints exclude Instagram Stories. Do not include the
-  // Instagram Overall/Stories helper rows in the executive totals again.
   const validSplit = organicReach != null && kpis.reach != null && organicReach <= kpis.reach + 0.01;
   const reachSplit = validSplit ? [
     { name: 'Organic', value: organicReach, color: '#ed0027' },
@@ -112,7 +111,10 @@ export function buildModel(data, platform = null) {
 }
 
 export function followerModel(data, platform = null) {
-  const names = platform ? [platform] : PLATFORMS.map(item => item.name);
+  const names = platform
+    ? PLATFORMS.filter(item => item.name === platform && item.supportsFollowers !== false).map(item => item.name)
+    : PLATFORMS.filter(item => item.supportsFollowers !== false).map(item => item.name);
+  if (!names.length) return { total: null, rows: [], coverage: 0, expected: 0, lastRefreshedAt: data?._meta?.last_refreshed_at || null, refreshSchedule: data?._meta?.refresh_schedule || null };
   const available = names.filter(name => data?.[name]?.length);
   const metadata = {
     lastRefreshedAt: data?._meta?.last_refreshed_at || null,

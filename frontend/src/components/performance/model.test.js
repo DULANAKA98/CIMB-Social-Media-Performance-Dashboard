@@ -14,22 +14,33 @@ test('prior-year comparison clamps leap day', () => {
 });
 
 const source = {
-  summary: { kpis: { total_reach: 1000, total_engagement: 60, avg_engagement_rate: 6 } },
-  stats: { Facebook: { posts_count: 2, avg_reach: 200, avg_engagement_rate: 5 }, Instagram: { posts_count: 3, avg_reach: 200, avg_engagement_rate: 7 }, 'Instagram Overall': { contents_count: 99, avg_reach: 9999 }, 'Instagram Stories': { stories_count: 96, avg_reach: 9999 } },
-  engagement: { overall: { posts_count: 5 }, platforms: [{ platform: 'Facebook', total_engagement: 20 }, { platform: 'Instagram', total_engagement: 40 }] },
-  content: { Facebook: [{ id: 1, platform: 'Facebook', reach: 200, engagement: 10 }], Instagram: [{ id: 2, platform: 'Instagram', reach: 300, engagement: 30 }] },
-  categories: { Overall: [{ type: 'Brand', count: 5 }], Facebook: [{ type: 'Brand', count: 2 }] },
+  summary: { kpis: { total_reach: 1200, total_engagement: 70, avg_engagement_rate: 5.83 } },
+  stats: { Facebook: { posts_count: 2, avg_reach: 200, avg_engagement_rate: 5 }, Instagram: { posts_count: 3, avg_reach: 200, avg_engagement_rate: 7 }, 'Instagram Overall': { contents_count: 5, avg_reach: 160 }, 'Instagram Stories': { posts_count: 2, stories_count: 2, avg_reach: 100, avg_engagement_rate: 4 } },
+  engagement: { overall: { posts_count: 7 }, platforms: [{ platform: 'Facebook', total_engagement: 20 }, { platform: 'Instagram', total_engagement: 40 }, { platform: 'Instagram Stories', total_engagement: 10 }] },
+  content: { Facebook: [{ id: 1, platform: 'Facebook', reach: 200, engagement: 10 }], Instagram: [{ id: 2, platform: 'Instagram', reach: 300, engagement: 30 }], 'Instagram Stories': [{ id: 3, platform: 'Instagram Stories', format: 'IG Story', reach: 200, engagement: 10 }] },
+  categories: { Overall: [{ type: 'Brand', count: 7 }], Facebook: [{ type: 'Brand', count: 2 }], 'Instagram Stories': [{ type: 'Brand', count: 2 }] },
   formats: [{ platform: 'Facebook', format: 'Video', posts: 1, avg_er: 2, avg_reach: 200, avg_engagement: 10 }, { platform: 'Instagram', format: 'Video', posts: 3, avg_er: 6, avg_reach: 300, avg_engagement: 30 }, { platform: 'Grand Total', is_total: true, is_grand_total: true, posts: 4, avg_er: 999 }],
 };
 
-test('executive totals exclude extra Instagram helper rows and preserve backend ER', () => {
+test('executive totals include Instagram Stories as a separate performance platform', () => {
   const model = buildModel(source);
-  assert.equal(model.rows.length, 5);
-  assert.equal(model.kpis.reach, 1000);
-  assert.equal(model.kpis.er, 6);
-  assert.equal(model.rows.reduce((total, row) => total + (row.reach || 0), 0), 1000);
-  assert.deepEqual(model.reachSplit.map(row => row.value), [500, 500]);
+  assert.equal(model.rows.length, 6);
+  assert.equal(model.kpis.reach, 1200);
+  assert.equal(model.kpis.er, 5.83);
+  assert.equal(model.rows.reduce((total, row) => total + (row.reach || 0), 0), 1200);
+  assert.deepEqual(model.reachSplit.map(row => row.value), [700, 500]);
   assert.equal(model.posts[0].id, 2);
+});
+
+test('Instagram Stories remain independently selectable', () => {
+  const model = buildModel(source, 'Instagram Stories');
+  assert.equal(model.kpis.reach, 200);
+  assert.equal(model.kpis.engagement, 10);
+  assert.equal(model.kpis.er, 4);
+  assert.equal(model.kpis.posts, 2);
+  assert.equal(model.posts[0].id, 3);
+  assert.equal(model.categories[0].count, 2);
+  assert.equal(model.formats.length, 0);
 });
 
 test('platform selection scopes every available breakdown to that platform', () => {

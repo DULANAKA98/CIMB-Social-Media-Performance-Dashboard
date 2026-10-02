@@ -50,6 +50,7 @@ def startup_event():
 
 # ── Helper: load posts from DB into a Pandas DataFrame ────────────────────────
 INSTAGRAM_STORY_FORMATS = ('ig story', 'instagram story', 'story')
+PERFORMANCE_PLATFORMS = ['Facebook', 'Instagram', 'Instagram Stories', 'TikTok', 'YouTube', 'LinkedIn']
 
 
 def is_instagram_story(platform, content_format) -> bool:
@@ -151,10 +152,17 @@ def combine_instagram_stats(post_stats, story_stats):
     }
 
 
-def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] = None):
+def get_filtered_data(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    include_instagram_stories: bool = False,
+    separate_instagram_stories: bool = False,
+):
     db = next(get_db())
     try:
-        query = without_instagram_stories(db.query(Post))
+        query = db.query(Post)
+        if not include_instagram_stories:
+            query = without_instagram_stories(query)
         if start_date:
             query = query.filter(Post.date >= pd.to_datetime(start_date))
         if end_date:
@@ -184,6 +192,12 @@ def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] 
             })
         df = pd.DataFrame(records)
         df['date'] = pd.to_datetime(df['date'])
+        if separate_instagram_stories:
+            story_mask = (
+                df['platform'].fillna('').astype(str).str.strip().str.lower().eq('instagram')
+                & df['format'].fillna('').astype(str).str.strip().str.lower().isin(INSTAGRAM_STORY_FORMATS)
+            )
+            df.loc[story_mask, 'platform'] = 'Instagram Stories'
 
         return df
     finally:
@@ -195,7 +209,7 @@ def get_filtered_data(start_date: Optional[str] = None, end_date: Optional[str] 
 def get_status():
     db = next(get_db())
     try:
-        count = without_instagram_stories(db.query(Post)).count()
+        count = db.query(Post).count()
         last_post = db.query(Post).order_by(Post.created_at.desc()).first()
         last_sync = last_post.created_at.isoformat() if last_post else None
         return {"has_data": count > 0, "post_count": count, "last_sync": last_sync}
@@ -527,7 +541,7 @@ def save_ai_report(
 
 @app.get("/api/dashboard-summary")
 def get_dashboard_summary(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    df = get_filtered_data(start_date, end_date)
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
 
     total_reach = df['reach'].sum()
     total_engagement = df['engagement'].sum()
@@ -551,11 +565,10 @@ def get_dashboard_summary(start_date: Optional[str] = Query(None), end_date: Opt
 
 @app.get("/api/platform-stats")
 def get_platform_stats(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    df = get_filtered_data(start_date, end_date)
-    story_stats = get_instagram_story_stats(start_date, end_date)
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
 
     stats = {}
-    for platform in ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']:
+    for platform in PERFORMANCE_PLATFORMS:
         pdf = df[df['platform'] == platform]
         if pdf.empty:
             stats[platform] = None
@@ -570,9 +583,10 @@ def get_platform_stats(start_date: Optional[str] = Query(None), end_date: Option
                 "avg_engagement_rate": avg_er
             }
 
-        if platform == 'Instagram':
-            stats['Instagram Stories'] = story_stats
-            stats['Instagram Overall'] = combine_instagram_stats(stats[platform], story_stats)
+            if platform == 'Instagram Stories':
+                stats[platform]['stories_count'] = posts_count
+
+    stats['Instagram Overall'] = combine_instagram_stats(stats.get('Instagram'), stats.get('Instagram Stories'))
 
     return stats
 
@@ -612,9 +626,9 @@ def get_organic_content(start_date: Optional[str] = Query(None), end_date: Optio
 
 @app.get("/api/engagement-summary")
 def get_engagement_summary(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    df = get_filtered_data(start_date, end_date)
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
 
-    platforms = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']
+    platforms = PERFORMANCE_PLATFORMS
     platform_data = []
     overall_total = 0
     overall_posts = 0
@@ -685,9 +699,9 @@ def classify_content_type(title: str) -> str:
 @app.get("/api/content-types")
 def get_content_types(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
     """Return category reach and weighted engagement rate per platform + overall."""
-    df = get_filtered_data(start_date, end_date)
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
 
-    platforms = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']
+    platforms = PERFORMANCE_PLATFORMS
     def summarize(pdf: pd.DataFrame):
         if pdf.empty:
             return []
@@ -828,7 +842,7 @@ def get_public_post_thumbnail(url: str = Query(...)):
 
 @app.get("/api/all-content")
 def get_all_content(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    df = get_filtered_data(start_date, end_date)
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
 
     def clean_records(df_subset):
         res = []
@@ -840,7 +854,7 @@ def get_all_content(start_date: Optional[str] = Query(None), end_date: Optional[
         return res
 
     result = {}
-    for platform in ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']:
+    for platform in PERFORMANCE_PLATFORMS:
         org = df[(df['platform'] == platform) & (df['is_organic'] == True)]
         if org.empty:
             result[platform] = []
@@ -853,9 +867,9 @@ def get_all_content(start_date: Optional[str] = Query(None), end_date: Optional[
 
 @app.get("/api/format-performance")
 def get_format_performance(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    df = get_filtered_data(start_date, end_date)
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
     
-    platforms = ['Facebook', 'Instagram', 'LinkedIn', 'TikTok', 'YouTube']
+    platforms = PERFORMANCE_PLATFORMS
     result = []
     
     grand_posts = 0
@@ -1851,7 +1865,7 @@ def get_metricool_follower_growth(
 def _cimb_insight_snapshot(df: pd.DataFrame, start_date: Optional[str], end_date: Optional[str]):
     """Build the aggregate-only payload sent to the CIMB-owned AI Worker."""
     platform_rows = []
-    for platform in ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn']:
+    for platform in PERFORMANCE_PLATFORMS:
         pdf = df[df['platform'] == platform]
         if pdf.empty:
             continue
@@ -1904,7 +1918,7 @@ def _cimb_insight_snapshot(df: pd.DataFrame, start_date: Optional[str], end_date
         "measurement_notes": [
             "Reach is reported post reach and is not deduplicated people.",
             "Engagement rate is the average of the post-level engagement rates shown by the dashboard.",
-            "Instagram Stories are excluded from these standard performance totals.",
+            "Instagram Stories are reported as a separate performance platform and included in executive totals.",
         ],
     }
 
@@ -1924,7 +1938,7 @@ def get_executive_summary(
     if parsed_url.scheme != "https" or not parsed_url.netloc:
         raise HTTPException(status_code=503, detail="The CIMB insights service URL is invalid.")
 
-    df = get_filtered_data(start_date, end_date)
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
     snapshot = _cimb_insight_snapshot(df, start_date, end_date)
     try:
         response = http_requests.post(

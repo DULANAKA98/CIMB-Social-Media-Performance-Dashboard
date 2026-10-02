@@ -39,8 +39,9 @@ For a normal preview, omit `VITE_UI_PREVIEW` and use the new CIMB backend URL in
 ## Checked interactions
 
 - Desktop overview matches the reference's burgundy/light visual direction.
-- Five platform submenus update KPIs, content, formats and reach breakdown.
-- Instagram Stories stay separate from executive post totals.
+- Six platform submenus update KPIs, content and reach breakdown.
+- Instagram Stories have a separate platform screen, contribute to executive performance totals, and remain separate from Instagram posts.
+- Instagram Stories do not display follower, follower-growth or content-format cards.
 - Content search, format details, date selection and benchmark-mode switching.
 - Empty date range (2099 fixture) and API error (2098 fixture) clear old values.
 - Follower sheet form and matching-month follower aggregation.
