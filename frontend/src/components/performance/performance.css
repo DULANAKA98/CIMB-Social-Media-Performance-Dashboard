@@ -42,6 +42,7 @@
 .header-titles { border-left: 1px solid #eeeaf0; padding-left: 18px; }
 .header-titles h1 { font-size: 18px; font-weight: 700; line-height: 1.5; }
 .header-titles p { color: #8b8794; font-size: 13px; margin-top: 1px; }
+.print-title, .print-report-period { display: none; }
 .perf-button { border: 1px solid #e7e5ed; color: #55505e; background: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 13px; border-radius: 5px; font-size: 13px; font-weight: 600; white-space: nowrap; transition: background .15s; }
 .perf-button:hover { background: #faf8fa; }
 .perf-button.primary { background: #ed0027; color: white; border-color: #ed0027; box-shadow: 0 3px 9px #e7002518; }
@@ -132,5 +133,80 @@
 @media (max-width: 1050px) { .perf-header { flex-wrap: wrap; }.header-actions { margin-left: auto; }.perf-grid, .perf-grid.executive-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'platform platform' 'reach followers' 'campaigns categories' 'formats benchmarks' 'posts insights'; gap: 14px; }.perf-grid.executive-grid { grid-template-areas: 'platform platform' 'reach followers' 'campaigns categories' 'benchmarks insights' 'posts posts'; }.perf-grid.story-grid { grid-template-areas: 'platform platform' 'reach reach' 'campaigns categories' 'benchmarks insights' 'posts posts'; }.perf-panel { padding: 16px; }.platform-chart .panel-heading { flex-wrap: nowrap; }.reach-body { justify-content: center; }.perf-kpis, .perf-kpis.platform-kpis.has-five { grid-template-columns: repeat(2, minmax(0, 1fr)); }.perf-kpi strong { font-size: 31px; }.perf-empty { min-height: 160px; }.platform-chart .chart-area { height: 230px; }.platform-legend { font-size: 11px; gap: 18px; }.chart-legend { font-size: 11px; gap: 12px; }.post-format-icon { width: 24px; }.format-detail { grid-template-columns: 1fr; }.overview-toolbar { align-items: start; }.data-status { font-size: 11px; }.split-donut { width: 104px; height: 104px; }}
 @media (max-width: 760px) { .perf-sidebar { position: fixed; left: -225px; width: 212px; transition: left .2s ease; }.perf-sidebar.is-open { left: 0; }.mobile-only { display: inline-flex; }.sidebar-top { display: flex; justify-content: flex-end; min-height: 34px; margin: 0 6px 12px; }.sidebar-scrim { display: block; position: fixed; inset: 0; background: #20091966; border: 0; z-index: 25; }.perf-header { padding: 16px; gap: 15px; }.header-brand { gap: 10px; width: 100%; }.header-titles { padding-left: 10px; }.header-titles h1 { font-size: 14px; line-height: 1.4; }.header-titles p { font-size: 12px; }.cimb-wordmark { width: 104px; height: 30px; }.header-actions { width: 100%; justify-content: space-between; }.perf-main { padding: 18px 14px; }.overview-toolbar { margin-bottom: 17px; }.data-status { font-size: 0; gap: 3px; }.data-status svg { width: 16px; }.perf-kpis { gap: 9px; }.perf-kpis.executive-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }.executive-kpis .perf-kpi:last-child { grid-column: 1 / -1; }.perf-kpi { padding: 15px 12px; }.perf-kpi strong { font-size: 27px; }.perf-kpi h2 { font-size: 12px; }.kpi-symbol { width: 27px; height: 27px; }.perf-grid { gap: 11px; }.perf-panel { padding: 14px 12px; }.perf-footer { align-items: start; font-size: 10px; }.perf-footer span:last-child { white-space: nowrap; }.date-popover { right: auto; left: 0; }.platform-section-header { flex-wrap: wrap; }.detail-tabs { width: 100%; }.detail-tabs button { flex: 1; }.data-notice { font-size: 12px; flex-wrap: wrap; }.data-notice span { flex: 1; }.data-notice button { margin-left: 26px; }.post-controls { flex-direction: column; }.post-control-group { justify-content: space-between; }.posts-library-header { align-items: flex-start; flex-direction: column; gap: 12px; }.post-pagination { align-items: flex-start; flex-direction: column; }.story-kpis { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .perf-grid, .perf-grid.executive-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'platform' 'reach' 'followers' 'campaigns' 'categories' 'formats' 'benchmarks' 'posts' 'insights'; }.perf-grid.executive-grid { grid-template-areas: 'platform' 'reach' 'followers' 'campaigns' 'categories' 'benchmarks' 'posts' 'insights'; }.perf-grid.story-grid { grid-template-areas: 'platform' 'reach' 'campaigns' 'categories' 'benchmarks' 'posts' 'insights'; }.chart-area, .platform-chart .chart-area { height: 220px; }.reach-body { min-height: 200px; gap: 15px; }.donut-chart { height: 190px; width: 54%; }.donut-center strong { font-size: 29px; }.panel-heading h2 { font-size: 14px; }.chart-legend { font-size: 10px; gap: 7px; }.platform-legend { font-size: 10px; gap: 10px; }.category-columns, .category-row { grid-template-columns: 105px minmax(0, 1fr) 38px 42px; font-size: 12px; }.perf-kpi strong { font-size: 25px; }.perf-kpi { gap: 5px; }.kpi-symbol { width: 24px; height: 24px; }.perf-kpi h2 { font-size: 11px; }.delta { font-size: 10px; }.delta span { display: none; }.kpi-detail .text-button { font-size: 10px; }.date-trigger { font-size: 11px; padding-inline: 7px; gap: 5px; }.export-button { font-size: 11px; }.benchmark-metrics span { font-size: 10px; }.benchmark-metrics strong { font-size: 25px; }.perf-post-table th:first-child { width: 64%; }.expanded-posts .perf-post-table { min-width: 550px; }.split-grid, .split-grid.metrics-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }.split-grid.metrics-3 .split-metric:last-child { grid-column: 1 / -1; width: calc(50% - 5px); justify-self: center; }.split-donut { width: 92px; height: 92px; } }
-@media print { @page { size: landscape; margin: 10mm; } body { background: white !important; }.performance-app { display: block; font-size: 12px; }.perf-sidebar, .header-actions, .overview-toolbar .data-status, .perf-panel button, .perf-modal-backdrop, .sidebar-scrim, .mobile-only, .skip-link, .detail-tabs { display: none !important; }.perf-header { padding: 0 0 14px; min-height: 0; }.perf-main { padding: 15px 0 0; max-width: none; }.perf-grid { display: grid; grid-template-columns: 1.65fr 1.3fr 1fr; grid-template-areas: 'platform reach followers' 'campaigns categories formats' 'benchmarks posts insights'; gap: 9px; }.perf-grid.executive-grid { grid-template-areas: 'platform reach followers' 'campaigns categories insights' 'benchmarks posts posts'; }.perf-kpis { grid-template-columns: repeat(4, 1fr); }.perf-panel, .perf-kpi { break-inside: avoid; box-shadow: none; }.perf-panel { padding: 10px; }.chart-area, .platform-chart .chart-area { height: 155px; }.perf-panel .perf-empty { min-height: 125px; }.donut-chart { height: 150px; }.reach-body { min-height: 150px; }.performance-app { -webkit-print-color-adjust: exact; print-color-adjust: exact; }.perf-footer { margin-top: 12px; } }
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  html, body, #root { width: auto !important; min-width: 0 !important; margin: 0 !important; background: #fff !important; }
+  .performance-app { display: block; min-height: 0; background: #fff !important; font-size: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .perf-workspace { width: 100%; min-width: 0; }
+  .perf-sidebar, .header-actions, .overview-toolbar, .preview-notice, .perf-panel button, .perf-modal-backdrop, .sidebar-scrim, .mobile-only, .skip-link, .detail-tabs, .metric-help { display: none !important; }
+  .perf-header { padding: 0 0 8px; min-height: 0; border-bottom: 1px solid #e8e4ea; align-items: center; }
+  .header-brand { gap: 12px; }
+  .cimb-wordmark { width: 112px; height: 31px; }
+  .header-titles { padding-left: 12px; }
+  .header-titles h1 { font-size: 15px; line-height: 1.25; }
+  .header-titles p { font-size: 10px; line-height: 1.35; margin-top: 1px; }
+  .screen-title { display: none; }
+  .print-title, .print-report-period { display: block; }
+  .print-report-period { color: #6f6874 !important; font-weight: 600; }
+  .perf-main { padding: 9px 0 0; max-width: none; margin: 0; }
+  .dashboard-page, .reveal-item { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .perf-kpis, .perf-kpis.platform-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-bottom: 8px; }
+  .perf-kpis.executive-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .perf-kpis.platform-kpis.has-five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .executive-kpis .perf-kpi:last-child { grid-column: auto; }
+  .perf-kpi { padding: 10px 10px 8px; gap: 4px; border-radius: 5px; box-shadow: none; break-inside: avoid-page; page-break-inside: avoid; }
+  .perf-kpi h2 { font-size: 10px; }
+  .perf-kpi strong { font-size: 20px; line-height: 1.15; }
+  .kpi-symbol { width: 25px; height: 25px; }
+  .kpi-symbol svg { width: 15px; height: 15px; }
+  .kpi-detail { min-height: 10px; }
+  .delta { font-size: 8px; }
+  .delta span { display: inline; }
+  .platform-section-header { margin: 7px 0; }
+  .platform-section-header h2 { font-size: 14px; }
+  .platform-section-header h2 small { font-size: 9px; }
+  .perf-grid, .perf-grid.executive-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1.55fr) minmax(0, 1.08fr); grid-template-areas: 'platform reach followers' 'campaigns categories formats' 'benchmarks posts insights'; gap: 8px; align-items: stretch; }
+  .perf-grid.executive-grid { grid-template-areas: 'platform reach followers' 'campaigns categories insights' 'benchmarks posts posts'; }
+  .perf-grid.story-grid { grid-template-areas: 'platform reach reach' 'campaigns categories categories' 'benchmarks posts insights'; }
+  .perf-panel { padding: 10px; border-radius: 5px; box-shadow: none; overflow: hidden; break-inside: avoid-page; page-break-inside: avoid; }
+  .panel-heading { margin-bottom: 7px; gap: 5px; }
+  .panel-heading h2 { font-size: 11px; line-height: 1.3; }
+  .panel-heading p { font-size: 8px; line-height: 1.35; margin-top: 2px; }
+  .chart-legend { font-size: 8px; gap: 5px; }
+  .chart-area, .platform-chart .chart-area, .follower-chart .chart-area { width: 100% !important; height: 190px; min-width: 0; overflow: hidden; }
+  .follower-chart .chart-area { height: 202px; }
+  .format-chart .chart-area { height: 175px; }
+  .recharts-tooltip-wrapper { display: none !important; }
+  .platform-legend { font-size: 8px; gap: 7px; margin: 3px 0 0; }
+  .performance-breakdowns .split-grid, .performance-breakdowns .split-grid.metrics-3 { gap: 5px; }
+  .performance-breakdowns .split-grid.metrics-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .performance-breakdowns .split-grid.metrics-3 .split-metric:last-child { grid-column: auto; width: auto; justify-self: stretch; }
+  .split-metric { padding: 6px 4px 5px; overflow: hidden; }
+  .split-metric h3 { font-size: 8px; margin-bottom: 2px; }
+  .split-donut { width: 72px; height: 72px; }
+  .split-center strong { font-size: 9px; }
+  .split-center span, .split-legend, .split-legend strong { font-size: 7px; }
+  .performance-breakdowns .panel-footnote { margin-top: 5px; font-size: 7px; line-height: 1.35; }
+  .follower-refreshed { margin-top: 3px; font-size: 7px; white-space: normal; }
+  .perf-panel .perf-empty { min-height: 115px; }
+  .perf-empty > strong { font-size: 10px; }
+  .perf-empty p { font-size: 9px; line-height: 1.45; }
+  .category-rows { gap: 8px; padding-block: 5px; }
+  .category-columns, .category-row { grid-template-columns: minmax(58px, 1fr) minmax(0, 1.4fr) 32px 35px; gap: 4px; }
+  .category-row { font-size: 8px; }
+  .category-row strong, .category-row em { font-size: 8px; }
+  .benchmark-metrics { gap: 4px; margin: 8px 0; }
+  .benchmark-metrics > div { padding: 8px 3px; }
+  .benchmark-metrics span, .benchmark-metrics small { font-size: 7px; }
+  .benchmark-metrics strong { font-size: 16px; margin-block: 4px 2px; }
+  .performance-app .perf-post-table th { font-size: 8px; padding-bottom: 5px; }
+  .performance-app .perf-post-table td { padding: 5px 2px; font-size: 8px; }
+  .post-format-icon, .post-thumbnail { width: 28px; height: 25px; }
+  .post-identity strong, .post-identity a { font-size: 8px; }
+  .post-identity div > span { font-size: 7px; margin-top: 2px; }
+  .insights-list { gap: 6px; margin-bottom: 7px; }
+  .insights-list li { font-size: 9px; line-height: 1.4; }
+  .panel-footnote { font-size: 8px; line-height: 1.4; margin-top: 6px; }
+  .perf-footer { margin-top: 7px; font-size: 8px; }
+}
 @media (prefers-reduced-motion: reduce) { .performance-app *, .performance-app *::before { animation: none !important; transition: none !important; }.reveal-item { opacity: 1; transform: none; } }

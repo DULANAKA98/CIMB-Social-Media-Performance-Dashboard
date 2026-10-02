@@ -416,7 +416,16 @@ export default function PerformanceDashboard({ onLogout }) {
       if (!controller.signal.aborted) setAiState({ data: response.data, loading: false });
     } catch { if (!controller.signal.aborted) setAiState({ data: { error: true }, loading: false }); }
   };
+  const printReport = () => {
+    const previousTitle = document.title;
+    const restoreTitle = () => { document.title = previousTitle; };
+    document.title = 'Social Media Performance Report';
+    window.addEventListener('afterprint', restoreTitle, { once: true });
+    window.dispatchEvent(new Event('resize'));
+    window.setTimeout(() => window.print(), 80);
+  };
   const title = page === 'data-hub' ? 'Data Hub' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
+  const reportPeriod = range.start && range.end ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates';
 
   return <div className="performance-app">
     <a className="skip-link" href="#performance-main">Skip to dashboard</a>
@@ -433,7 +442,7 @@ export default function PerformanceDashboard({ onLogout }) {
 
     <div className="perf-workspace">
       {import.meta.env.DEV && import.meta.env.VITE_UI_PREVIEW === 'true' && <div className="preview-notice">UI preview · Synthetic test data · Not connected to the live database</div>}
-      <header className="perf-header"><div className="header-brand"><button className="mobile-only icon-button" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={22} /></button><span className="cimb-wordmark"><img src="/cimb-logo.jpg?v=2" alt="CIMB" width="144" height="40" /></span><div className="header-titles"><h1>Social Media Performance Dashboard</h1><p>{title}</p></div></div><div className="header-actions"><DateFilter range={range} onApply={setRange} /><button className="perf-button primary export-button" onClick={() => window.print()} title="Print or save this dashboard as a PDF"><Download size={14} /><span>Download report</span></button></div></header>
+      <header className="perf-header"><div className="header-brand"><button className="mobile-only icon-button" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={22} /></button><span className="cimb-wordmark"><img src="/cimb-logo.jpg?v=2" alt="CIMB" width="144" height="40" /></span><div className="header-titles"><h1><span className="screen-title">Social Media Performance Dashboard</span><span className="print-title">Social Media Performance Report</span></h1><p>{title}</p><p className="print-report-period">Reporting period: {reportPeriod}</p></div></div><div className="header-actions"><DateFilter range={range} onApply={setRange} /><button className="perf-button primary export-button" onClick={printReport} title="Print or save this dashboard as a PDF"><Download size={14} /><span>Download report</span></button></div></header>
 
       <main id="performance-main" ref={mainRef} className="perf-main" tabIndex={-1}>
         <div className="dashboard-page" key={`${page}-${platform || 'all'}`}>
