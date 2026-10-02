@@ -14,6 +14,15 @@ export const compact = value => number(value) == null ? '—' : new Intl.NumberF
 export const percent = value => number(value) == null ? '—' : `${Number(value).toFixed(2)}%`;
 export const safeLink = value => /^https?:\/\//i.test(value || '') ? value : null;
 export const dateLabel = value => value ? new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'All time';
+export const exposureMetric = platform => {
+  if (platform === 'TikTok' || platform === 'YouTube') return { key: 'views', label: 'Views' };
+  if (platform === 'LinkedIn') return { key: 'impressions', label: 'Impressions' };
+  return { key: 'reach', label: 'Reach' };
+};
+export const exposureValue = post => {
+  const metric = exposureMetric(post?.platform);
+  return number(post?.[metric.key]) ?? number(post?.reach);
+};
 const iso = date => date.toISOString().slice(0, 10);
 
 const normalizeUrl = value => {
@@ -105,8 +114,9 @@ export function buildModel(data, platform = null) {
     const available = rows.some(row => row.posts > 0 && row.value != null);
     return { key, label, rate, rows, available, total: rate ? kpis.er : sum(rows.map(row => row.value)) };
   };
+  const exposure = exposureMetric(platform);
   const metricBreakdowns = breakdownSource ? [
-    splitMetric('reach', 'Reach'),
+    splitMetric('reach', exposure.label),
     ...(breakdownSource.include_views ? [splitMetric('views', 'Views')] : []),
     splitMetric('engagement', 'Engagement'),
     splitMetric('average_engagement_rate', 'Avg. ER%', true),
@@ -123,7 +133,7 @@ export function buildModel(data, platform = null) {
     formatMap.set(row.format, prev);
   }
   const formats = [...formatMap.values()].map(row => ({ ...row, er: row.posts ? row.erTotal / row.posts : 0 })).sort((a, b) => b.er - a.er);
-  return { kpis, rows, posts, reachSplit, metricBreakdowns, reachSource: breakdownSource?.reach_source || null, categories, formats };
+  return { kpis, rows, posts, reachSplit, metricBreakdowns, reachSource: breakdownSource?.reach_source || null, exposureMetric: exposure, categories, formats };
 }
 
 export function followerModel(data, platform = null) {

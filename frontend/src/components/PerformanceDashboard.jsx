@@ -6,7 +6,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, Lin
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
-import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './performance/model';
+import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, exposureMetric, exposureValue, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './performance/model';
 import './performance/performance.css';
 
 const BRAND_ICONS = { Facebook: FaFacebookF, Instagram: FaInstagram, 'Instagram Stories': FaInstagram, TikTok: FaTiktok, YouTube: FaYoutube, LinkedIn: FaLinkedinIn };
@@ -84,16 +84,16 @@ function DateFilter({ range, onApply, label = 'Reporting period' }) {
   </div>;
 }
 
-function PerformanceChart({ model }) {
+function PerformanceChart({ model, exposureLabel = 'Reach' }) {
   const rows = model.rows.filter(row => row.posts != null);
-  return <Panel title="Performance by Platform" className="platform-chart" action={<div className="chart-legend"><span><i />Reach</span><span><i className="dark-dot" />Engagement</span><span><i className="line-dot" />ER%</span></div>}>
-    {rows.length ? <><div className="chart-area" role="img" aria-label="Reach, engagement and average post engagement rate by platform">
+  return <Panel title="Performance by Platform" className="platform-chart" action={<div className="chart-legend"><span><i />{exposureLabel}</span><span><i className="dark-dot" />Engagement</span><span><i className="line-dot" />ER%</span></div>}>
+    {rows.length ? <><div className="chart-area" role="img" aria-label={`${exposureLabel}, engagement and average post engagement rate by platform`}>
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><ComposedChart data={rows} margin={{ top: 22, right: 1, bottom: 0, left: -10 }} barGap={3}>
         <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="short" tick={CHART_STYLE} axisLine={false} tickLine={false} />
         <YAxis yAxisId="volume" tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} width={46} />
         <YAxis yAxisId="rate" orientation="right" tickFormatter={value => `${value}%`} tick={{ ...CHART_STYLE, fill: '#747b91' }} axisLine={false} tickLine={false} width={36} />
         <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value, name) => [name === 'Avg. ER%' ? percent(value) : full(value), name]} labelFormatter={(_, payload) => payload?.[0]?.payload?.name} />
-        <Bar yAxisId="volume" dataKey="reach" name="Reach" fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={32}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 11, fill: '#5a5361' }} /></Bar>
+        <Bar yAxisId="volume" dataKey="reach" name={exposureLabel} fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={32}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 11, fill: '#5a5361' }} /></Bar>
         <Bar yAxisId="volume" dataKey="engagement" name="Engagement" fill="#760a26" radius={[2, 2, 0, 0]} maxBarSize={22} minPointSize={11}><LabelList dataKey="engagement" position="top" formatter={compact} style={{ fontSize: 10, fill: '#760a26' }} /></Bar>
         <Line yAxisId="rate" dataKey="er" name="Avg. ER%" stroke="#9297ab" strokeWidth={1.7} dot={{ r: 3, fill: '#9297ab' }} />
       </ComposedChart></ResponsiveContainer>
@@ -128,13 +128,13 @@ function SplitMetric({ metric }) {
 }
 
 function PerformanceBreakdowns({ model, platform }) {
-  const proxy = model.reachSource === 'views'
-    ? `${platform} reach uses views as a proxy.`
+  const metricNote = model.reachSource === 'views'
+    ? `${platform} uses platform-reported views.`
     : model.reachSource === 'impressions'
-      ? 'LinkedIn reach uses impressions as a proxy.'
-      : 'Reach uses the platform-reported reach value.';
+      ? 'LinkedIn uses platform-reported impressions.'
+      : 'Uses the platform-reported reach value.';
   return <Panel title="Organic / Paid Breakdown" subtitle="Content marked organic or paid" className="reach-chart performance-breakdowns">
-    {model.metricBreakdowns?.length ? <><div className={`split-grid metrics-${model.metricBreakdowns.length}`}>{model.metricBreakdowns.map(metric => <SplitMetric key={metric.key} metric={metric} />)}</div><p className="panel-footnote">{proxy} Avg. ER% compares the mean post-level rate for each group.</p></> : <Empty icon={Target}>Organic and paid performance data will appear here when available.</Empty>}
+    {model.metricBreakdowns?.length ? <><div className={`split-grid metrics-${model.metricBreakdowns.length}`}>{model.metricBreakdowns.map(metric => <SplitMetric key={metric.key} metric={metric} />)}</div><p className="panel-footnote">{metricNote} Avg. ER% compares the mean post-level rate for each group.</p></> : <Empty icon={Target}>Organic and paid performance data will appear here when available.</Empty>}
   </Panel>;
 }
 
@@ -161,11 +161,11 @@ function Followers({ followers, loading, error }) {
   </Panel>;
 }
 
-function Categories({ rows }) {
+function Categories({ rows, exposureLabel = 'Reach' }) {
   const visible = rows?.slice(0, 7) || [];
   const max = Math.max(...visible.map(row => row.reach || 0), 1);
-  return <Panel title="Content Categories Performance" subtitle="Reach and weighted ER% · auto-classified by title" className="category-chart">
-    {visible.length ? <><div className="category-columns"><span>Category</span><span /><span>Reach</span><span>ER%</span></div><div className="category-rows">{visible.map((row, index) => <div className="category-row" key={row.type}><span title={row.type}>{row.type}</span><div><i style={{ width: `${(row.reach || 0) / max * 100}%`, opacity: 1 - index * 0.065 }} /></div><strong>{compact(row.reach)}</strong><em>{percent(row.engagement_rate)}</em></div>)}</div></> : <Empty icon={FileText}>Content categories will appear after posts are uploaded.</Empty>}
+  return <Panel title="Content Categories Performance" subtitle={`${exposureLabel} and weighted ER% · auto-classified by title`} className="category-chart">
+    {visible.length ? <><div className="category-columns"><span>Category</span><span /><span>{exposureLabel}</span><span>ER%</span></div><div className="category-rows">{visible.map((row, index) => <div className="category-row" key={row.type}><span title={row.type}>{row.type}</span><div><i style={{ width: `${(row.reach || 0) / max * 100}%`, opacity: 1 - index * 0.065 }} /></div><strong>{compact(row.reach)}</strong><em>{percent(row.engagement_rate)}</em></div>)}</div></> : <Empty icon={FileText}>Content categories will appear after posts are uploaded.</Empty>}
   </Panel>;
 }
 
@@ -207,10 +207,10 @@ function postsForPlatform(posts, platform) {
   return (posts || []).filter(post => post.platform === platform);
 }
 
-function PostRows({ posts, thumbnails, detailed = false, startIndex = 0 }) {
+function PostRows({ posts, thumbnails, detailed = false, startIndex = 0, showMetricLabel = false }) {
   return posts.map((post, index) => <tr key={post.id ?? `${post.platform}-${startIndex + index}`}>
     <td><div className="post-identity"><PostThumbnail post={post} thumbnails={thumbnails} /><div>{safeLink(post.link) ? <a href={safeLink(post.link)} target="_blank" rel="noreferrer" title={post.title}>{post.title || 'Untitled post'}<ExternalLink size={10} /></a> : <strong title={post.title}>{post.title || 'Untitled post'}</strong>}<span>{dateLabel(post.date)} · {post.platform}{post.format ? ` · ${post.format}` : ''}</span></div></div></td>
-    <td>{compact(post.reach)}</td><td>{detailed ? compact(post.engagement) : percent(post.engagement_rate)}</td>{detailed && <td>{percent(post.engagement_rate)}</td>}
+    <td><span className="post-exposure-value">{compact(exposureValue(post))}{showMetricLabel && <small>{exposureMetric(post.platform).label}</small>}</span></td><td>{detailed ? compact(post.engagement) : percent(post.engagement_rate)}</td>{detailed && <td>{percent(post.engagement_rate)}</td>}
   </tr>);
 }
 
@@ -222,8 +222,10 @@ function TopPosts({ posts, onExpand, platform, thumbnails }) {
   const [selectedPlatform, setSelectedPlatform] = useState(platform || ALL_PLATFORMS);
   useEffect(() => setSelectedPlatform(platform || ALL_PLATFORMS), [platform]);
   const filtered = useMemo(() => postsForPlatform(posts, selectedPlatform).slice().sort((a, b) => (b.engagement || 0) - (a.engagement || 0)), [posts, selectedPlatform]);
+  const mixedPlatforms = selectedPlatform === ALL_PLATFORMS;
+  const metricLabel = mixedPlatforms ? 'Reach / Views / Impressions' : exposureMetric(selectedPlatform).label;
   return <Panel title="Top Performing Posts" subtitle={`${selectedPlatform} · ranked by engagement`} className="top-posts" action={<div className="post-card-actions"><PlatformSelect value={selectedPlatform} onChange={setSelectedPlatform} /><button className="text-button" onClick={() => onExpand(selectedPlatform)}>View all <ArrowUpRight size={12} /></button></div>}>
-    {filtered.length ? <div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>Reach</th><th>ER%</th></tr></thead><tbody><PostRows posts={filtered.slice(0, 5)} thumbnails={thumbnails} /></tbody></table></div> : <Empty icon={FileText} title="No posts for this platform">Choose another platform or reporting period.</Empty>}
+    {filtered.length ? <div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>{metricLabel}</th><th>ER%</th></tr></thead><tbody><PostRows posts={filtered.slice(0, 5)} thumbnails={thumbnails} showMetricLabel={mixedPlatforms} /></tbody></table></div> : <Empty icon={FileText} title="No posts for this platform">Choose another platform or reporting period.</Empty>}
   </Panel>;
 }
 
@@ -235,11 +237,16 @@ function AllPostsView({ posts, initialPlatform, thumbnails, onBack }) {
   const pageSize = 12;
   const filtered = useMemo(() => postsForPlatform(posts, selectedPlatform)
     .filter(post => `${post.title} ${post.format} ${post.platform}`.toLowerCase().includes(search.trim().toLowerCase()))
-    .slice().sort((a, b) => (b[sort] || 0) - (a[sort] || 0)), [posts, search, selectedPlatform, sort]);
+    .slice().sort((a, b) => sort === 'exposure'
+      ? (exposureValue(b) || 0) - (exposureValue(a) || 0)
+      : (b[sort] || 0) - (a[sort] || 0)), [posts, search, selectedPlatform, sort]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(postPage, pageCount);
   const pageStart = (currentPage - 1) * pageSize;
   const visible = filtered.slice(pageStart, pageStart + pageSize);
+  const mixedPlatforms = selectedPlatform === ALL_PLATFORMS;
+  const metric = exposureMetric(selectedPlatform);
+  const metricLabel = mixedPlatforms ? 'Reach / Views / Impressions' : metric.label;
   useEffect(() => setPostPage(1), [posts, search, selectedPlatform, sort]);
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, []);
   const changePage = nextPage => {
@@ -250,14 +257,14 @@ function AllPostsView({ posts, initialPlatform, thumbnails, onBack }) {
   return <div className="posts-library-view">
     <div className="posts-library-header"><button className="perf-button back-button" onClick={onBack}><ArrowLeft size={15} /> Back to dashboard</button><div><h2>Top Performing Posts</h2><p>Explore posts from the selected reporting period, ranked by the metric you choose.</p></div></div>
     <Panel title="Post performance" subtitle={`${filtered.length.toLocaleString('en-GB')} matching ${filtered.length === 1 ? 'post' : 'posts'}`} className="expanded-posts posts-library">
-      <div className="post-controls"><input aria-label="Search posts" placeholder="Search posts, formats or platforms…" value={search} onChange={e => setSearch(e.target.value)} /><div className="post-control-group"><PlatformSelect value={selectedPlatform} onChange={setSelectedPlatform} label="Filter all posts by platform" /><label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="engagement">Engagement</option><option value="reach">Reach</option><option value="engagement_rate">ER%</option></select></label></div></div>
-      {visible.length ? <><div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>Reach</th><th>Engagement</th><th>ER%</th></tr></thead><tbody><PostRows posts={visible} thumbnails={thumbnails} detailed startIndex={pageStart} /></tbody></table></div><nav className="post-pagination" aria-label="Post pages"><span>Showing {pageStart + 1}–{Math.min(pageStart + pageSize, filtered.length)} of {filtered.length}</span><div><button aria-label="Previous page" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}><ChevronLeft size={15} /></button>{pageNumbers.map((number, index) => <span key={number}>{index > 0 && number - pageNumbers[index - 1] > 1 && <i aria-hidden="true">…</i>}<button aria-label={`Page ${number}`} aria-current={number === currentPage ? 'page' : undefined} onClick={() => changePage(number)}>{number}</button></span>)}<button aria-label="Next page" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)}><ChevronRight size={15} /></button></div></nav></> : <Empty icon={FileText} title={search ? 'No matching posts' : 'No posts for this platform'}>Try another search, platform or reporting period.</Empty>}
+      <div className="post-controls"><input aria-label="Search posts" placeholder="Search posts, formats or platforms…" value={search} onChange={e => setSearch(e.target.value)} /><div className="post-control-group"><PlatformSelect value={selectedPlatform} onChange={setSelectedPlatform} label="Filter all posts by platform" /><label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="engagement">Engagement</option><option value="exposure">{metricLabel}</option><option value="engagement_rate">ER%</option></select></label></div></div>
+      {visible.length ? <><div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>{metricLabel}</th><th>Engagement</th><th>ER%</th></tr></thead><tbody><PostRows posts={visible} thumbnails={thumbnails} detailed startIndex={pageStart} showMetricLabel={mixedPlatforms} /></tbody></table></div><nav className="post-pagination" aria-label="Post pages"><span>Showing {pageStart + 1}–{Math.min(pageStart + pageSize, filtered.length)} of {filtered.length}</span><div><button aria-label="Previous page" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}><ChevronLeft size={15} /></button>{pageNumbers.map((number, index) => <span key={number}>{index > 0 && number - pageNumbers[index - 1] > 1 && <i aria-hidden="true">…</i>}<button aria-label={`Page ${number}`} aria-current={number === currentPage ? 'page' : undefined} onClick={() => changePage(number)}>{number}</button></span>)}<button aria-label="Next page" disabled={currentPage === pageCount} onClick={() => changePage(currentPage + 1)}><ChevronRight size={15} /></button></div></nav></> : <Empty icon={FileText} title={search ? 'No matching posts' : 'No posts for this platform'}>Try another search, platform or reporting period.</Empty>}
     </Panel>
   </div>;
 }
 
-function Benchmarks({ current, previous, mode, onMode, hasRange, loading, comparison, showFollowers = true }) {
-  const metrics = [['Reach', 'reach'], ['Engagement', 'engagement'], ['Engagement rate', 'er'], ...(showFollowers ? [['Followers', 'followers']] : [])];
+function Benchmarks({ current, previous, mode, onMode, hasRange, loading, comparison, showFollowers = true, exposureLabel = 'Reach' }) {
+  const metrics = [[exposureLabel, 'reach'], ['Engagement', 'engagement'], ['Engagement rate', 'er'], ...(showFollowers ? [['Followers', 'followers']] : [])];
   return <Panel title="Benchmarking" className="benchmark-panel">
     <div className="benchmark-tabs" role="group" aria-label="Benchmark comparison"><button aria-pressed={mode === 'previous'} onClick={() => onMode('previous')}>Previous period</button><button aria-pressed={mode === 'year'} onClick={() => onMode('year')}>Same period last year</button><button disabled title="Industry benchmark source not connected">Industry avg.</button><button disabled title="Campaign mapping not connected">Similar campaigns</button></div>
     <div className="benchmark-metrics">{metrics.map(([label, key]) => { const delta = !loading && change(current[key], previous[key], key === 'er'); return <div key={key}><span>{label}</span><strong className={delta && delta.value < 0 ? 'negative' : ''}>{delta ? delta.label : '—'}</strong><small>{loading ? 'Loading…' : delta ? key === 'er' ? 'percentage points' : 'change' : 'Not available'}</small></div>; })}</div>
@@ -265,15 +272,16 @@ function Benchmarks({ current, previous, mode, onMode, hasRange, loading, compar
   </Panel>;
 }
 
-function Insights({ model, ai, loading, onGenerate }) {
+function Insights({ model, ai, loading, onGenerate, exposureLabel = 'Reach' }) {
   const top = [...model.rows].filter(row => row.engagement > 0).sort((a, b) => b.engagement - a.engagement)[0];
   const highlights = ai?.key_highlights || (top ? [
     `${top.name} recorded ${compact(top.engagement)} engagements${model.rows.length > 1 ? ', the highest among the selected platforms' : ''}.`,
-    `${full(model.kpis.posts)} posts contributed ${compact(model.kpis.reach)} in reported reach during this period.`,
+    `${full(model.kpis.posts)} posts contributed ${compact(model.kpis.reach)} reported ${exposureLabel.toLowerCase()} during this period.`,
     ...(model.formats[0] ? [`${model.formats[0].name} had the highest average organic post ER at ${percent(model.formats[0].er)}.`] : []),
   ] : []);
+  const displayInsight = text => exposureLabel === 'Reach' ? text : text.replace(/\breach\b/gi, match => match[0] === 'R' ? exposureLabel : exposureLabel.toLowerCase());
   return <Panel title="Key Insights" className="insights-panel" action={<Lightbulb size={18} />}>
-    {highlights.length ? <ul className="insights-list">{highlights.slice(0, 4).map((text, index) => <li key={index}><Check size={14} /><span>{text.replace(/\*\*/g, '')}</span></li>)}</ul> : <Empty icon={Lightbulb} title="Your next insight starts here">Performance highlights will appear when data is available.</Empty>}
+    {highlights.length ? <ul className="insights-list">{highlights.slice(0, 4).map((text, index) => <li key={index}><Check size={14} /><span>{displayInsight(text).replace(/\*\*/g, '')}</span></li>)}</ul> : <Empty icon={Lightbulb} title="Your next insight starts here">Performance highlights will appear when data is available.</Empty>}
     {ai?.error && <p role="alert" className="form-error">AI insights are currently unavailable. Try again in a moment.</p>}
     <button className="text-button" disabled={loading || !model.kpis.posts} onClick={onGenerate}>{loading ? 'Generating insights…' : 'Generate AI Insights'} <ArrowUpRight size={12} /></button>
     <p className="panel-footnote">{ai?.key_highlights && !ai?._meta?.fallback ? 'AI-generated with CIMB Insights · review before sharing' : 'Calculated highlights · not causal findings'}</p>
@@ -310,6 +318,8 @@ export default function PerformanceDashboard({ onLogout }) {
   const supportsFollowers = selectedPlatform?.supportsFollowers !== false;
   const supportsFormats = selectedPlatform?.supportsFormats !== false;
   const isInstagramStories = platform === 'Instagram Stories';
+  const nativeExposure = exposureMetric(platform);
+  const exposureLabel = page === 'platform' && platform ? nativeExposure.label : 'Reach';
 
   const navigate = (next, name = null) => { setPage(next); setPlatform(name); setShowAllPosts(false); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
   useLayoutEffect(() => {
@@ -427,18 +437,18 @@ export default function PerformanceDashboard({ onLogout }) {
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
           <div className={`perf-kpis ${page === 'executive' ? 'executive-kpis' : ''} ${current.loading ? 'is-loading' : ''}`} aria-busy={current.loading}>
             {(page === 'executive' || supportsFollowers) && <Kpi label="Total Followers" value={full(latestFollowers.total)} icon={Users} help="Sum of the latest matching daily follower snapshot across the selected social accounts."><span className="delta neutral">{latestFollowers.total == null ? 'Waiting for follower refresh' : `Last refreshed ${refreshedLabel(latestFollowers.lastRefreshedAt)}`}</span></Kpi>}
-            <Kpi label="Total Reach" value={full(model.kpis.reach)} icon={Megaphone} help="Sum of reported content reach, not deduplicated people. Instagram Stories are included as a separate performance platform."><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
+            <Kpi label={`Total ${exposureLabel}`} value={full(model.kpis.reach)} icon={Megaphone} help={exposureLabel === 'Reach' ? 'Sum of reported content reach, not deduplicated people. Instagram Stories are included as a separate performance platform.' : `Sum of platform-reported ${exposureLabel.toLowerCase()} for content in the selected period.`}><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
             <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help="Total engagements across content in the selected period. Instagram Stories are included as a separate performance platform."><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
             {page === 'platform' && <Kpi label={isInstagramStories ? 'Avg. Story ER%' : platform ? 'Avg. Post ER%' : 'Engagement Rate (ER%)'} value={percent(model.kpis.er)} icon={BarChart3} help={isInstagramStories ? 'Mean of individual Story engagement rates, calculated using reach.' : platform ? 'Mean of individual post engagement rates, as reported by the platform-stats endpoint.' : 'Total engagement / ER denominator. The backend uses views for Facebook/Instagram posts without reach.'}><Delta current={model.kpis.er} previous={previousModel.kpis.er} rate label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>}
           </div>
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published {isInstagramStories ? 'stories' : 'posts'}</small></h2></div></div>}
           <div className={`perf-grid ${page === 'executive' ? 'executive-grid' : ''} ${isInstagramStories ? 'story-grid' : ''}`} aria-busy={current.loading}>
-            <PerformanceChart model={model} />{page === 'platform' ? <PerformanceBreakdowns model={model} platform={platform} /> : <ReachBreakdown model={model} />}{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />}
-            <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
-            <Categories rows={model.categories} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} />}
-            <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} showFollowers={supportsFollowers} />
+            <PerformanceChart model={model} exposureLabel={exposureLabel} />{page === 'platform' ? <PerformanceBreakdowns model={model} platform={platform} /> : <ReachBreakdown model={model} />}{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />}
+            <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>{exposureLabel}</span><span>Engagement</span><span>ER%</span></div></Panel>
+            <Categories rows={model.categories} exposureLabel={exposureLabel} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} />}
+            <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} showFollowers={supportsFollowers} exposureLabel={exposureLabel} />
             <TopPosts posts={allPosts} onExpand={selectedPlatform => { setPostsViewPlatform(selectedPlatform); setShowAllPosts(true); }} platform={platform} thumbnails={thumbnailState.items} />
-            <Insights model={model} ai={aiState.data} loading={aiState.loading} onGenerate={generateInsights} />
+            <Insights model={model} ai={aiState.data} loading={aiState.loading} onGenerate={generateInsights} exposureLabel={exposureLabel} />
           </div>
           <footer className="perf-footer"><span>{current.updatedAt && `Updated ${current.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</span></footer>
         </>}

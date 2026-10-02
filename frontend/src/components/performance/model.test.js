@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildModel, change, comparisonRange, filterFollowerData, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './model.js';
+import { buildModel, change, comparisonRange, exposureMetric, exposureValue, filterFollowerData, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './model.js';
 
 test('previous period uses inclusive day bounds and crosses month/year boundaries', () => {
   assert.deepEqual(comparisonRange({ start: '2026-01-01', end: '2026-01-31' }), { start: '2025-12-01', end: '2025-12-31' });
@@ -61,16 +61,26 @@ test('platform selection scopes every available breakdown to that platform', () 
   assert.deepEqual(model.metricBreakdowns[0].rows.map(row => row.value), [200, 200]);
 });
 
-test('platform breakdowns apply the requested reach proxies without duplicating views', () => {
+test('platform breakdowns use native exposure metric names without duplicating views', () => {
   const tiktok = buildModel(source, 'TikTok');
   assert.equal(tiktok.reachSource, 'views');
-  assert.deepEqual(tiktok.metricBreakdowns.map(metric => metric.label), ['Reach', 'Engagement', 'Avg. ER%']);
+  assert.deepEqual(tiktok.metricBreakdowns.map(metric => metric.label), ['Views', 'Engagement', 'Avg. ER%']);
   assert.deepEqual(tiktok.metricBreakdowns[0].rows.map(row => row.value), [900, 100]);
 
   const linkedin = buildModel(source, 'LinkedIn');
   assert.equal(linkedin.reachSource, 'impressions');
-  assert.deepEqual(linkedin.metricBreakdowns.map(metric => metric.label), ['Reach', 'Engagement', 'Avg. ER%']);
+  assert.deepEqual(linkedin.metricBreakdowns.map(metric => metric.label), ['Impressions', 'Engagement', 'Avg. ER%']);
   assert.equal(linkedin.metricBreakdowns[2].rows[1].value, null);
+});
+
+test('top post exposure uses each platform native metric', () => {
+  assert.deepEqual(exposureMetric('TikTok'), { key: 'views', label: 'Views' });
+  assert.deepEqual(exposureMetric('YouTube'), { key: 'views', label: 'Views' });
+  assert.deepEqual(exposureMetric('LinkedIn'), { key: 'impressions', label: 'Impressions' });
+  assert.deepEqual(exposureMetric('Facebook'), { key: 'reach', label: 'Reach' });
+  assert.equal(exposureValue({ platform: 'TikTok', reach: 10, views: 25 }), 25);
+  assert.equal(exposureValue({ platform: 'LinkedIn', reach: 10, impressions: 30 }), 30);
+  assert.equal(exposureValue({ platform: 'Instagram', reach: 40, views: 50 }), 40);
 });
 
 test('format ER is weighted by post count, never an average of averages', () => {
