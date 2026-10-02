@@ -658,6 +658,54 @@ def get_engagement_summary(start_date: Optional[str] = Query(None), end_date: Op
         }
     }
 
+
+BREAKDOWN_REACH_FIELDS = {
+    "TikTok": "views",
+    "YouTube": "views",
+    "LinkedIn": "impressions",
+}
+BREAKDOWN_VIEW_PLATFORMS = {"Facebook", "Instagram", "Instagram Stories"}
+
+
+def _organic_paid_performance_breakdown(df: pd.DataFrame):
+    """Aggregate platform metrics by the stored organic/paid classification."""
+    result = {}
+    for platform in PERFORMANCE_PLATFORMS:
+        platform_rows = df[df["platform"] == platform]
+        reach_field = BREAKDOWN_REACH_FIELDS.get(platform, "reach")
+
+        def summarize(rows: pd.DataFrame):
+            if rows.empty:
+                return {
+                    "posts": 0,
+                    "reach": 0.0,
+                    "views": 0.0,
+                    "engagement": 0.0,
+                    "average_engagement_rate": None,
+                }
+            return {
+                "posts": int(len(rows)),
+                "reach": float(rows[reach_field].fillna(0).sum()),
+                "views": float(rows["views"].fillna(0).sum()),
+                "engagement": float(rows["engagement"].fillna(0).sum()),
+                "average_engagement_rate": float(rows["engagement_rate"].mean()),
+            }
+
+        result[platform] = {
+            "reach_source": reach_field,
+            "include_views": platform in BREAKDOWN_VIEW_PLATFORMS,
+            "organic": summarize(platform_rows[platform_rows["is_organic"] == True]),
+            "paid": summarize(platform_rows[platform_rows["is_organic"] == False]),
+        }
+    return result
+
+
+@app.get("/api/performance-breakdown")
+def get_performance_breakdown(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
+    """Return organic/paid reach, views, engagement and average ER by platform."""
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
+    return _organic_paid_performance_breakdown(df)
+
 # ---------------------------------------------------------------------------
 # Content-type classification
 # ---------------------------------------------------------------------------

@@ -111,6 +111,33 @@ function ReachBreakdown({ model }) {
   </Panel>;
 }
 
+function SplitMetric({ metric }) {
+  const chartRows = metric.rows.filter(row => row.value != null && row.value > 0);
+  const formatter = value => metric.rate ? percent(value) : compact(value);
+  const accessible = metric.rows.map(row => `${row.name} ${row.value == null ? 'not available' : metric.rate ? percent(row.value) : full(row.value)}`).join(', ');
+  return <section className="split-metric" aria-label={`${metric.label}: ${accessible}`}>
+    <h3>{metric.label}</h3>
+    <div className="split-donut-wrap">
+      <div className={`split-donut ${chartRows.length ? '' : 'is-empty'}`} role="img" aria-label={accessible}>
+        {chartRows.length > 0 && <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><PieChart><Pie data={chartRows} dataKey="value" innerRadius="62%" outerRadius="90%" startAngle={90} endAngle={-270} stroke="#fff" strokeWidth={2}>{chartRows.map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => formatter(value)} /></PieChart></ResponsiveContainer>}
+        <div className="split-center"><strong>{metric.available ? formatter(metric.total) : '—'}</strong><span>{metric.rate ? 'overall' : 'total'}</span></div>
+      </div>
+      <div className="split-legend">{metric.rows.map(row => <div key={row.name}><span><i style={{ background: row.color }} />{row.name}</span><strong>{row.posts > 0 && row.value != null ? formatter(row.value) : '—'}</strong></div>)}</div>
+    </div>
+  </section>;
+}
+
+function PerformanceBreakdowns({ model, platform }) {
+  const proxy = model.reachSource === 'views'
+    ? `${platform} reach uses views as a proxy.`
+    : model.reachSource === 'impressions'
+      ? 'LinkedIn reach uses impressions as a proxy.'
+      : 'Reach uses the platform-reported reach value.';
+  return <Panel title="Organic / Paid Breakdown" subtitle="Content marked organic or paid" className="reach-chart performance-breakdowns">
+    {model.metricBreakdowns?.length ? <><div className={`split-grid metrics-${model.metricBreakdowns.length}`}>{model.metricBreakdowns.map(metric => <SplitMetric key={metric.key} metric={metric} />)}</div><p className="panel-footnote">{proxy} Avg. ER% compares the mean post-level rate for each group.</p></> : <Empty icon={Target}>Organic and paid performance data will appear here when available.</Empty>}
+  </Panel>;
+}
+
 function refreshedLabel(value) {
   if (!value) return null;
   return new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kuala_Lumpur' }).format(new Date(value));
@@ -406,7 +433,7 @@ export default function PerformanceDashboard({ onLogout }) {
           </div>
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published {isInstagramStories ? 'stories' : 'posts'}</small></h2></div></div>}
           <div className={`perf-grid ${page === 'executive' ? 'executive-grid' : ''} ${isInstagramStories ? 'story-grid' : ''}`} aria-busy={current.loading}>
-            <PerformanceChart model={model} /><ReachBreakdown model={model} />{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />}
+            <PerformanceChart model={model} />{page === 'platform' ? <PerformanceBreakdowns model={model} platform={platform} /> : <ReachBreakdown model={model} />}{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />}
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>Reach</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} />}
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} showFollowers={supportsFollowers} />

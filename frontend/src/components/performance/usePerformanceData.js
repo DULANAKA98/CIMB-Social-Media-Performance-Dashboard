@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-const ENDPOINTS = { summary: 'dashboard-summary', stats: 'platform-stats', engagement: 'engagement-summary', content: 'all-content', categories: 'content-types', formats: 'format-performance' };
+const ENDPOINTS = { summary: 'dashboard-summary', stats: 'platform-stats', engagement: 'engagement-summary', content: 'all-content', categories: 'content-types', formats: 'format-performance', breakdown: 'performance-breakdown' };
 export const queryFor = range => ({ ...(range?.start ? { start_date: range.start } : {}), ...(range?.end ? { end_date: range.end } : {}) });
 
 export default function usePerformanceData(range, refreshKey, enabled = true) {

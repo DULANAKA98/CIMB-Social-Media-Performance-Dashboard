@@ -3,6 +3,7 @@
 // Point the local Vite server at http://127.0.0.1:8766/api.
 // Date range 2099-01-01..2099-01-31 tests empty data; 2098 tests API failure.
 import http from 'node:http';
+import process from 'node:process';
 
 const names = ['Facebook', 'Instagram', 'Instagram Stories', 'TikTok', 'YouTube', 'LinkedIn'];
 const followerNames = names.filter(name => name !== 'Instagram Stories');
@@ -13,21 +14,37 @@ const posts = names.flatMap((platform, p) => Array.from({ length: 12 }, (_, i) =
   id: p * 12 + i, platform, format: platform === 'Instagram Stories' ? 'IG Story' : ['Video', 'Static', 'Carousel'][i % 3], title: `${titles[i % 4]} · Test post ${i + 1}`,
   date: `2026-08-${String(i + 1).padStart(2, '0')}`, reach: totals[p] * .75 / 12,
   engagement: engagements[p] * .75 / 12, engagement_rate: engagements[p] / totals[p] * 100,
-  is_organic: true, views: totals[p] / 10, link: '', likes: 1200, comments: 25, shares: 12, favorites: 7,
+  is_organic: i % 4 !== 0, views: totals[p] / 10, impressions: totals[p] * .75 / 12, link: '', likes: 1200, comments: 25, shares: 12, favorites: 7,
 })));
 const stats = Object.fromEntries(names.map((name, p) => [name, { posts_count: 16, avg_reach: totals[p] / 16, avg_engagement_rate: engagements[p] / totals[p] * 100 }]));
 stats['Instagram Stories'].stories_count = stats['Instagram Stories'].posts_count;
 stats['Instagram Overall'] = { contents_count: 32, avg_reach: 100000, avg_engagement_rate: 3.1 };
 const categories = ['Marketing', 'Brand', 'Financial Education', 'Sustainability', 'Security', 'Other'];
+const performanceBreakdown = Object.fromEntries(names.map(platform => {
+  const platformPosts = posts.filter(post => post.platform === platform);
+  const reachSource = ['TikTok', 'YouTube'].includes(platform) ? 'views' : platform === 'LinkedIn' ? 'impressions' : 'reach';
+  const summarize = organic => {
+    const rows = platformPosts.filter(post => post.is_organic === organic);
+    return {
+      posts: rows.length,
+      reach: rows.reduce((total, post) => total + post[reachSource], 0),
+      views: rows.reduce((total, post) => total + post.views, 0),
+      engagement: rows.reduce((total, post) => total + post.engagement, 0),
+      average_engagement_rate: rows.length ? rows.reduce((total, post) => total + post.engagement_rate, 0) / rows.length : null,
+    };
+  };
+  return [platform, { reach_source: reachSource, include_views: ['Facebook', 'Instagram', 'Instagram Stories'].includes(platform), organic: summarize(true), paid: summarize(false) }];
+}));
 const fixtures = {
   'status': { has_data: true, post_count: 96, last_sync: '2026-08-28T08:00:00Z' },
   'dashboard-summary': { kpis: { total_reach: totals.reduce((a, b) => a + b, 0), total_engagement: engagements.reduce((a, b) => a + b, 0), avg_engagement_rate: 3.41, top_platform: 'Instagram' } },
   'platform-stats': stats,
   'engagement-summary': { overall: { total_engagement: engagements.reduce((a, b) => a + b, 0), posts_count: 96 }, platforms: names.map((platform, i) => ({ platform, total_engagement: engagements[i], posts_count: 16 })) },
-  'all-content': Object.fromEntries(names.map(platform => [platform, posts.filter(post => post.platform === platform)])),
+  'all-content': Object.fromEntries(names.map(platform => [platform, posts.filter(post => post.platform === platform && post.is_organic)])),
   'organic-content': Object.fromEntries(names.map(platform => [platform, { top: posts.filter(post => post.platform === platform).slice(0, 5), bottom: [] }])),
   'content-types': Object.fromEntries([...names, 'Overall'].map(platform => [platform, categories.map((type, i) => ({ type, count: (6 - i) * (platform === 'Overall' ? 3 : 1), reach: (6 - i) * 1450000 * (platform === 'Overall' ? 3 : 1), engagement: (6 - i) * 49000, engagement_rate: 2.35 + i * .31 }))])),
   'format-performance': names.flatMap(platform => ['Video', 'Carousel', 'Static', 'Link'].map((format, i) => ({ platform, format, is_total: false, posts: 4, avg_reach: 50000, avg_engagement: 2000, avg_er: 4.52 - i * .6 }))),
+  'performance-breakdown': performanceBreakdown,
   'follower-growth': { ...Object.fromEntries(followerNames.map((platform, index) => [platform, ['2026-08-13', '2026-08-20', '2026-08-27', '2026-09-03', '2026-09-10', '2026-09-11'].map((date, i) => ({ month: date, month_label: `${date.slice(8)} ${date.slice(5, 7) === '08' ? 'Aug' : 'Sep'} 2026`, followers: 450000 + index * 100000 + i * 22000 }))])), _meta: { last_refreshed_at: '2026-09-11T09:20:00Z', refresh_schedule: 'Daily at 08:00 Asia/Kuala_Lumpur' } },
   'metricool': { ...Object.fromEntries(followerNames.map((platform, index) => [platform, ['2026-08-14', '2026-08-20', '2026-08-27', '2026-09-03', '2026-09-10', '2026-09-12'].map((date, i) => ({ month: date, month_label: `${date.slice(8)} ${date.slice(5, 7) === '08' ? 'Aug' : 'Sep'} 2026`, followers: 450000 + index * 100000 + i * 22000 }))])), _meta: { last_refreshed_at: '2026-09-12T09:20:00Z', source: 'Metricool', errors: {} } },
   'post-thumbnails': { items: posts.map(post => ({ platform: post.platform, title: post.title, publication_date: post.date, link: '', picture: `https://picsum.photos/seed/cimb-${post.id}/120/90` })) },

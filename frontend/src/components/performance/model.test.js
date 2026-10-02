@@ -20,6 +20,11 @@ const source = {
   content: { Facebook: [{ id: 1, platform: 'Facebook', reach: 200, engagement: 10 }], Instagram: [{ id: 2, platform: 'Instagram', reach: 300, engagement: 30 }], 'Instagram Stories': [{ id: 3, platform: 'Instagram Stories', format: 'IG Story', reach: 200, engagement: 10 }] },
   categories: { Overall: [{ type: 'Brand', count: 7 }], Facebook: [{ type: 'Brand', count: 2 }], 'Instagram Stories': [{ type: 'Brand', count: 2 }] },
   formats: [{ platform: 'Facebook', format: 'Video', posts: 1, avg_er: 2, avg_reach: 200, avg_engagement: 10 }, { platform: 'Instagram', format: 'Video', posts: 3, avg_er: 6, avg_reach: 300, avg_engagement: 30 }, { platform: 'Grand Total', is_total: true, is_grand_total: true, posts: 4, avg_er: 999 }],
+  breakdown: {
+    Facebook: { reach_source: 'reach', include_views: true, organic: { posts: 1, reach: 200, views: 300, engagement: 10, average_engagement_rate: 5 }, paid: { posts: 1, reach: 200, views: 250, engagement: 10, average_engagement_rate: 5 } },
+    TikTok: { reach_source: 'views', include_views: false, organic: { posts: 1, reach: 900, views: 900, engagement: 45, average_engagement_rate: 5 }, paid: { posts: 1, reach: 100, views: 100, engagement: 3, average_engagement_rate: 3 } },
+    LinkedIn: { reach_source: 'impressions', include_views: false, organic: { posts: 1, reach: 800, views: 20, engagement: 24, average_engagement_rate: 3 }, paid: { posts: 0, reach: 0, views: 0, engagement: 0, average_engagement_rate: null } },
+  },
 };
 
 test('executive totals include Instagram Stories as a separate performance platform', () => {
@@ -52,6 +57,20 @@ test('platform selection scopes every available breakdown to that platform', () 
   assert.equal(model.categories[0].count, 2);
   assert.equal(model.formats[0].posts, 1);
   assert.deepEqual(model.reachSplit.map(row => row.value), [200, 200]);
+  assert.deepEqual(model.metricBreakdowns.map(metric => metric.label), ['Reach', 'Views', 'Engagement', 'Avg. ER%']);
+  assert.deepEqual(model.metricBreakdowns[0].rows.map(row => row.value), [200, 200]);
+});
+
+test('platform breakdowns apply the requested reach proxies without duplicating views', () => {
+  const tiktok = buildModel(source, 'TikTok');
+  assert.equal(tiktok.reachSource, 'views');
+  assert.deepEqual(tiktok.metricBreakdowns.map(metric => metric.label), ['Reach', 'Engagement', 'Avg. ER%']);
+  assert.deepEqual(tiktok.metricBreakdowns[0].rows.map(row => row.value), [900, 100]);
+
+  const linkedin = buildModel(source, 'LinkedIn');
+  assert.equal(linkedin.reachSource, 'impressions');
+  assert.deepEqual(linkedin.metricBreakdowns.map(metric => metric.label), ['Reach', 'Engagement', 'Avg. ER%']);
+  assert.equal(linkedin.metricBreakdowns[2].rows[1].value, null);
 });
 
 test('format ER is weighted by post count, never an average of averages', () => {

@@ -95,6 +95,22 @@ export function buildModel(data, platform = null) {
     { name: 'Organic', value: organicReach, color: '#ed0027' },
     { name: 'Paid', value: Math.max(0, kpis.reach - organicReach), color: '#740924' },
   ] : null;
+  const breakdownSource = platform ? data.breakdown?.[platform] : null;
+  const splitMetric = (key, label, rate = false) => {
+    if (!breakdownSource) return null;
+    const rows = [
+      { name: 'Organic', value: number(breakdownSource.organic?.[key]), posts: breakdownSource.organic?.posts ?? 0, color: '#ed0027' },
+      { name: 'Paid', value: number(breakdownSource.paid?.[key]), posts: breakdownSource.paid?.posts ?? 0, color: '#740924' },
+    ];
+    const available = rows.some(row => row.posts > 0 && row.value != null);
+    return { key, label, rate, rows, available, total: rate ? kpis.er : sum(rows.map(row => row.value)) };
+  };
+  const metricBreakdowns = breakdownSource ? [
+    splitMetric('reach', 'Reach'),
+    ...(breakdownSource.include_views ? [splitMetric('views', 'Views')] : []),
+    splitMetric('engagement', 'Engagement'),
+    splitMetric('average_engagement_rate', 'Avg. ER%', true),
+  ].filter(Boolean) : null;
   const categories = data.categories?.[platform || 'Overall'] ?? null;
   const formatMap = new Map();
   for (const row of data.formats || []) {
@@ -107,7 +123,7 @@ export function buildModel(data, platform = null) {
     formatMap.set(row.format, prev);
   }
   const formats = [...formatMap.values()].map(row => ({ ...row, er: row.posts ? row.erTotal / row.posts : 0 })).sort((a, b) => b.er - a.er);
-  return { kpis, rows, posts, reachSplit, categories, formats };
+  return { kpis, rows, posts, reachSplit, metricBreakdowns, reachSource: breakdownSource?.reach_source || null, categories, formats };
 }
 
 export function followerModel(data, platform = null) {
