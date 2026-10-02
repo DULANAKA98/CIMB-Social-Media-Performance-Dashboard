@@ -697,12 +697,43 @@ def _organic_paid_performance_breakdown(df: pd.DataFrame):
             "organic": summarize(platform_rows[platform_rows["is_organic"] == True]),
             "paid": summarize(platform_rows[platform_rows["is_organic"] == False]),
         }
+
+    overall_rows = df.copy()
+    overall_rows["_exposure"] = overall_rows["reach"].fillna(0).astype(float)
+    views_mask = overall_rows["platform"].isin(["TikTok", "YouTube"])
+    impressions_mask = overall_rows["platform"].eq("LinkedIn")
+    overall_rows.loc[views_mask, "_exposure"] = overall_rows.loc[views_mask, "views"].fillna(0).astype(float)
+    overall_rows.loc[impressions_mask, "_exposure"] = overall_rows.loc[impressions_mask, "impressions"].fillna(0).astype(float)
+
+    def summarize_overall(rows: pd.DataFrame):
+        if rows.empty:
+            return {
+                "posts": 0,
+                "reach": 0.0,
+                "views": 0.0,
+                "engagement": 0.0,
+                "average_engagement_rate": None,
+            }
+        return {
+            "posts": int(len(rows)),
+            "reach": float(rows["_exposure"].sum()),
+            "views": float(rows["views"].fillna(0).sum()),
+            "engagement": float(rows["engagement"].fillna(0).sum()),
+            "average_engagement_rate": float(rows["engagement_rate"].mean()),
+        }
+
+    result["Overall"] = {
+        "reach_source": "mixed",
+        "include_views": False,
+        "organic": summarize_overall(overall_rows[overall_rows["is_organic"] == True]),
+        "paid": summarize_overall(overall_rows[overall_rows["is_organic"] == False]),
+    }
     return result
 
 
 @app.get("/api/performance-breakdown")
 def get_performance_breakdown(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    """Return organic/paid reach, views, engagement and average ER by platform."""
+    """Return organic/paid exposure, views, engagement and average ER by platform and overall."""
     df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
     return _organic_paid_performance_breakdown(df)
 

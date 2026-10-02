@@ -35,6 +35,18 @@ const performanceBreakdown = Object.fromEntries(names.map(platform => {
   };
   return [platform, { reach_source: reachSource, include_views: ['Facebook', 'Instagram', 'Instagram Stories'].includes(platform), organic: summarize(true), paid: summarize(false) }];
 }));
+const summarizeOverallBreakdown = organic => {
+  const rows = posts.filter(post => post.is_organic === organic);
+  const exposure = post => ['TikTok', 'YouTube'].includes(post.platform) ? post.views : post.platform === 'LinkedIn' ? post.impressions : post.reach;
+  return {
+    posts: rows.length,
+    reach: rows.reduce((total, post) => total + exposure(post), 0),
+    views: rows.reduce((total, post) => total + post.views, 0),
+    engagement: rows.reduce((total, post) => total + post.engagement, 0),
+    average_engagement_rate: rows.length ? rows.reduce((total, post) => total + post.engagement_rate, 0) / rows.length : null,
+  };
+};
+performanceBreakdown.Overall = { reach_source: 'mixed', include_views: false, organic: summarizeOverallBreakdown(true), paid: summarizeOverallBreakdown(false) };
 const fixtures = {
   'status': { has_data: true, post_count: 96, last_sync: '2026-08-28T08:00:00Z' },
   'dashboard-summary': { kpis: { total_reach: totals.reduce((a, b) => a + b, 0), total_engagement: engagements.reduce((a, b) => a + b, 0), avg_engagement_rate: 3.41, top_platform: 'Instagram' } },

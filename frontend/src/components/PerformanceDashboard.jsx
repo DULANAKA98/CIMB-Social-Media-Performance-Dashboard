@@ -47,8 +47,8 @@ function Delta({ current, previous, rate = false, label = 'vs previous period' }
 }
 
 function Kpi({ label, value, icon: Icon, children, help, tone = '' }) {
-  return <section className="perf-kpi" aria-label={label} title={help}>
-    <div><h2>{label}</h2><strong>{value}</strong></div><span className={`kpi-symbol ${tone}`}><Icon size={21} strokeWidth={1.6} /></span>
+  return <section className="perf-kpi" aria-label={label}>
+    <div><h2 className="kpi-heading"><span>{label}</span>{help && <span className="metric-help" tabIndex={0} aria-label={`${label}: ${help}`}><Info size={12} /><span role="tooltip">{help}</span></span>}</h2><strong>{value}</strong></div><span className={`kpi-symbol ${tone}`}><Icon size={21} strokeWidth={1.6} /></span>
     <div className="kpi-detail">{children}</div>
   </section>;
 }
@@ -101,16 +101,6 @@ function PerformanceChart({ model, exposureLabel = 'Reach' }) {
   </Panel>;
 }
 
-function ReachBreakdown({ model }) {
-  const total = model.kpis.reach;
-  return <Panel title="Reach Breakdown" subtitle="Organic and paid post reach" className="reach-chart">
-    {model.reachSplit && total > 0 ? <div className="reach-body"><div className="donut-chart" role="img" aria-label={`Organic reach ${full(model.reachSplit[0].value)}, paid reach ${full(model.reachSplit[1].value)}`}>
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><PieChart><Pie data={model.reachSplit} dataKey="value" innerRadius="64%" outerRadius="92%" startAngle={90} endAngle={-270} stroke="#fff" strokeWidth={3}>{model.reachSplit.map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => full(value)} /></PieChart></ResponsiveContainer>
-      <div className="donut-center"><strong>{compact(total)}</strong><span>Total reach</span></div>
-    </div><div className="donut-legend">{model.reachSplit.map(row => <div key={row.name}><i style={{ background: row.color }} /><span>{row.name}<strong>{compact(row.value)} <small>({Math.round(row.value / total * 100)}%)</small></strong></span></div>)}</div></div> : <Empty icon={Target}>Reach data will appear here when available.</Empty>}
-  </Panel>;
-}
-
 function SplitMetric({ metric }) {
   const chartRows = metric.rows.filter(row => row.value != null && row.value > 0);
   const formatter = value => metric.rate ? percent(value) : compact(value);
@@ -132,7 +122,9 @@ function PerformanceBreakdowns({ model, platform }) {
     ? `${platform} uses platform-reported views.`
     : model.reachSource === 'impressions'
       ? 'LinkedIn uses platform-reported impressions.'
-      : 'Uses the platform-reported reach value.';
+      : model.reachSource === 'mixed'
+        ? 'For TikTok and YouTube, views are counted as reach. For LinkedIn, impressions are counted as reach.'
+        : 'Uses the platform-reported reach value.';
   return <Panel title="Organic / Paid Breakdown" subtitle="Content marked organic or paid" className="reach-chart performance-breakdowns">
     {model.metricBreakdowns?.length ? <><div className={`split-grid metrics-${model.metricBreakdowns.length}`}>{model.metricBreakdowns.map(metric => <SplitMetric key={metric.key} metric={metric} />)}</div><p className="panel-footnote">{metricNote} Avg. ER% compares the mean post-level rate for each group.</p></> : <Empty icon={Target}>Organic and paid performance data will appear here when available.</Empty>}
   </Panel>;
@@ -318,8 +310,22 @@ export default function PerformanceDashboard({ onLogout }) {
   const supportsFollowers = selectedPlatform?.supportsFollowers !== false;
   const supportsFormats = selectedPlatform?.supportsFormats !== false;
   const isInstagramStories = platform === 'Instagram Stories';
+  const supportsViews = ['Facebook', 'Instagram', 'Instagram Stories'].includes(platform);
   const nativeExposure = exposureMetric(platform);
   const exposureLabel = page === 'platform' && platform ? nativeExposure.label : 'Reach';
+  const reachHelp = page === 'executive'
+    ? 'For TikTok and YouTube, views are counted as reach. For LinkedIn, impressions are counted as reach. Facebook, Instagram and Instagram Stories use reported reach.'
+    : 'Sum of platform-reported reach for content in the selected period.';
+  const engagementHelp = page === 'executive'
+    ? 'Total engagements across all platforms in the selected period, including Instagram Stories as a separate performance platform.'
+    : `Total engagements across ${platform} content in the selected period.`;
+  const erHelp = platform === 'TikTok' || platform === 'YouTube'
+    ? `Each ${platform} post ER% is engagement divided by views, multiplied by 100. This card shows the average post ER% for the selected period.`
+    : platform === 'LinkedIn'
+      ? 'Each LinkedIn post ER% is engagement divided by impressions, multiplied by 100. This card shows the average post ER% for the selected period.'
+      : isInstagramStories
+        ? 'Each Story ER% is engagement divided by reach, multiplied by 100. This card shows the average Story ER% for the selected period.'
+        : 'Each post ER% is engagement divided by reach, multiplied by 100; views are used when reach is unavailable. This card shows the average post ER% for the selected period.';
 
   const navigate = (next, name = null) => { setPage(next); setPlatform(name); setShowAllPosts(false); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
   useLayoutEffect(() => {
@@ -435,15 +441,16 @@ export default function PerformanceDashboard({ onLogout }) {
           <div className="overview-toolbar"><div className="data-status"><span className={`status-dot ${current.errors.length ? 'warning' : ''}`} />{current.loading ? 'Loading data…' : current.errors.length ? 'Connection needs attention' : current.empty ? 'Ready for your data' : 'Connected to Data Hub'}<button className={`icon-button ${current.loading ? 'is-refreshing' : ''}`} title="Refresh data" aria-label="Refresh data" disabled={current.loading} onClick={() => setRefreshKey(key => key + 1)}><RefreshCw size={14} /></button></div></div>
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
-          <div className={`perf-kpis ${page === 'executive' ? 'executive-kpis' : ''} ${current.loading ? 'is-loading' : ''}`} aria-busy={current.loading}>
+          <div className={`perf-kpis ${page === 'executive' ? 'executive-kpis' : 'platform-kpis'} ${supportsViews && supportsFollowers ? 'has-five' : ''} ${current.loading ? 'is-loading' : ''}`} aria-busy={current.loading}>
             {(page === 'executive' || supportsFollowers) && <Kpi label="Total Followers" value={full(latestFollowers.total)} icon={Users} help="Sum of the latest matching daily follower snapshot across the selected social accounts."><span className="delta neutral">{latestFollowers.total == null ? 'Waiting for follower refresh' : `Last refreshed ${refreshedLabel(latestFollowers.lastRefreshedAt)}`}</span></Kpi>}
-            <Kpi label={`Total ${exposureLabel}`} value={full(model.kpis.reach)} icon={Megaphone} help={exposureLabel === 'Reach' ? 'Sum of reported content reach, not deduplicated people. Instagram Stories are included as a separate performance platform.' : `Sum of platform-reported ${exposureLabel.toLowerCase()} for content in the selected period.`}><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
-            <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help="Total engagements across content in the selected period. Instagram Stories are included as a separate performance platform."><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
-            {page === 'platform' && <Kpi label={isInstagramStories ? 'Avg. Story ER%' : platform ? 'Avg. Post ER%' : 'Engagement Rate (ER%)'} value={percent(model.kpis.er)} icon={BarChart3} help={isInstagramStories ? 'Mean of individual Story engagement rates, calculated using reach.' : platform ? 'Mean of individual post engagement rates, as reported by the platform-stats endpoint.' : 'Total engagement / ER denominator. The backend uses views for Facebook/Instagram posts without reach.'}><Delta current={model.kpis.er} previous={previousModel.kpis.er} rate label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>}
+            <Kpi label={`Total ${exposureLabel}`} value={full(model.kpis.reach)} icon={Megaphone} help={exposureLabel === 'Reach' ? reachHelp : `Sum of platform-reported ${exposureLabel.toLowerCase()} for content in the selected period.`}><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
+            {page === 'platform' && supportsViews && <Kpi label="Total Views" value={full(model.kpis.views)} icon={BarChart3} help="Sum of platform-reported content views in the selected period."><Delta current={model.kpis.views} previous={previousModel.kpis.views} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>}
+            <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help={engagementHelp}><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
+            {page === 'platform' && <Kpi label={isInstagramStories ? 'Avg. Story ER%' : 'Avg. Post ER%'} value={percent(model.kpis.er)} icon={BarChart3} help={erHelp}><Delta current={model.kpis.er} previous={previousModel.kpis.er} rate label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>}
           </div>
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published {isInstagramStories ? 'stories' : 'posts'}</small></h2></div></div>}
           <div className={`perf-grid ${page === 'executive' ? 'executive-grid' : ''} ${isInstagramStories ? 'story-grid' : ''}`} aria-busy={current.loading}>
-            <PerformanceChart model={model} exposureLabel={exposureLabel} />{page === 'platform' ? <PerformanceBreakdowns model={model} platform={platform} /> : <ReachBreakdown model={model} />}{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />}
+            <PerformanceChart model={model} exposureLabel={exposureLabel} /><PerformanceBreakdowns model={model} platform={platform} />{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />}
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>{exposureLabel}</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} exposureLabel={exposureLabel} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} />}
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} showFollowers={supportsFollowers} exposureLabel={exposureLabel} />

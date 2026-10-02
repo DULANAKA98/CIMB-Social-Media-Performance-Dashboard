@@ -40,6 +40,17 @@ class PerformanceBreakdownTests(unittest.TestCase):
         self.assertEqual(result["paid"]["posts"], 0)
         self.assertIsNone(result["paid"]["average_engagement_rate"])
 
+    def test_overall_combines_native_exposure_engagement_and_average_er(self):
+        result = _organic_paid_performance_breakdown(self.rows)["Overall"]
+        self.assertEqual(result["reach_source"], "mixed")
+        self.assertFalse(result["include_views"])
+        self.assertEqual(result["organic"]["reach"], 800)
+        self.assertEqual(result["paid"]["reach"], 250)
+        self.assertEqual(result["organic"]["engagement"], 33)
+        self.assertEqual(result["paid"]["engagement"], 10)
+        self.assertAlmostEqual(result["organic"]["average_engagement_rate"], 17 / 3)
+        self.assertEqual(result["paid"]["average_engagement_rate"], 5.5)
+
 
 if __name__ == "__main__":
     unittest.main()

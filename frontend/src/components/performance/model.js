@@ -92,8 +92,16 @@ export function buildModel(data, platform = null) {
     return { ...item, posts: stat?.posts_count ?? null, reach: stat ? stat.posts_count * stat.avg_reach : null, engagement: engagement?.total_engagement ?? null, er: stat?.avg_engagement_rate ?? null };
   });
   const posts = data.content ? selected.flatMap(item => data.content[item.name] || []).sort((a, b) => b.engagement - a.engagement) : null;
-  const kpis = platform ? { reach: rows[0]?.reach, engagement: rows[0]?.engagement, er: rows[0]?.er, posts: rows[0]?.posts } : {
+  const platformBreakdown = platform ? data.breakdown?.[platform] : null;
+  const kpis = platform ? {
+    reach: rows[0]?.reach,
+    views: platformBreakdown?.include_views ? sum([platformBreakdown.organic?.views, platformBreakdown.paid?.views]) : null,
+    engagement: rows[0]?.engagement,
+    er: rows[0]?.er,
+    posts: rows[0]?.posts,
+  } : {
     reach: data.summary?.kpis?.total_reach ?? null,
+    views: null,
     engagement: data.summary?.kpis?.total_engagement ?? null,
     er: data.summary?.kpis?.avg_engagement_rate ?? null,
     posts: data.engagement?.overall?.posts_count ?? null,
@@ -104,7 +112,7 @@ export function buildModel(data, platform = null) {
     { name: 'Organic', value: organicReach, color: '#ed0027' },
     { name: 'Paid', value: Math.max(0, kpis.reach - organicReach), color: '#740924' },
   ] : null;
-  const breakdownSource = platform ? data.breakdown?.[platform] : null;
+  const breakdownSource = platform ? platformBreakdown : data.breakdown?.Overall;
   const splitMetric = (key, label, rate = false) => {
     if (!breakdownSource) return null;
     const rows = [

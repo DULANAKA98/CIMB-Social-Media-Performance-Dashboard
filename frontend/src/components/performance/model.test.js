@@ -21,6 +21,7 @@ const source = {
   categories: { Overall: [{ type: 'Brand', count: 7 }], Facebook: [{ type: 'Brand', count: 2 }], 'Instagram Stories': [{ type: 'Brand', count: 2 }] },
   formats: [{ platform: 'Facebook', format: 'Video', posts: 1, avg_er: 2, avg_reach: 200, avg_engagement: 10 }, { platform: 'Instagram', format: 'Video', posts: 3, avg_er: 6, avg_reach: 300, avg_engagement: 30 }, { platform: 'Grand Total', is_total: true, is_grand_total: true, posts: 4, avg_er: 999 }],
   breakdown: {
+    Overall: { reach_source: 'mixed', include_views: false, organic: { posts: 5, reach: 900, views: 1000, engagement: 55, average_engagement_rate: 6 }, paid: { posts: 2, reach: 300, views: 350, engagement: 15, average_engagement_rate: 4 } },
     Facebook: { reach_source: 'reach', include_views: true, organic: { posts: 1, reach: 200, views: 300, engagement: 10, average_engagement_rate: 5 }, paid: { posts: 1, reach: 200, views: 250, engagement: 10, average_engagement_rate: 5 } },
     TikTok: { reach_source: 'views', include_views: false, organic: { posts: 1, reach: 900, views: 900, engagement: 45, average_engagement_rate: 5 }, paid: { posts: 1, reach: 100, views: 100, engagement: 3, average_engagement_rate: 3 } },
     LinkedIn: { reach_source: 'impressions', include_views: false, organic: { posts: 1, reach: 800, views: 20, engagement: 24, average_engagement_rate: 3 }, paid: { posts: 0, reach: 0, views: 0, engagement: 0, average_engagement_rate: null } },
@@ -32,6 +33,8 @@ test('executive totals include Instagram Stories as a separate performance platf
   assert.equal(model.rows.length, 6);
   assert.equal(model.kpis.reach, 1200);
   assert.equal(model.kpis.er, 5.83);
+  assert.deepEqual(model.metricBreakdowns.map(metric => metric.label), ['Reach', 'Engagement', 'Avg. ER%']);
+  assert.deepEqual(model.metricBreakdowns[1].rows.map(row => row.value), [55, 15]);
   assert.equal(model.rows.reduce((total, row) => total + (row.reach || 0), 0), 1200);
   assert.deepEqual(model.reachSplit.map(row => row.value), [700, 500]);
   assert.equal(model.posts[0].id, 2);
@@ -53,6 +56,7 @@ test('platform selection scopes every available breakdown to that platform', () 
   assert.equal(model.kpis.reach, 400);
   assert.equal(model.kpis.engagement, 20);
   assert.equal(model.kpis.er, 5);
+  assert.equal(model.kpis.views, 550);
   assert.equal(model.posts.length, 1);
   assert.equal(model.categories[0].count, 2);
   assert.equal(model.formats[0].posts, 1);
