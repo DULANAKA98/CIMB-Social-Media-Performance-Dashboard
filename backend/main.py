@@ -1926,9 +1926,10 @@ def _cimb_insight_snapshot(df: pd.DataFrame, start_date: Optional[str], end_date
 @app.get("/api/executive-summary")
 def get_executive_summary(
     start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None)
+    end_date: Optional[str] = Query(None),
+    platform: Optional[str] = Query(None),
 ):
-    """Generate Key Insights through the CIMB-owned Cloudflare Worker."""
+    """Generate date- and platform-scoped Key Insights through the CIMB AI Worker."""
     insights_url = os.getenv("CIMB_INSIGHTS_URL", "").strip()
     insights_key = os.getenv("CIMB_INSIGHTS_KEY", "").strip()
     if not insights_url or not insights_key:
@@ -1939,7 +1940,14 @@ def get_executive_summary(
         raise HTTPException(status_code=503, detail="The CIMB insights service URL is invalid.")
 
     df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
+    if platform:
+        if platform not in PERFORMANCE_PLATFORMS:
+            raise HTTPException(status_code=400, detail="Unsupported performance platform.")
+        df = df[df['platform'] == platform].copy()
+        if df.empty:
+            raise HTTPException(status_code=400, detail=f"No {platform} data is available for the selected period.")
     snapshot = _cimb_insight_snapshot(df, start_date, end_date)
+    snapshot["platform_scope"] = platform or "All platforms"
     try:
         response = http_requests.post(
             insights_url,

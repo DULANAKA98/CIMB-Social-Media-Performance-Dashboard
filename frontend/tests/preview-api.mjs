@@ -36,6 +36,8 @@ const fixtures = {
   'executive-summary': { error: 'Test fixture: AI unavailable' },
 };
 
+const port = Number(process.env.PORT || 8766);
+
 http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
@@ -52,5 +54,19 @@ http.createServer((req, res) => {
     res.end(JSON.stringify({ ...filtered, _meta: fixtures.metricool._meta }));
     return;
   }
+  if (endpoint === 'executive-summary') {
+    const platform = url.searchParams.get('platform') || 'All platforms';
+    const start = url.searchParams.get('start_date') || 'the first available date';
+    const end = url.searchParams.get('end_date') || 'the latest available date';
+    res.end(JSON.stringify({
+      key_highlights: [
+        `${platform} AI insight generated for ${start} to ${end}.`,
+        `${platform} performance is calculated only from records inside the selected reporting period.`,
+        `The current scope contains dashboard metrics for ${platform}.`,
+      ],
+      _meta: { fallback: false },
+    }));
+    return;
+  }
   res.end(JSON.stringify(fixtures[endpoint]));
-}).listen(8766, '127.0.0.1', () => console.log('Synthetic, read-only UI preview API: http://127.0.0.1:8766/api'));
+}).listen(port, '127.0.0.1', () => console.log(`Synthetic, read-only UI preview API: http://127.0.0.1:${port}/api`));

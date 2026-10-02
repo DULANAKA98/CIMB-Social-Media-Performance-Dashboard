@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Target, TrendingUp, Users, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -9,7 +9,6 @@ import usePerformanceData, { API_URL, queryFor } from './performance/usePerforma
 import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './performance/model';
 import './performance/performance.css';
 
-const LegacyDashboard = lazy(() => import('./Dashboard'));
 const BRAND_ICONS = { Facebook: FaFacebookF, Instagram: FaInstagram, 'Instagram Stories': FaInstagram, TikTok: FaTiktok, YouTube: FaYoutube, LinkedIn: FaLinkedinIn };
 const CHART_STYLE = { fontSize: 12, fill: '#818493' };
 const TOOLTIP_STYLE = { background: '#fff', border: '1px solid #e9e9ef', borderRadius: 8, fontSize: 14, color: '#25232a', boxShadow: '0 5px 25px #26081510' };
@@ -239,7 +238,7 @@ function Benchmarks({ current, previous, mode, onMode, hasRange, loading, compar
   </Panel>;
 }
 
-function Insights({ model, ai, loading, onGenerate, platform }) {
+function Insights({ model, ai, loading, onGenerate }) {
   const top = [...model.rows].filter(row => row.engagement > 0).sort((a, b) => b.engagement - a.engagement)[0];
   const highlights = ai?.key_highlights || (top ? [
     `${top.name} recorded ${compact(top.engagement)} engagements${model.rows.length > 1 ? ', the highest among the selected platforms' : ''}.`,
@@ -248,8 +247,8 @@ function Insights({ model, ai, loading, onGenerate, platform }) {
   ] : []);
   return <Panel title="Key Insights" className="insights-panel" action={<Lightbulb size={18} />}>
     {highlights.length ? <ul className="insights-list">{highlights.slice(0, 4).map((text, index) => <li key={index}><Check size={14} /><span>{text.replace(/\*\*/g, '')}</span></li>)}</ul> : <Empty icon={Lightbulb} title="Your next insight starts here">Performance highlights will appear when data is available.</Empty>}
-    {ai?.error && <p role="alert" className="form-error">AI insights are currently unavailable. Check the AI service configuration in the reporting tools.</p>}
-    <button className="text-button" disabled={loading || !model.kpis.posts} onClick={onGenerate}>{loading ? 'Generating insights…' : platform ? 'Open AI reporting tools' : 'Generate AI insights'} <ArrowUpRight size={12} /></button>
+    {ai?.error && <p role="alert" className="form-error">AI insights are currently unavailable. Try again in a moment.</p>}
+    <button className="text-button" disabled={loading || !model.kpis.posts} onClick={onGenerate}>{loading ? 'Generating insights…' : 'Generate AI Insights'} <ArrowUpRight size={12} /></button>
     <p className="panel-footnote">{ai?.key_highlights && !ai?._meta?.fallback ? 'AI-generated with CIMB Insights · review before sharing' : 'Calculated highlights · not causal findings'}</p>
   </Panel>;
 }
@@ -270,7 +269,6 @@ export default function PerformanceDashboard({ onLogout }) {
   const [followerHistoryState, setFollowerHistoryState] = useState({ data: null, loading: false, error: '' });
   const [thumbnailState, setThumbnailState] = useState({ items: [] });
   const [aiState, setAiState] = useState({ data: null, loading: false });
-  const [legacy, setLegacy] = useState(false);
   const aiController = useRef(null);
   const mainRef = useRef(null);
   const current = usePerformanceData(range, refreshKey);
@@ -367,13 +365,15 @@ export default function PerformanceDashboard({ onLogout }) {
     aiController.current = controller;
     setAiState({ data: null, loading: true });
     try {
-      const response = await axios.get(`${API_URL}/executive-summary`, { params: queryFor(range), signal: controller.signal, timeout: 60000 });
+      const response = await axios.get(`${API_URL}/executive-summary`, {
+        params: { ...queryFor(range), ...(platform ? { platform } : {}) },
+        signal: controller.signal,
+        timeout: 60000,
+      });
       if (!controller.signal.aborted) setAiState({ data: response.data, loading: false });
     } catch { if (!controller.signal.aborted) setAiState({ data: { error: true }, loading: false }); }
   };
   const title = page === 'data-hub' ? 'Data Hub' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
-
-  if (legacy) return <><div className="legacy-back"><button onClick={() => { setLegacy(false); setRefreshKey(key => key + 1); }}>← Back to performance dashboard</button><span>Existing reporting workspace</span></div><Suspense fallback={<p>Opening reporting tools…</p>}><LegacyDashboard onLogout={onLogout} /></Suspense></>;
 
   return <div className="performance-app">
     <a className="skip-link" href="#performance-main">Skip to dashboard</a>
@@ -411,7 +411,7 @@ export default function PerformanceDashboard({ onLogout }) {
             <Categories rows={model.categories} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} />}
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} showFollowers={supportsFollowers} />
             <TopPosts posts={allPosts} onExpand={selectedPlatform => { setPostsViewPlatform(selectedPlatform); setShowAllPosts(true); }} platform={platform} thumbnails={thumbnailState.items} />
-            <Insights model={model} ai={platform ? null : aiState.data} loading={aiState.loading} onGenerate={platform ? () => setLegacy(true) : generateInsights} platform={platform} />
+            <Insights model={model} ai={aiState.data} loading={aiState.loading} onGenerate={generateInsights} />
           </div>
           <footer className="perf-footer"><span>{current.updatedAt && `Updated ${current.updatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</span></footer>
         </>}
