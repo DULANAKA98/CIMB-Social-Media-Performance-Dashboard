@@ -1,8 +1,9 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import axios from 'axios';
 import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Target, TrendingUp, Users, X } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
@@ -84,19 +85,20 @@ function DateFilter({ range, onApply, label = 'Reporting period' }) {
   </div>;
 }
 
-function PerformanceChart({ model, exposureLabel = 'Reach' }) {
+function PerformanceChart({ model, exposureLabel = 'Reach', printing = false }) {
   const rows = model.rows.filter(row => row.posts != null);
+  const chart = <ComposedChart {...(printing ? { width: 520, height: 230 } : {})} data={rows} margin={{ top: 22, right: 1, bottom: 0, left: -10 }} barGap={3}>
+    <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="short" tick={CHART_STYLE} axisLine={false} tickLine={false} />
+    <YAxis yAxisId="volume" tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} width={46} />
+    <YAxis yAxisId="rate" orientation="right" tickFormatter={value => `${value}%`} tick={{ ...CHART_STYLE, fill: '#747b91' }} axisLine={false} tickLine={false} width={36} />
+    {!printing && <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value, name) => [name === 'Avg. ER%' ? percent(value) : full(value), name]} labelFormatter={(_, payload) => payload?.[0]?.payload?.name} />}
+    <Bar isAnimationActive={!printing} yAxisId="volume" dataKey="reach" name={exposureLabel} fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={32}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 11, fill: '#5a5361' }} /></Bar>
+    <Bar isAnimationActive={!printing} yAxisId="volume" dataKey="engagement" name="Engagement" fill="#760a26" radius={[2, 2, 0, 0]} maxBarSize={22} minPointSize={11}><LabelList dataKey="engagement" position="top" formatter={compact} style={{ fontSize: 10, fill: '#760a26' }} /></Bar>
+    <Line isAnimationActive={!printing} yAxisId="rate" dataKey="er" name="Avg. ER%" stroke="#9297ab" strokeWidth={1.7} dot={{ r: 3, fill: '#9297ab' }} />
+  </ComposedChart>;
   return <Panel title="Performance by Platform" className="platform-chart" action={<div className="chart-legend"><span><i />{exposureLabel}</span><span><i className="dark-dot" />Engagement</span><span><i className="line-dot" />ER%</span></div>}>
     {rows.length ? <><div className="chart-area" role="img" aria-label={`${exposureLabel}, engagement and average post engagement rate by platform`}>
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><ComposedChart data={rows} margin={{ top: 22, right: 1, bottom: 0, left: -10 }} barGap={3}>
-        <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="short" tick={CHART_STYLE} axisLine={false} tickLine={false} />
-        <YAxis yAxisId="volume" tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} width={46} />
-        <YAxis yAxisId="rate" orientation="right" tickFormatter={value => `${value}%`} tick={{ ...CHART_STYLE, fill: '#747b91' }} axisLine={false} tickLine={false} width={36} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value, name) => [name === 'Avg. ER%' ? percent(value) : full(value), name]} labelFormatter={(_, payload) => payload?.[0]?.payload?.name} />
-        <Bar yAxisId="volume" dataKey="reach" name={exposureLabel} fill="#ed0027" radius={[3, 3, 0, 0]} maxBarSize={32}><LabelList dataKey="reach" position="top" formatter={compact} style={{ fontSize: 11, fill: '#5a5361' }} /></Bar>
-        <Bar yAxisId="volume" dataKey="engagement" name="Engagement" fill="#760a26" radius={[2, 2, 0, 0]} maxBarSize={22} minPointSize={11}><LabelList dataKey="engagement" position="top" formatter={compact} style={{ fontSize: 10, fill: '#760a26' }} /></Bar>
-        <Line yAxisId="rate" dataKey="er" name="Avg. ER%" stroke="#9297ab" strokeWidth={1.7} dot={{ r: 3, fill: '#9297ab' }} />
-      </ComposedChart></ResponsiveContainer>
+      {printing ? <div className="fixed-print-chart">{chart}</div> : <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>{chart}</ResponsiveContainer>}
     </div><div className="platform-legend">{rows.map(row => <span key={row.name}><PlatformIcon name={row.name} size={12} />{row.name}</span>)}</div></> : <Empty>Upload platform exports in Data Hub to populate this chart.</Empty>}
   </Panel>;
 }
@@ -105,11 +107,13 @@ function SplitMetric({ metric }) {
   const chartRows = metric.rows.filter(row => row.value != null && row.value > 0);
   const formatter = value => metric.rate ? percent(value) : compact(value);
   const accessible = metric.rows.map(row => `${row.name} ${row.value == null ? 'not available' : metric.rate ? percent(row.value) : full(row.value)}`).join(', ');
+  const chartTotal = chartRows.reduce((total, row) => total + row.value, 0);
+  const organicValue = chartRows.find(row => row.name === 'Organic')?.value || 0;
+  const organicShare = chartTotal > 0 ? organicValue / chartTotal * 100 : 0;
   return <section className="split-metric" aria-label={`${metric.label}: ${accessible}`}>
     <h3>{metric.label}</h3>
     <div className="split-donut-wrap">
-      <div className={`split-donut ${chartRows.length ? '' : 'is-empty'}`} role="img" aria-label={accessible}>
-        {chartRows.length > 0 && <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><PieChart><Pie data={chartRows} dataKey="value" innerRadius="62%" outerRadius="90%" startAngle={90} endAngle={-270} stroke="#fff" strokeWidth={2}>{chartRows.map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => formatter(value)} /></PieChart></ResponsiveContainer>}
+      <div className={`split-donut ${chartRows.length ? '' : 'is-empty'}`} style={chartRows.length ? { '--organic-share': `${organicShare}%` } : undefined} role="img" aria-label={accessible}>
         <div className="split-center"><strong>{metric.available ? formatter(metric.total) : '—'}</strong><span>{metric.rate ? 'overall' : 'total'}</span></div>
       </div>
       <div className="split-legend">{metric.rows.map(row => <div key={row.name}><span><i style={{ background: row.color }} />{row.name}</span><strong>{row.posts > 0 && row.value != null ? formatter(row.value) : '—'}</strong></div>)}</div>
@@ -135,17 +139,18 @@ function refreshedLabel(value) {
   return new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kuala_Lumpur' }).format(new Date(value));
 }
 
-function Followers({ followers, loading, error }) {
+function Followers({ followers, loading, error, printing = false }) {
   const refreshed = refreshedLabel(followers.lastRefreshedAt);
   const markers = followerChartMarkers(followers.rows);
   const markerIndexes = new Set(markers.indexes);
+  const chart = <LineChart {...(printing ? { width: 520, height: 230 } : {})} data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
+    <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="month" ticks={markers.ticks} interval="preserveStartEnd" minTickGap={14} tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => followerTickLabel(value, markers.spanDays)} />
+    <YAxis tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={47} />
+    {!printing && <Tooltip contentStyle={TOOLTIP_STYLE} formatter={full} labelFormatter={dateLabel} />}<Line isAnimationActive={!printing} dataKey="followers" name="Followers" stroke="#ed0027" strokeWidth={2} dot={props => markerIndexes.has(props.index) ? <circle cx={props.cx} cy={props.cy} r={3} fill="#ed0027" stroke="#fff" strokeWidth={1} /> : null} activeDot={{ r: 4, fill: '#ed0027', stroke: '#fff', strokeWidth: 1.5 }} />
+  </LineChart>;
   return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart">
     {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Daily follower growth">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><LineChart data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
-        <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="month" ticks={markers.ticks} interval="preserveStartEnd" minTickGap={14} tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => followerTickLabel(value, markers.spanDays)} />
-        <YAxis tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={47} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={full} labelFormatter={dateLabel} /><Line dataKey="followers" name="Followers" stroke="#ed0027" strokeWidth={2} dot={props => markerIndexes.has(props.index) ? <circle cx={props.cx} cy={props.cy} r={3} fill="#ed0027" stroke="#fff" strokeWidth={1} /> : null} activeDot={{ r: 4, fill: '#ed0027', stroke: '#fff', strokeWidth: 1.5 }} />
-      </LineChart></ResponsiveContainer>
+      {printing ? <div className="fixed-print-chart">{chart}</div> : <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>{chart}</ResponsiveContainer>}
     </div> : <Empty icon={TrendingUp} title={error ? 'Follower data unavailable' : 'Waiting for the first daily snapshot'}>
       {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms supplied. Matching daily snapshots are needed for a combined total.` : 'Follower counts will appear after the scheduled refresh runs.')}
     </Empty>}
@@ -161,14 +166,16 @@ function Categories({ rows, exposureLabel = 'Reach' }) {
   </Panel>;
 }
 
-function Formats({ rows }) {
+function Formats({ rows, printing = false }) {
+  const chartRows = rows.slice(0, 6);
+  const chart = <BarChart {...(printing ? { width: 520, height: 210 } : {})} data={chartRows} margin={{ top: 25, right: 8, left: 8, bottom: 8 }}>
+    <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 11 }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 'auto']} />
+    {!printing && <Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => percent(value)} cursor={{ fill: '#f7f7fa' }} />}
+    <Bar isAnimationActive={!printing} dataKey="er" name="Avg. ER%" radius={[3, 3, 0, 0]} maxBarSize={43}>{chartRows.map((row, index) => <Cell key={row.name} fill={['#ed0027', '#790a29', '#888996', '#b5b6c2', '#d1bdc5', '#dfe0e8'][index]} />)}<LabelList dataKey="er" position="top" formatter={percent} style={{ fontSize: 12, fill: '#39323f', fontWeight: 600 }} /></Bar>
+  </BarChart>;
   return <Panel title="Content Format Performance" subtitle="Average post ER% · organic content" className="format-chart">
     {rows.length ? <div className="chart-area" role="img" aria-label="Average organic engagement rate by content format">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}><BarChart data={rows.slice(0, 6)} margin={{ top: 25, right: 8, left: 8, bottom: 8 }}>
-        <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 11 }} axisLine={false} tickLine={false} interval={0} /><YAxis hide domain={[0, 'auto']} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} formatter={value => percent(value)} cursor={{ fill: '#f7f7fa' }} />
-        <Bar dataKey="er" name="Avg. ER%" radius={[3, 3, 0, 0]} maxBarSize={43}>{rows.slice(0, 6).map((row, index) => <Cell key={row.name} fill={['#ed0027', '#790a29', '#888996', '#b5b6c2', '#d1bdc5', '#dfe0e8'][index]} />)}<LabelList dataKey="er" position="top" formatter={percent} style={{ fontSize: 12, fill: '#39323f', fontWeight: 600 }} /></Bar>
-      </BarChart></ResponsiveContainer>
+      {printing ? <div className="fixed-print-chart">{chart}</div> : <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>{chart}</ResponsiveContainer>}
     </div> : <Empty icon={BarChart3}>Upload organic posts to compare content formats.</Empty>}
   </Panel>;
 }
@@ -292,11 +299,13 @@ export default function PerformanceDashboard({ onLogout }) {
   const [benchmarkMode, setBenchmarkMode] = useState('previous');
   const [showAllPosts, setShowAllPosts] = useState(false);
   const [postsViewPlatform, setPostsViewPlatform] = useState(ALL_PLATFORMS);
+  const [printing, setPrinting] = useState(false);
   const [followerState, setFollowerState] = useState({ data: null, loading: false, error: '' });
   const [followerHistoryState, setFollowerHistoryState] = useState({ data: null, loading: false, error: '' });
   const [thumbnailState, setThumbnailState] = useState({ items: [] });
   const [aiState, setAiState] = useState({ data: null, loading: false });
   const aiController = useRef(null);
+  const prePrintTitle = useRef(null);
   const mainRef = useRef(null);
   const current = usePerformanceData(range, refreshKey);
   const comparedRange = useMemo(() => comparisonRange(range, benchmarkMode), [range, benchmarkMode]);
@@ -401,6 +410,15 @@ export default function PerformanceDashboard({ onLogout }) {
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
   }, []);
+  useEffect(() => {
+    const finishPrinting = () => {
+      setPrinting(false);
+      if (prePrintTitle.current) document.title = prePrintTitle.current;
+      prePrintTitle.current = null;
+    };
+    window.addEventListener('afterprint', finishPrinting);
+    return () => window.removeEventListener('afterprint', finishPrinting);
+  }, []);
 
   const generateInsights = async () => {
     const controller = new AbortController();
@@ -417,17 +435,18 @@ export default function PerformanceDashboard({ onLogout }) {
     } catch { if (!controller.signal.aborted) setAiState({ data: { error: true }, loading: false }); }
   };
   const printReport = () => {
-    const previousTitle = document.title;
-    const restoreTitle = () => { document.title = previousTitle; };
+    prePrintTitle.current = document.title;
     document.title = 'Social Media Performance Report';
-    window.addEventListener('afterprint', restoreTitle, { once: true });
-    window.dispatchEvent(new Event('resize'));
-    window.setTimeout(() => window.print(), 80);
+    flushSync(() => setPrinting(true));
+    window.requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'));
+      window.requestAnimationFrame(() => window.print());
+    });
   };
   const title = page === 'data-hub' ? 'Data Hub' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
   const reportPeriod = range.start && range.end ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates';
 
-  return <div className="performance-app">
+  return <div className={`performance-app ${printing ? 'is-printing' : ''}`}>
     <a className="skip-link" href="#performance-main">Skip to dashboard</a>
     {mobileOpen && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
     <aside id="dashboard-navigation" ref={sidebarRef} className={`perf-sidebar ${mobileOpen ? 'is-open' : ''}`} aria-label="Dashboard navigation" aria-hidden={isMobile && !mobileOpen ? true : undefined} inert={isMobile && !mobileOpen ? '' : undefined} onKeyDown={mobileOpen ? trapFocus : undefined}>
@@ -459,9 +478,9 @@ export default function PerformanceDashboard({ onLogout }) {
           </div>
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published {isInstagramStories ? 'stories' : 'posts'}</small></h2></div></div>}
           <div className={`perf-grid ${page === 'executive' ? 'executive-grid' : ''} ${isInstagramStories ? 'story-grid' : ''}`} aria-busy={current.loading}>
-            <PerformanceChart model={model} exposureLabel={exposureLabel} /><PerformanceBreakdowns model={model} platform={platform} />{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} />}
+            <PerformanceChart model={model} exposureLabel={exposureLabel} printing={printing} /><PerformanceBreakdowns model={model} platform={platform} />{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} printing={printing} />}
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>{exposureLabel}</span><span>Engagement</span><span>ER%</span></div></Panel>
-            <Categories rows={model.categories} exposureLabel={exposureLabel} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} />}
+            <Categories rows={model.categories} exposureLabel={exposureLabel} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} printing={printing} />}
             <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} showFollowers={supportsFollowers} exposureLabel={exposureLabel} />
             <TopPosts posts={allPosts} onExpand={selectedPlatform => { setPostsViewPlatform(selectedPlatform); setShowAllPosts(true); }} platform={platform} thumbnails={thumbnailState.items} />
             <Insights model={model} ai={aiState.data} loading={aiState.loading} onGenerate={generateInsights} exposureLabel={exposureLabel} />
