@@ -184,6 +184,7 @@
   .performance-breakdowns .split-grid.metrics-3 .split-metric:last-child { grid-column: auto; width: auto; justify-self: stretch; }
   .split-metric { padding: 6px 4px 5px; overflow: hidden; }
   .split-metric h3 { font-size: 8px; margin-bottom: 2px; }
+  .performance-breakdowns .split-donut-wrap { flex: 1; justify-content: center; }
   .split-donut { width: 72px; height: 72px; }
   .split-center strong { font-size: 9px; }
   .split-center span, .split-legend, .split-legend strong { font-size: 7px; }
