@@ -263,12 +263,18 @@ function AllPostsView({ posts, initialPlatform, thumbnails, onBack }) {
   </div>;
 }
 
-function Benchmarks({ current, previous, mode, onMode, hasRange, loading, comparison, showFollowers = true, exposureLabel = 'Reach' }) {
+function Benchmarks({ current, previous, mode, onMode, hasRange, loading, comparisonEmpty, followerLoading, comparison, showFollowers = true, exposureLabel = 'Reach' }) {
   const metrics = [[exposureLabel, 'reach'], ['Engagement', 'engagement'], ['Engagement rate', 'er'], ...(showFollowers ? [['Followers', 'followers']] : [])];
+  const followerNote = showFollowers && hasRange && !followerLoading
+    ? current.followers == null ? 'Follower history is unavailable for the selected period.'
+      : previous.followers == null ? 'Follower history is unavailable for the comparison period.'
+        : 'Follower change uses the latest matching count in each period.'
+    : '';
+  const comparisonNote = comparisonEmpty ? 'No content data is available for the comparison period.' : '';
   return <Panel title="Benchmarking" className="benchmark-panel">
     <div className="benchmark-tabs" role="group" aria-label="Benchmark comparison"><button aria-pressed={mode === 'previous'} onClick={() => onMode('previous')}>Previous period</button><button aria-pressed={mode === 'year'} onClick={() => onMode('year')}>Same period last year</button><button disabled title="Industry benchmark source not connected">Industry avg.</button><button disabled title="Campaign mapping not connected">Similar campaigns</button></div>
-    <div className="benchmark-metrics">{metrics.map(([label, key]) => { const delta = !loading && change(current[key], previous[key], key === 'er'); return <div key={key}><span>{label}</span><strong className={delta && delta.value < 0 ? 'negative' : ''}>{delta ? delta.label : '—'}</strong><small>{loading ? 'Loading…' : delta ? key === 'er' ? 'percentage points' : 'change' : 'Not available'}</small></div>; })}</div>
-    <p className="panel-footnote">{hasRange ? comparison ? `Compared with ${dateLabel(comparison.start)} – ${dateLabel(comparison.end)}.` : 'Comparison unavailable.' : 'Select a date range to compare performance.'}</p>
+    <div className="benchmark-metrics">{metrics.map(([label, key]) => { const pending = key === 'followers' ? followerLoading : loading; const delta = !pending && change(current[key], previous[key], key === 'er'); return <div key={key}><span>{label}</span><strong className={delta && delta.value < 0 ? 'negative' : ''}>{delta ? delta.label : '—'}</strong><small>{pending ? 'Loading…' : delta ? key === 'er' ? 'percentage points' : 'change' : 'Not available'}</small></div>; })}</div>
+    <p className="panel-footnote">{hasRange ? comparison ? `Compared with ${dateLabel(comparison.start)} – ${dateLabel(comparison.end)}. ${comparisonNote} ${followerNote}` : 'Comparison unavailable.' : 'Select a date range to compare performance.'}</p>
   </Panel>;
 }
 
@@ -303,6 +309,7 @@ export default function PerformanceDashboard({ onLogout }) {
   const [printing, setPrinting] = useState(false);
   const [followerState, setFollowerState] = useState({ data: null, loading: false, error: '' });
   const [followerHistoryState, setFollowerHistoryState] = useState({ data: null, loading: false, error: '' });
+  const [comparisonFollowerState, setComparisonFollowerState] = useState({ data: null, loading: false, error: '' });
   const [thumbnailState, setThumbnailState] = useState({ items: [] });
   const [aiState, setAiState] = useState({ data: null, loading: false });
   const aiController = useRef(null);
@@ -316,6 +323,7 @@ export default function PerformanceDashboard({ onLogout }) {
   const allPosts = useMemo(() => buildModel(current.data, null).posts || [], [current.data]);
   const latestFollowers = useMemo(() => followerModel(followerState.data, platform), [followerState.data, platform]);
   const followers = useMemo(() => followerModel(followerHistoryState.data, platform), [followerHistoryState.data, platform]);
+  const comparisonFollowers = useMemo(() => followerModel(comparisonFollowerState.data, platform), [comparisonFollowerState.data, platform]);
   const selectedPlatform = PLATFORMS.find(item => item.name === platform);
   const supportsFollowers = selectedPlatform?.supportsFollowers !== false;
   const supportsFormats = selectedPlatform?.supportsFormats !== false;
@@ -400,6 +408,18 @@ export default function PerformanceDashboard({ onLogout }) {
     return () => controller.abort();
   }, [range, refreshKey]);
   useEffect(() => {
+    if (!comparedRange) {
+      setComparisonFollowerState({ data: null, loading: false, error: '' });
+      return undefined;
+    }
+    const controller = new AbortController();
+    setComparisonFollowerState({ data: null, loading: true, error: '' });
+    axios.get(`${API_URL}/follower-growth/metricool`, { params: queryFor(comparedRange), signal: controller.signal, timeout: 90000 })
+      .then(response => { if (!controller.signal.aborted) setComparisonFollowerState({ data: response.data, loading: false, error: '' }); })
+      .catch(() => { if (!controller.signal.aborted) setComparisonFollowerState({ data: null, loading: false, error: 'Unable to fetch comparison follower history.' }); });
+    return () => controller.abort();
+  }, [comparedRange, refreshKey]);
+  useEffect(() => {
     const controller = new AbortController();
     axios.get(`${API_URL}/post-thumbnails`, { params: queryFor(range), signal: controller.signal, timeout: 60000 })
       .then(response => { if (!controller.signal.aborted) setThumbnailState({ items: response.data?.items || [] }); })
@@ -483,7 +503,7 @@ export default function PerformanceDashboard({ onLogout }) {
             <PerformanceChart model={model} exposureLabel={exposureLabel} printing={printing} /><PerformanceBreakdowns model={model} platform={platform} />{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} printing={printing} />}
             <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>{exposureLabel}</span><span>Engagement</span><span>ER%</span></div></Panel>
             <Categories rows={model.categories} exposureLabel={exposureLabel} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} printing={printing} />}
-            <Benchmarks current={model.kpis} previous={previousModel.kpis} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparison={comparedRange} showFollowers={supportsFollowers} exposureLabel={exposureLabel} />
+            <Benchmarks current={{ ...model.kpis, followers: followers.total }} previous={{ ...previousModel.kpis, followers: comparisonFollowers.total }} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparisonEmpty={previous.empty} followerLoading={!!comparedRange && (followerHistoryState.loading || comparisonFollowerState.loading)} comparison={comparedRange} showFollowers={supportsFollowers} exposureLabel={exposureLabel} />
             <TopPosts posts={allPosts} onExpand={selectedPlatform => { setPostsViewPlatform(selectedPlatform); setShowAllPosts(true); }} platform={platform} thumbnails={thumbnailState.items} />
             <Insights model={model} ai={aiState.data} loading={aiState.loading} onGenerate={generateInsights} exposureLabel={exposureLabel} />
           </div>
