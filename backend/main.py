@@ -51,6 +51,7 @@ def startup_event():
 # ── Helper: load posts from DB into a Pandas DataFrame ────────────────────────
 INSTAGRAM_STORY_FORMATS = ('ig story', 'instagram story', 'story')
 PERFORMANCE_PLATFORMS = ['Facebook', 'Instagram', 'Instagram Stories', 'TikTok', 'YouTube', 'LinkedIn']
+CROSS_PLATFORM_CONTENT_PLATFORMS = ['Facebook', 'Instagram', 'LinkedIn', 'TikTok', 'YouTube']
 
 
 def is_instagram_story(platform, content_format) -> bool:
@@ -775,6 +776,82 @@ def classify_content_type(title: str) -> str:
     return FALLBACK_TYPE
 
 
+def _normalize_cross_platform_caption(value: str) -> str:
+    """Create a stable comparison key for captions copied across platforms."""
+    text_value = str(value or '').strip()
+    if text_value.lower() in ('', 'nan', 'none'):
+        return ''
+    without_urls = re.sub(r'https?://\S+', '', text_value, flags=re.IGNORECASE)
+    return re.sub(r'[\W_]+', '', without_urls, flags=re.UNICODE).lower()
+
+
+def _cross_platform_content_title(caption: str) -> str:
+    """Return a concise display title while the database has one post-text field."""
+    text_value = re.sub(r'\s+', ' ', str(caption or '')).strip()
+    if not text_value:
+        return 'Untitled content'
+    sentence = re.split(r'(?<=[.!?])\s+', text_value, maxsplit=1)[0]
+    if len(sentence) <= 90:
+        return sentence
+    return f"{sentence[:87].rstrip()}…"
+
+
+def _cross_platform_content_rows(df: pd.DataFrame):
+    """Group matching post text and aggregate comparable metrics by platform."""
+    if df.empty:
+        return []
+
+    work = df[df['platform'].isin(CROSS_PLATFORM_CONTENT_PLATFORMS)].copy()
+    if work.empty:
+        return []
+    work['_caption'] = work['title'].fillna('').astype(str).str.strip()
+    work['_caption_key'] = work['_caption'].map(_normalize_cross_platform_caption)
+    work = work[work['_caption_key'] != '']
+    if work.empty:
+        return []
+
+    rows = []
+    for caption_key, group in work.groupby('_caption_key', sort=False):
+        caption = next((value for value in group['_caption'] if value), '')
+        platform_values = {}
+        for platform in CROSS_PLATFORM_CONTENT_PLATFORMS:
+            platform_group = group[group['platform'] == platform]
+            if platform_group.empty:
+                platform_values[platform] = None
+                continue
+            links = [
+                str(value).strip()
+                for value in platform_group['link'].fillna('').tolist()
+                if str(value).strip().lower() not in ('', 'nan', 'none')
+            ]
+            platform_values[platform] = {
+                'avg_er': float(platform_group['engagement_rate'].fillna(0).mean()),
+                'engagement': float(platform_group['engagement'].fillna(0).sum()),
+                'views': float(platform_group['views'].fillna(0).sum()),
+                'reach': float(platform_group['reach'].fillna(0).sum()),
+                'posts': int(len(platform_group)),
+                'link': next(iter(dict.fromkeys(links)), ''),
+            }
+
+        rows.append({
+            'key': caption_key,
+            'pillar_category': classify_content_type(caption),
+            'content_title': _cross_platform_content_title(caption),
+            'caption': caption,
+            'platforms': platform_values,
+            'total': {
+                'avg_er': float(group['engagement_rate'].fillna(0).mean()),
+                'engagement': float(group['engagement'].fillna(0).sum()),
+                'views': float(group['views'].fillna(0).sum()),
+                'reach': float(group['reach'].fillna(0).sum()),
+            },
+            'platform_count': int(group['platform'].nunique()),
+            'post_count': int(len(group)),
+        })
+
+    return sorted(rows, key=lambda row: row['total']['avg_er'], reverse=True)
+
+
 @app.get("/api/content-types")
 def get_content_types(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
     """Return category reach and weighted engagement rate per platform + overall."""
@@ -808,6 +885,22 @@ def get_content_types(start_date: Optional[str] = Query(None), end_date: Optiona
     result = {platform: summarize(df[df['platform'] == platform]) for platform in platforms}
     result["Overall"] = summarize(df)
     return result
+
+
+@app.get("/api/cross-platform-content")
+def get_cross_platform_content(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
+    """Return matching content grouped across the five post-based platforms."""
+    df = get_filtered_data(start_date, end_date)
+    rows = _cross_platform_content_rows(df)
+    return {
+        'platforms': CROSS_PLATFORM_CONTENT_PLATFORMS,
+        'rows': rows,
+        '_meta': {
+            'grouping': 'Normalized matching post text',
+            'category_method': 'Auto-classified from the stored post text',
+            'title_method': 'Concise title derived from the stored post text',
+        },
+    }
 
 
 def _metricool_posts(start_date: Optional[str], end_date: Optional[str]):

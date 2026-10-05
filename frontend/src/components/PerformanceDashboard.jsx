@@ -2,10 +2,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import axios from 'axios';
-import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Download, ExternalLink, FileText, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Target, TrendingUp, Users, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Download, ExternalLink, FileText, GitCompare, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Target, TrendingUp, Users, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
+import CrossPlatformContent from './performance/CrossPlatformContent';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
 import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, exposureMetric, exposureValue, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './performance/model';
 import './performance/performance.css';
@@ -443,7 +444,7 @@ export default function PerformanceDashboard({ onLogout }) {
       window.requestAnimationFrame(() => window.print());
     });
   };
-  const title = page === 'data-hub' ? 'Data Hub' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
+  const title = page === 'data-hub' ? 'Data Hub' : page === 'cross-platform' ? 'Cross Platform Content Performance' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
   const reportPeriod = range.start && range.end ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates';
 
   return <div className={`performance-app ${printing ? 'is-printing' : ''}`}>
@@ -455,6 +456,7 @@ export default function PerformanceDashboard({ onLogout }) {
         <button className={`perf-nav-item ${page === 'executive' ? 'active' : ''}`} aria-current={page === 'executive' ? 'page' : undefined} onClick={() => navigate('executive')}><House size={17} /><span>Executive Overview</span></button>
         <div className={`platform-parent ${page === 'platform' ? 'selected' : ''}`}><button className="perf-nav-item" aria-expanded={platformOpen} aria-controls="platform-submenu" onClick={() => setPlatformOpen(open => !open)}><BarChart3 size={17} /><span>Platform Performance</span></button><button className="submenu-toggle" aria-label="Toggle platform submenu" aria-expanded={platformOpen} aria-controls="platform-submenu" onClick={() => setPlatformOpen(open => !open)}>{platformOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button></div>
         {platformOpen && <div className="platform-submenu" id="platform-submenu">{PLATFORMS.map(item => <button className={`perf-nav-item ${platform === item.name ? 'active' : ''}`} key={item.name} aria-current={platform === item.name ? 'page' : undefined} onClick={() => navigate('platform', item.name)}><PlatformIcon name={item.name} /><span>{item.name}</span>{platform === item.name && <i />}</button>)}</div>}
+        <button className={`perf-nav-item ${page === 'cross-platform' ? 'active' : ''}`} aria-current={page === 'cross-platform' ? 'page' : undefined} onClick={() => navigate('cross-platform')}><GitCompare size={17} /><span>Cross Platform Content Performance</span></button>
       </nav>
       <div className="perf-sidebar-bottom"><button className={`perf-nav-item ${page === 'data-hub' ? 'active' : ''}`} onClick={() => navigate('data-hub')}><Database size={16} /><span>Data Hub</span></button><button className="perf-nav-item" onClick={onLogout}><LogOut size={16} /><span>Sign out</span></button><p className="brand-tagline">Moving You Forward <span>❯</span></p></div>
     </aside>
@@ -465,7 +467,7 @@ export default function PerformanceDashboard({ onLogout }) {
 
       <main id="performance-main" ref={mainRef} className="perf-main" tabIndex={-1}>
         <div className="dashboard-page" key={`${page}-${platform || 'all'}`}>
-        {page === 'data-hub' ? <div className="data-hub-view"><DataHub startDate={range.start} endDate={range.end} /></div> : showAllPosts ? <AllPostsView posts={allPosts} initialPlatform={postsViewPlatform} thumbnails={thumbnailState.items} onBack={() => setShowAllPosts(false)} /> : <>
+        {page === 'data-hub' ? <div className="data-hub-view"><DataHub startDate={range.start} endDate={range.end} /></div> : page === 'cross-platform' ? <CrossPlatformContent range={range} refreshKey={refreshKey} /> : showAllPosts ? <AllPostsView posts={allPosts} initialPlatform={postsViewPlatform} thumbnails={thumbnailState.items} onBack={() => setShowAllPosts(false)} /> : <>
           <div className="overview-toolbar"><div className="data-status"><span className={`status-dot ${current.errors.length ? 'warning' : ''}`} />{current.loading ? 'Loading data…' : current.errors.length ? 'Connection needs attention' : current.empty ? 'Ready for your data' : 'Connected to Data Hub'}<button className={`icon-button ${current.loading ? 'is-refreshing' : ''}`} title="Refresh data" aria-label="Refresh data" disabled={current.loading} onClick={() => setRefreshKey(key => key + 1)}><RefreshCw size={14} /></button></div></div>
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
