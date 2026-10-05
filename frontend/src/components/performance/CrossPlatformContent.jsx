@@ -15,7 +15,7 @@ const PLATFORM_ICONS = {
 };
 
 const METRICS = [
-  { key: 'avg_er', label: 'Avg. ER%' },
+  { key: 'avg_er', label: 'ER%' },
   { key: 'engagement', label: 'Total engagement' },
   { key: 'views', label: 'Views' },
   { key: 'reach', label: 'Reach' },
@@ -72,7 +72,7 @@ export default function CrossPlatformContent({ range, refreshKey = 0 }) {
   const currentPage = Math.min(page, pageCount);
   const pageStart = (currentPage - 1) * pageSize;
   const visible = rows.slice(pageStart, pageStart + pageSize);
-  const metricLabel = METRICS.find(item => item.key === metric)?.label || 'Avg. ER%';
+  const metricLabel = metric === 'avg_er' ? 'Avg. ER%' : METRICS.find(item => item.key === metric)?.label || 'ER%';
 
   return <div className="cross-platform-view">
     <div className="cross-platform-intro">
