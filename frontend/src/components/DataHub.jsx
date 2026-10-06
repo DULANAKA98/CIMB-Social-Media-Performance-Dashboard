@@ -22,7 +22,7 @@ const COLUMNS = [
   { key: 'format', label: 'Format', width: '105px' },
   { key: 'is_organic', label: 'Organic/Paid', width: '115px' },
   { key: 'collab', label: 'Collab', width: '140px' },
-  { key: 'title', label: 'Title', width: '220px' },
+  { key: 'title', label: 'Caption', width: '220px' },
   { key: 'reach', label: 'Reach', width: '90px' },
   { key: 'views', label: 'Views', width: '90px' },
   { key: 'engagement', label: 'Engagement', width: '110px' },
