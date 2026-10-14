@@ -1,0 +1,9 @@
+# Serves the backend over HTTPS (certificate issued automatically) and only
+# answers requests that carry the secret header CloudFront adds.
+{$ORIGIN_DOMAIN} {
+	@cloudfront header X-Origin-Secret {$ORIGIN_SECRET}
+	handle @cloudfront {
+		reverse_proxy backend:8000
+	}
+	respond 403
+}
