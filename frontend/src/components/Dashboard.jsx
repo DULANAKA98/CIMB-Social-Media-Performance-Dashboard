@@ -1,0 +1,1956 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen, Database, Users, HardDrive } from 'lucide-react';
+import DataHub from './DataHub';
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
+const NAV_ITEMS = [
+  { id: 'executive', label: 'Executive Summary', icon: Sparkles },
+  { id: 'highlights', label: 'Platform Highlights', icon: BarChart2 },
+  { id: 'engagement', label: 'Total Engagement', icon: TrendingUp },
+  { id: 'content', label: 'All Organic Content Performance', icon: FileText },
+  { id: 'formats', label: 'Organic Content Types & Format Performance', icon: Layers },
+  { id: 'followers', label: 'Monthly Followers Data', icon: Users },
+  { id: 'download', label: 'Download All Contents', icon: Download },
+  { id: 'pillar', label: 'Content Mix & Pillar Alignment', icon: PieChart },
+  { id: 'strategy', label: 'Platform Strategy Recommendations', icon: Target },
+  { id: 'learnings', label: 'Key Learnings & Recommendations', icon: BookOpen },
+  { id: 'wip', label: 'WIP Data', icon: Database },
+  { id: 'data-hub', label: 'Data Hub', icon: HardDrive },
+];
+
+
+const Dashboard = ({ onLogout }) => {
+  const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [activeTab, setActiveTab] = useState('executive');
+  
+  const [summary, setSummary] = useState(null);
+  const [platformStats, setPlatformStats] = useState(null);
+  const [organicContent, setOrganicContent] = useState(null);
+  const [allContent, setAllContent] = useState(null);
+  const [engagementSummary, setEngagementSummary] = useState(null);
+  const [contentTypes, setContentTypes] = useState(null);
+  const [formatPerformance, setFormatPerformance] = useState(null);
+  const [executiveSummary, setExecutiveSummary] = useState(null);
+  const [execLoading, setExecLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [dataSourceUrl, setDataSourceUrl] = useState('');
+  const [dataSourceLoading, setDataSourceLoading] = useState(false);
+  const [dataSourceError, setDataSourceError] = useState('');
+  
+  const [pillarSheetUrl, setPillarSheetUrl] = useState('');
+  const [pillarData, setPillarData] = useState(null);
+  const [pillarLoading, setPillarLoading] = useState(false);
+  const [pillarError, setPillarError] = useState('');
+  const [crossPlatformLoading, setCrossPlatformLoading] = useState(false);
+  const [strategyData, setStrategyData] = useState(null);
+  const [strategyLoading, setStrategyLoading] = useState(false);
+  // Track expanded state per platform section: { Facebook_top: true, Facebook_bottom: false, ... }
+  const [expanded, setExpanded] = useState({});
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [wipData, setWipData] = useState(null);
+  const [wipLoading, setWipLoading] = useState(false);
+  const [wipError, setWipError] = useState('');
+  const [wipTrigger, setWipTrigger] = useState(0);
+  const [followerData, setFollowerData] = useState(null);
+  const [followerLoading, setFollowerLoading] = useState(false);
+  const [followerError, setFollowerError] = useState('');
+  const [dbStatus, setDbStatus] = useState(null); // {has_data, post_count, last_sync}
+
+
+  // ── On mount: check if DB has data, if so load immediately ──────────────────
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/status`);
+        setDbStatus(res.data);
+        if (res.data.has_data) {
+          setDataLoaded(true);
+          fetchData();
+        } else {
+          setLoading(false);
+        }
+      } catch {
+        setLoading(false);
+      }
+    };
+    checkStatus();
+    // eslint-disable-next-line
+  }, []);
+
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      let query = '';
+      if (startDate && endDate) {
+        query = `?start_date=${startDate}&end_date=${endDate}`;
+      }
+
+      const [sumRes, statsRes, orgRes, allRes, engRes, ctRes, formatRes] = await Promise.all([
+        axios.get(`${API_URL}/dashboard-summary${query}`),
+        axios.get(`${API_URL}/platform-stats${query}`),
+        axios.get(`${API_URL}/organic-content${query}`),
+        axios.get(`${API_URL}/all-content${query}`),
+        axios.get(`${API_URL}/engagement-summary${query}`),
+        axios.get(`${API_URL}/content-types${query}`),
+        axios.get(`${API_URL}/format-performance${query}`)
+      ]);
+      
+      setSummary(sumRes.data);
+      setPlatformStats(statsRes.data);
+      setOrganicContent(orgRes.data);
+      setAllContent(allRes.data);
+      setEngagementSummary(engRes.data);
+      setContentTypes(ctRes.data);
+      setFormatPerformance(formatRes.data);
+      setExpanded({});
+      setDataLoaded(true);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      if (error.response && error.response.status === 400) {
+        setDataLoaded(false);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (dataLoaded) {
+      fetchData();
+    }
+    // eslint-disable-next-line
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    if (dataLoaded && activeTab === 'wip') {
+      const fetchWip = async () => {
+        setWipLoading(true);
+        setWipError('');
+        try {
+          let query = '';
+          if (startDate) query += `?start_date=${startDate}`;
+          if (endDate) query += `${query ? '&' : '?'}end_date=${endDate}`;
+          
+          const res = await axios.get(`${API_URL}/wip-summary${query}`);
+          if (res.data.error) {
+            setWipError(res.data.error);
+            setWipData(null);
+          } else {
+            setWipData(res.data);
+          }
+        } catch (err) {
+          setWipError('Failed to fetch WIP Data.');
+          setWipData(null);
+        } finally {
+          setWipLoading(false);
+        }
+      };
+      fetchWip();
+    }
+  }, [activeTab, dataLoaded, startDate, endDate, wipTrigger]);
+
+  // Fetch follower data whenever the followers tab is active or filters change
+  useEffect(() => {
+    if (activeTab === 'followers' && dataSourceUrl) {
+      const fetchFollowers = async () => {
+        setFollowerLoading(true);
+        setFollowerError('');
+        try {
+          let query = `?sheet_url=${encodeURIComponent(dataSourceUrl)}`;
+          if (startDate) query += `&start_date=${startDate}`;
+          if (endDate)   query += `&end_date=${endDate}`;
+          const res = await axios.get(`${API_URL}/follower-growth${query}`);
+          if (res.data.error) {
+            setFollowerError(res.data.error);
+            setFollowerData(null);
+          } else {
+            setFollowerData(res.data);
+          }
+        } catch (err) {
+          setFollowerError('Failed to load follower data. Check the sheet URL and tab names.');
+          setFollowerData(null);
+        } finally {
+          setFollowerLoading(false);
+        }
+      };
+      fetchFollowers();
+    }
+  }, [activeTab, dataSourceUrl, startDate, endDate]);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      await fetchData();
+      if (activeTab === 'wip') {
+        setWipTrigger(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    setDownloadLoading(true);
+    try {
+      let query = '';
+      if (startDate && endDate) query = `?start_date=${startDate}&end_date=${endDate}`;
+      else if (startDate) query = `?start_date=${startDate}`;
+      else if (endDate) query = `?end_date=${endDate}`;
+
+      const res = await axios.get(`${API_URL}/export-all-contents${query}`, {
+        responseType: 'blob',
+      });
+
+      if (res.data.type === 'application/json') {
+        const text = await res.data.text();
+        try {
+          const json = JSON.parse(text);
+          if (json.error) {
+            alert(`Download failed: ${json.error}`);
+            return;
+          }
+        } catch (e) {
+          // Fall through
+        }
+      }
+
+      const period = (startDate && endDate)
+        ? `${startDate}_${endDate}`
+        : (startDate || endDate || 'all');
+      const filename = `CIMB_All_Contents_${period}.xlsx`;
+
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Download failed. Please try again.');
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
+  const formatNumber = (num) => {
+    if (num === null || num === undefined) return '0';
+    return Math.round(num).toLocaleString();
+  };
+
+  const renderWipSection = () => {
+    if (wipLoading) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0' }}>
+          <div className="spinner" style={{ width: 40, height: 40, borderTopColor: 'var(--accent-purple)', marginBottom: '1rem' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Loading WIP data…</p>
+        </div>
+      );
+    }
+
+    if (wipError) {
+      return (
+        <div className="glass-panel" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.08)', padding: '2rem', textAlign: 'center', transition: 'none' }}>
+          <p style={{ color: '#f87171', fontSize: 'calc(1rem + 2px)', fontWeight: 600, marginBottom: '0.5rem' }}>⚠ Error Loading WIP Data</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.88rem + 2px)', marginBottom: '1.5rem' }}>{wipError}</p>
+          <button onClick={() => setWipTrigger(prev => prev + 1)} className="refresh-btn" style={{ margin: '0 auto' }}>
+            Try Again
+          </button>
+        </div>
+      );
+    }
+
+    if (!wipData || Object.keys(wipData).length === 0) {
+      return (
+        <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', transition: 'none' }}>
+          <p style={{ color: 'var(--text-secondary)' }}>No WIP data available for the selected date range.</p>
+        </div>
+      );
+    }
+
+    const PLAT_META = {
+      Facebook:  { color: 'var(--fb-color, #1877f2)', emoji: '📘' },
+      Instagram: { color: 'var(--ig-color, #e1306c)', emoji: '📸' },
+      TikTok:    { color: '#00f2fe',                   emoji: '🎵' },
+      YouTube:   { color: 'var(--yt-color, #ff0000)',  emoji: '▶️' },
+      LinkedIn:  { color: '#0a66c2',                   emoji: '💼' },
+    };
+
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+        {Object.entries(wipData).map(([platform, data]) => {
+          const meta = PLAT_META[platform] || { color: '#8b5cf6', emoji: '📊' };
+          
+          if (platform === 'YouTube') {
+            return (
+              <div key={platform} className="glass-panel" style={{ borderTop: `4px solid ${meta.color}` }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: 'calc(1.2rem + 2px)', fontWeight: 700 }}>
+                  <span style={{ fontSize: 'calc(1.4rem + 2px)' }}>{meta.emoji}</span> {platform} WIP Data
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="metric-box">
+                    <span>Total Views</span>
+                    <strong>{formatNumber(data.total_views)}</strong>
+                  </div>
+                  <div className="metric-box">
+                    <span>Impressions</span>
+                    <strong>{formatNumber(data.impressions)}</strong>
+                  </div>
+                  <div className="metric-box">
+                    <span>Watch Time (seconds)</span>
+                    <strong style={{ color: 'var(--accent-green)' }}>{data.watch_time_seconds?.toLocaleString()}s</strong>
+                  </div>
+                  <div className="metric-box">
+                    <span>No. of Posts</span>
+                    <strong>{data.posts_count}</strong>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          
+          return (
+            <div key={platform} className="glass-panel" style={{ borderTop: `4px solid ${meta.color}` }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'white', marginBottom: '1.5rem', fontSize: 'calc(1.2rem + 2px)', fontWeight: 700 }}>
+                <span style={{ fontSize: 'calc(1.4rem + 2px)' }}>{meta.emoji}</span> {platform} WIP Data
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="metric-box" style={{ gridColumn: 'span 2' }}>
+                  <span>Total Reach</span>
+                  <strong>{formatNumber(data.total_reach)}</strong>
+                </div>
+                <div className="metric-box">
+                  <span>Avg. Engagement Rate</span>
+                  <strong style={{ color: 'var(--accent-pink)' }}>{data.avg_engagement_rate?.toFixed(2)}%</strong>
+                </div>
+                <div className="metric-box">
+                  <span>Total Engagement</span>
+                  <strong style={{ color: 'var(--accent-purple)' }}>{formatNumber(data.total_engagement)}</strong>
+                </div>
+                <div className="metric-box">
+                  <span>Total Views</span>
+                  <strong>{formatNumber(data.total_views)}</strong>
+                </div>
+                <div className="metric-box">
+                  <span>No. of Posts</span>
+                  <strong>{data.posts_count}</strong>
+                </div>
+              </div>
+              {/* Engagement breakdown */}
+              <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p style={{ fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Engagement Breakdown</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                  {data.total_likes > 0 && (
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      ❤️ {formatNumber(data.total_likes)}
+                    </span>
+                  )}
+                  {data.total_comments > 0 && (
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      💬 {formatNumber(data.total_comments)}
+                    </span>
+                  )}
+                  {data.total_shares > 0 && (
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      🔗 {formatNumber(data.total_shares)}
+                    </span>
+                  )}
+                  {data.total_favorites > 0 && (
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      ⭐ {formatNumber(data.total_favorites)}
+                    </span>
+                  )}
+                  {data.total_reposts > 0 && (
+                    <span style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.05)', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                      🔄 {formatNumber(data.total_reposts)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ── Monthly Followers renderer ──────────────────────────────────────────────
+  const renderFollowersSection = () => {
+    const PLAT_META = {
+      Facebook:  { color: '#1877f2', emoji: '📘' },
+      Instagram: { color: '#e1306c', emoji: '📸' },
+      TikTok:    { color: '#00f2fe', emoji: '🎵' },
+      YouTube:   { color: '#ff0000', emoji: '▶️' },
+      LinkedIn:  { color: '#0a66c2', emoji: '💼' },
+    };
+
+    if (followerLoading) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0' }}>
+          <div className="spinner" style={{ width: 40, height: 40, borderTopColor: 'var(--accent-purple)', marginBottom: '1rem' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Loading follower data from sheet…</p>
+        </div>
+      );
+    }
+
+    if (followerError) {
+      return (
+        <div className="glass-panel" style={{ borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', padding: '2rem', textAlign: 'center' }}>
+          <p style={{ color: '#f87171', fontWeight: 600, marginBottom: '0.5rem' }}>⚠ Error Loading Follower Data</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.88rem + 2px)', marginBottom: '0.5rem' }}>{followerError}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.78rem + 2px)', opacity: 0.7 }}>
+            Expected sheet tabs: [FB] Followers · [IG] Followers · [TT] Followers · [YT] Followers · [LI] Followers
+          </p>
+        </div>
+      );
+    }
+
+    if (!followerData || Object.keys(followerData).length === 0) {
+      return (
+        <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', borderStyle: 'dashed' }}>
+          <Users size={36} style={{ color: 'var(--text-secondary)', margin: '0 auto 1rem', display: 'block', opacity: 0.5 }} />
+          <p style={{ color: 'var(--text-secondary)' }}>No follower data loaded yet. Ensure the data source is connected.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.78rem + 2px)', marginTop: '0.5rem', opacity: 0.7 }}>
+            Expected sheet tabs: [FB] Followers · [IG] Followers · [TT] Followers · [YT] Followers · [LI] Followers
+          </p>
+        </div>
+      );
+    }
+
+    // Render one combo chart per platform
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem' }}>
+        {Object.entries(followerData).map(([platform, rows]) => {
+          if (!rows || rows.length === 0) return null;
+          const meta = PLAT_META[platform] || { color: '#8b5cf6', emoji: '📊' };
+          const color = meta.color;
+
+          // Chart dimensions
+          const W = 460, H = 200, PAD = { top: 20, right: 50, bottom: 40, left: 60 };
+          const innerW = W - PAD.left - PAD.right;
+          const innerH = H - PAD.top - PAD.bottom;
+          const n = rows.length;
+          const barWidth = Math.max(8, Math.min(36, innerW / n - 6));
+
+          // Follower scale (left axis)
+          const maxF = Math.max(...rows.map(r => r.followers));
+          const minF = Math.min(...rows.map(r => r.followers));
+          const fRange = maxF - minF || 1;
+          const fY = (v) => PAD.top + innerH - ((v - minF) / fRange) * innerH;
+
+          // Growth % scale (right axis)
+          const growthVals = rows.map(r => r.growth_pct).filter(v => v != null);
+          const maxG = growthVals.length ? Math.max(Math.abs(Math.max(...growthVals)), Math.abs(Math.min(...growthVals)), 1) : 1;
+          const gY = (v) => PAD.top + innerH / 2 - (v / maxG) * (innerH / 2);
+
+          // Bar x positions
+          const xPos = (i) => PAD.left + (i / n) * innerW + (innerW / n - barWidth) / 2;
+
+          // Line path for growth %
+          const linePoints = rows
+            .map((r, i) => r.growth_pct != null ? `${xPos(i) + barWidth / 2},${gY(r.growth_pct)}` : null)
+            .filter(Boolean);
+          const linePath = linePoints.length > 1
+            ? 'M ' + linePoints.join(' L ')
+            : null;
+
+          // Format follower number for axis labels
+          const fmtF = (v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v);
+
+          // Latest stats
+          const latest = rows[rows.length - 1];
+          const first   = rows[0];
+          const totalGrowth = latest.followers - first.followers;
+          const totalGrowthPct = first.followers > 0 ? ((totalGrowth / first.followers) * 100).toFixed(1) : null;
+
+          return (
+            <div key={platform} className="glass-panel" style={{ borderTop: `3px solid ${color}`, padding: '1.5rem' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: 'calc(1.4rem + 2px)' }}>{meta.emoji}</span>
+                  <div>
+                    <h3 style={{ fontSize: 'calc(1.1rem + 2px)', fontWeight: 700, color: '#fff', margin: 0 }}>{platform}</h3>
+                    <p style={{ fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)', margin: 0, marginTop: '0.15rem' }}>Monthly Follower Growth</p>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: 'calc(1.4rem + 2px)', fontWeight: 800, color, margin: 0, lineHeight: 1 }}>
+                    {latest.followers.toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)', margin: 0 }}>{latest.month_label}</p>
+                  {totalGrowthPct != null && (
+                    <p style={{ fontSize: 'calc(0.75rem + 2px)', fontWeight: 700, color: totalGrowth >= 0 ? '#10b981' : '#f87171', margin: 0 }}>
+                      {totalGrowth >= 0 ? '+' : ''}{totalGrowth.toLocaleString()} ({totalGrowthPct}%) in period
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Combo chart */}
+              <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', overflow: 'visible' }}>
+                {/* Gridlines */}
+                {[0, 0.25, 0.5, 0.75, 1].map(t => (
+                  <line key={t}
+                    x1={PAD.left} x2={PAD.left + innerW}
+                    y1={PAD.top + innerH * (1 - t)} y2={PAD.top + innerH * (1 - t)}
+                    stroke="rgba(255,255,255,0.06)" strokeWidth={1}
+                  />
+                ))}
+
+                {/* Zero line for growth */}
+                <line
+                  x1={PAD.left} x2={PAD.left + innerW}
+                  y1={gY(0)} y2={gY(0)}
+                  stroke="rgba(255,255,255,0.15)" strokeWidth={1} strokeDasharray="4 3"
+                />
+
+                {/* Bars */}
+                {rows.map((r, i) => {
+                  const barH = Math.max(2, ((r.followers - minF) / fRange) * innerH);
+                  return (
+                    <g key={i}>
+                      <rect
+                        x={xPos(i)} y={fY(r.followers)}
+                        width={barWidth} height={barH}
+                        rx={3}
+                        fill={`${color}55`}
+                        stroke={color}
+                        strokeWidth={1.2}
+                      />
+                    </g>
+                  );
+                })}
+
+                {/* Growth line */}
+                {linePath && (
+                  <path d={linePath} fill="none" stroke="#f59e0b" strokeWidth={2} strokeLinejoin="round" />
+                )}
+
+                {/* Growth dots + tooltips */}
+                {rows.map((r, i) => r.growth_pct != null && (
+                  <g key={i}>
+                    <circle
+                      cx={xPos(i) + barWidth / 2} cy={gY(r.growth_pct)}
+                      r={3.5} fill="#f59e0b" stroke="#1e293b" strokeWidth={1.5}
+                    />
+                    <title>{r.month_label}: {r.growth_pct > 0 ? '+' : ''}{r.growth_pct}% MoM</title>
+                  </g>
+                ))}
+
+                {/* Left axis labels (followers) */}
+                {[0, 0.5, 1].map(t => {
+                  const val = minF + t * fRange;
+                  return (
+                    <text key={t}
+                      x={PAD.left - 6} y={fY(val) + 4}
+                      textAnchor="end" fontSize={11} fill="rgba(255,255,255,0.45)"
+                    >
+                      {fmtF(Math.round(val))}
+                    </text>
+                  );
+                })}
+
+                {/* X axis labels (month) */}
+                {rows.map((r, i) => {
+                  // Show every label if ≤6 months, else every other
+                  if (n > 6 && i % 2 !== 0) return null;
+                  return (
+                    <text key={i}
+                      x={xPos(i) + barWidth / 2} y={H - 6}
+                      textAnchor="middle" fontSize={10.5} fill="rgba(255,255,255,0.45)"
+                    >
+                      {r.month_label}
+                    </text>
+                  );
+                })}
+
+                {/* Right axis label */}
+                <text x={W - 4} y={PAD.top + innerH / 2} textAnchor="middle" fontSize={10} fill="#f59e0b"
+                  transform={`rotate(-90, ${W - 4}, ${PAD.top + innerH / 2})`}
+                >MoM %</text>
+              </svg>
+
+              {/* Legend */}
+              <div style={{ display: 'flex', gap: '1.2rem', marginTop: '0.6rem', fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, background: `${color}88`, border: `1.5px solid ${color}`, borderRadius: 2 }} />
+                  Followers
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ display: 'inline-block', width: 14, height: 2.5, background: '#f59e0b', borderRadius: 2 }} />
+                  MoM Growth %
+                </span>
+              </div>
+
+              {/* Monthly table */}
+              <div style={{ marginTop: '1rem', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'calc(0.78rem + 2px)' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <th style={{ textAlign: 'left', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Month</th>
+                      <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Followers</th>
+                      <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>MoM Change</th>
+                      <th style={{ textAlign: 'right', padding: '0.4rem 0.6rem', color: 'var(--text-secondary)', fontWeight: 600 }}>MoM %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding: '0.35rem 0.6rem', color: 'var(--text-primary)' }}>{r.month_label}</td>
+                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color, fontWeight: 700 }}>{r.followers.toLocaleString()}</td>
+                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: r.growth_abs == null ? 'var(--text-secondary)' : r.growth_abs >= 0 ? '#10b981' : '#f87171' }}>
+                          {r.growth_abs == null ? '—' : `${r.growth_abs >= 0 ? '+' : ''}${r.growth_abs.toLocaleString()}`}
+                        </td>
+                        <td style={{ padding: '0.35rem 0.6rem', textAlign: 'right', color: r.growth_pct == null ? 'var(--text-secondary)' : r.growth_pct >= 0 ? '#10b981' : '#f87171' }}>
+                          {r.growth_pct == null ? '—' : `${r.growth_pct >= 0 ? '+' : ''}${r.growth_pct}%`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const handleFetchPillar = async () => {
+    let currentUrl = pillarSheetUrl;
+    if (!currentUrl) {
+      currentUrl = prompt("Please enter the Google Sheet URL for Pillar data:");
+      if (!currentUrl) return;
+      setPillarSheetUrl(currentUrl);
+    }
+    setPillarLoading(true);
+    setPillarError('');
+    setPillarData(null);
+    try {
+      let query = `?sheet_url=${encodeURIComponent(currentUrl)}`;
+      if (startDate) query += `&start_date=${startDate}`;
+      if (endDate) query += `&end_date=${endDate}`;
+      const res = await axios.get(`${API_URL}/pillar-er${query}`);
+      if (res.data.error) {
+        setPillarError(res.data.error);
+      } else {
+        setPillarData(res.data);
+      }
+    } catch (err) {
+      setPillarError('Failed to fetch data. Please check the URL and try again.');
+    } finally {
+      setPillarLoading(false);
+    }
+  };
+
+  const exportPlatformHighlights = async () => {
+    if (!startDate || !endDate) {
+      alert("Please select a date range (e.g. May 1 to May 31) first! The AI needs a specific time period to calculate 'previous period' trends.");
+      return;
+    }
+    try {
+      let query = `?start_date=${startDate}&end_date=${endDate}`;
+      const res = await axios.get(`${API_URL}/export-platform-highlights${query}`, { responseType: 'blob' });
+      
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Platform_Highlights_${startDate}_${endDate}.pptx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error exporting slides:", error);
+      alert("Failed to generate slide. Did you select a valid date range?");
+    }
+  };
+
+  const handleDownloadCrossPlatform = async () => {
+    let currentUrl = pillarSheetUrl;
+    if (!currentUrl) {
+      currentUrl = prompt("Please enter the Google Sheet URL to download:");
+      if (!currentUrl) return;
+      setPillarSheetUrl(currentUrl);
+    }
+    setCrossPlatformLoading(true);
+    try {
+      let query = `?sheet_url=${encodeURIComponent(currentUrl)}`;
+      if (startDate) query += `&start_date=${startDate}`;
+      if (endDate) query += `&end_date=${endDate}`;
+      const res = await axios.get(`${API_URL}/export-cross-platform${query}`, { responseType: 'blob' });
+      
+      if (res.data.type === 'application/json') {
+        const text = await res.data.text();
+        try {
+          const json = JSON.parse(text);
+          if (json.error) {
+            alert(`Download failed: ${json.error}`);
+            return;
+          }
+        } catch (e) {
+          // Fall through
+        }
+      }
+
+      const period = startDate && endDate ? `${startDate}_${endDate}` : 'all';
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url; a.download = `Cross_Platform_Contents_Performance_${period}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Download failed. Please try again.');
+    } finally {
+      setCrossPlatformLoading(false);
+    }
+  };
+
+  const renderPillarTable = () => {
+    if (!pillarData) return null;
+    const { platforms, pivot } = pillarData;
+    const PLATFORM_COLORS = {
+      Facebook: '#1877f2', Instagram: '#e1306c',
+      LinkedIn: '#0a66c2', TikTok: '#00f2fe', YouTube: '#ff0000',
+    };
+    return (
+      <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+          <thead>
+            <tr style={{ background: '#7f1d1d' }}>
+              <th style={{ padding: '1rem 1.4rem', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', color: '#fff', fontWeight: 700, fontSize: 'calc(0.9rem + 2px)', textTransform: 'none', background: '#991b1b' }}>
+                Pillar
+              </th>
+              {platforms.map(p => (
+                <th key={p} style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontWeight: 700, fontSize: 'calc(0.9rem + 2px)', textTransform: 'none', background: '#b91c1c' }}>
+                  <span style={{ color: PLATFORM_COLORS[p] || '#fff' }}>{p}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pivot.map((row, i) => (
+              <tr key={i} style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                <td style={{ padding: '0.85rem 1.4rem', border: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, fontSize: 'calc(0.88rem + 2px)', color: '#fff', textAlign: 'left', background: 'rgba(153,27,27,0.2)' }}>
+                  {row.pillar}
+                </td>
+                {platforms.map(p => (
+                  <td key={p} style={{ padding: '0.85rem 1rem', border: '1px solid rgba(255,255,255,0.06)', fontSize: 'calc(0.9rem + 2px)', color: row[p] != null ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    {row[p] != null ? `${row[p].toFixed(2)}%` : '—'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const generateExecSummary = async () => {
+    setExecLoading(true);
+    setExecutiveSummary(null);
+    try {
+      let query = '';
+      if (startDate && endDate) query = `?start_date=${startDate}&end_date=${endDate}`;
+      const res = await axios.get(`${API_URL}/executive-summary${query}`);
+      if (res.data.error) {
+        setExecutiveSummary({ error: res.data.error });
+      } else {
+        setExecutiveSummary(res.data);
+      }
+    } catch (err) {
+      setExecutiveSummary({ error: 'Failed to generate summary. Please try again.' });
+    } finally {
+      setExecLoading(false);
+    }
+  };
+
+  if (!dataLoaded && !loading) {
+    // No data in DB yet — skip straight to dashboard on the Data Hub tab
+    setDataLoaded(true);
+    setActiveTab('data-hub');
+  }
+
+  if (loading && !summary) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner"></div>
+        <h2>Fetching Live Data...</h2>
+      </div>
+    );
+  }
+
+  const renderPlatformCard = (platformName, stats) => {
+    if (!stats) return null;
+    const isInstagramStories = platformName === 'Instagram Stories';
+    const isInstagramPosts = platformName === 'Instagram';
+    const isInstagramOverall = platformName === 'Instagram Overall';
+    const analyticsTitle = isInstagramPosts
+      ? 'Instagram Posts Analytics'
+      : isInstagramOverall
+        ? 'Overall Instagram Analytics'
+        : `${platformName} Analytics`;
+    const contentCount = isInstagramStories
+      ? stats.stories_count
+      : isInstagramOverall
+        ? stats.contents_count
+        : stats.posts_count;
+    const countLabel = isInstagramStories
+      ? 'Stories'
+      : isInstagramOverall
+        ? 'Total Contents'
+        : 'Posts';
+
+    return (
+      <div className="glass-panel" key={platformName} style={{ marginBottom: '1.5rem' }}>
+        <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+          {analyticsTitle}
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+          <div className="metric-box">
+            <span>{countLabel}</span>
+            <strong>{contentCount}</strong>
+          </div>
+          <div className="metric-box">
+            <span>Avg. Reach</span>
+            <strong>{formatNumber(stats.avg_reach)}</strong>
+          </div>
+          <div className="metric-box">
+            <span>{isInstagramStories ? 'Avg. Story ER%' : 'Avg. ER%'}</span>
+            <strong style={{ color: 'var(--accent-pink)' }}>{stats.avg_engagement_rate?.toFixed(2)}%</strong>
+          </div>
+        </div>
+        {isInstagramStories && (
+          <p style={{ margin: '0.8rem 0 0', color: 'var(--text-secondary)', fontSize: 'calc(0.75rem + 2px)', textAlign: 'right' }}>
+            Story ER = Engagement / Reach x 100
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const getTableHeaders = (platformName) => {
+    const firstHeader = platformName === 'Instagram' ? 'Post Content' : 'Title';
+    const commonHeaders = [<th>{firstHeader}</th>, ...(platformName === 'Instagram' ? [<th>Format</th>] : []), <th>Date</th>];
+    const endHeaders = [<th>Total Engagement</th>, <th>Likes</th>, <th>Comments</th>];
+    
+    let specificHeaders = [];
+    if (platformName === 'Facebook' || platformName === 'Instagram') {
+      specificHeaders = [<th>Reach</th>, <th>Views</th>];
+    } else if (platformName === 'TikTok' || platformName === 'YouTube') {
+      specificHeaders = [<th>Views</th>];
+    } else if (platformName === 'LinkedIn') {
+      specificHeaders = [<th>Impressions</th>];
+    }
+
+    let extraEngHeaders = [];
+    if (platformName === 'LinkedIn') {
+      extraEngHeaders = [<th>Reposts</th>];
+    } else if (platformName === 'TikTok') {
+      extraEngHeaders = [<th>Shares</th>, <th>Favorites</th>];
+    } else if (platformName === 'Instagram') {
+      extraEngHeaders = [<th>Shares</th>, <th>Saves</th>];
+    } else {
+      extraEngHeaders = [<th>Shares</th>];
+    }
+
+    return (
+      <tr>
+        {commonHeaders}
+        {specificHeaders}
+        {endHeaders}
+        {extraEngHeaders}
+        <th>ER %</th>
+        <th>Link</th>
+      </tr>
+    );
+  };
+
+  const renderTableRows = (platformName, data) => {
+    if (data.length === 0) return <tr><td colSpan="12" style={{textAlign:'center'}}>No organic data found</td></tr>;
+    
+    return data.map((post, idx) => (
+      <tr key={idx}>
+        <td style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {post.title || 'No description'}
+        </td>
+        {platformName === 'Instagram' && <td>{post.format || 'Unknown'}</td>}
+        <td>{post.date ? new Date(post.date).toLocaleDateString() : 'N/A'}</td>
+        
+        {(platformName === 'Facebook' || platformName === 'Instagram') && (
+          <>
+            <td>{formatNumber(post.reach)}</td>
+            <td>{formatNumber(post.views)}</td>
+          </>
+        )}
+        
+        {(platformName === 'TikTok' || platformName === 'YouTube') && (
+          <td>{formatNumber(post.views)}</td>
+        )}
+        
+        {platformName === 'LinkedIn' && (
+          <td>{formatNumber(post.reach)}</td>
+        )}
+
+        <td style={{ color: 'var(--accent-purple)', fontWeight: 'bold' }}>{formatNumber(post.engagement)}</td>
+        <td>{formatNumber(post.likes)}</td>
+        <td>{formatNumber(post.comments)}</td>
+        
+        {platformName === 'LinkedIn' ? (
+          <td>{formatNumber(post.reposts)}</td>
+        ) : platformName === 'TikTok' ? (
+          <>
+            <td>{formatNumber(post.shares)}</td>
+            <td>{formatNumber(post.favorites)}</td>
+          </>
+        ) : platformName === 'Instagram' ? (
+          <>
+            <td>{formatNumber(post.shares)}</td>
+            <td>{formatNumber(post.favorites)}</td>
+          </>
+        ) : (
+          <td>{formatNumber(post.shares)}</td>
+        )}
+        
+        <td>{post.engagement_rate?.toFixed(2)}%</td>
+        <td>
+          {post.link && post.link !== 'nan' ? (
+            <a href={post.link} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}>View</a>
+          ) : '-'}
+        </td>
+      </tr>
+    ));
+  };
+
+  const toggleExpand = (key) => {
+    setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const renderOrganicSection = (platformName, data) => {
+    if (!data || (data.top.length === 0 && data.bottom.length === 0)) return null;
+    const allData = allContent?.[platformName] ?? [];
+    const allExpanded = expanded[`${platformName}_all`];
+    const postCountLabel = `${allData.length} post${allData.length !== 1 ? 's' : ''}`;
+
+    const showAllBtn = (key, label) => (
+      <button
+        onClick={() => toggleExpand(key)}
+        style={{
+          marginTop: '0.75rem',
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          color: 'var(--accent-blue)',
+          padding: '0.4rem 1.2rem',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: 'calc(0.85rem + 2px)',
+          fontWeight: '600',
+          transition: 'background 0.2s',
+          display: 'block',
+          width: '100%',
+        }}
+        onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.13)'}
+        onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.07)'}
+      >
+        {label}
+      </button>
+    );
+
+    return (
+      <div key={platformName} style={{ marginBottom: '3rem' }}>
+        <h2 style={{ marginBottom: '1.5rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>{platformName} Organic Performance</h2>
+
+        {allExpanded ? (
+          // Full sorted list view
+          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+            <h3 style={{ marginBottom: '1rem' }}>All Organic Posts — Sorted by Total Engagement ({postCountLabel})</h3>
+            <div className="table-container">
+              <table>
+                <thead>{getTableHeaders(platformName)}</thead>
+                <tbody>{renderTableRows(platformName, allData)}</tbody>
+              </table>
+            </div>
+            {showAllBtn(`${platformName}_all`, '▲ Show Less')}
+          </div>
+        ) : (
+          // Default top 5 / bottom 5 view
+          <>
+            <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ marginBottom: '1rem' }}>Top 5 Organic Posts (By Total Engagement)</h3>
+              <div className="table-container">
+                <table>
+                  <thead>{getTableHeaders(platformName)}</thead>
+                  <tbody>{renderTableRows(platformName, data.top)}</tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="glass-panel" style={{ marginBottom: '1rem' }}>
+              <h3 style={{ marginBottom: '1rem' }}>Bottom 5 Organic Posts (By Total Engagement)</h3>
+              <div className="table-container">
+                <table>
+                  <thead>{getTableHeaders(platformName)}</thead>
+                  <tbody>{renderTableRows(platformName, data.bottom)}</tbody>
+                </table>
+              </div>
+            </div>
+
+            {allData.length > 0 && showAllBtn(`${platformName}_all`, `▼ Show All ${postCountLabel}`)}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const PLATFORM_COLORS = {
+    Facebook: '#1877f2',
+    Instagram: '#e1306c',
+    TikTok: '#00f2fe',
+    YouTube: '#ff0000',
+    LinkedIn: '#0a66c2',
+  };
+
+  const renderEngagementSection = () => {
+    if (!engagementSummary) return null;
+    const { platforms, overall } = engagementSummary;
+
+    const handleCopyOverall = () => {
+      if (!contentTypes?.Overall) return;
+      const text = contentTypes.Overall.map(({ type }) => type).join(', ');
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copy-btn-Overall');
+        if (btn) {
+          btn.textContent = '✓ Copied!';
+          btn.style.color = '#10b981';
+          setTimeout(() => { btn.textContent = '⎘ Copy'; btn.style.color = 'var(--text-secondary)'; }, 1800);
+        }
+      });
+    };
+
+    return (
+      <div style={{ marginBottom: '3rem' }}>
+        <div
+          className="glass-panel"
+          style={{
+            marginBottom: '1.5rem',
+            background: 'linear-gradient(135deg, rgba(139,92,246,0.15) 0%, rgba(236,72,153,0.12) 100%)',
+            borderColor: 'rgba(139,92,246,0.3)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.2rem' }}>
+            <span style={{
+              background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-pink))',
+              borderRadius: '8px',
+              padding: '0.4rem 0.7rem',
+              fontSize: 'calc(1rem + 2px)',
+            }}>⚡</span>
+            <h3 style={{ fontSize: 'calc(1.1rem + 2px)', color: 'var(--text-primary)' }}>Overall Across All Platforms</h3>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+            <div className="metric-box" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
+              <span>Total Posts</span>
+              <strong>{formatNumber(overall.posts_count)}</strong>
+            </div>
+            <div className="metric-box" style={{ borderColor: 'rgba(139,92,246,0.25)' }}>
+              <span>Total Engagements</span>
+              <strong style={{ color: 'var(--accent-purple)' }}>{formatNumber(overall.total_engagement)}</strong>
+            </div>
+            <div className="metric-box" style={{ borderColor: 'rgba(236,72,153,0.25)' }}>
+              <span>Avg. Eng. / Post</span>
+              <strong style={{ color: 'var(--accent-pink)' }}>{formatNumber(overall.avg_engagement_per_post)}</strong>
+            </div>
+          </div>
+          {contentTypes?.Overall && (() => {
+            const overallText = contentTypes.Overall.map(({ type }) => type).join(', ');
+            return (
+              <div style={{ marginTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <p style={{ fontSize: 'calc(0.72rem + 2px)', color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600' }}>
+                    Content Mix
+                  </p>
+                  <button
+                    id="copy-btn-Overall"
+                    onClick={handleCopyOverall}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 'calc(0.72rem + 2px)', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', padding: '0.1rem 0.4rem', borderRadius: '4px', transition: 'color 0.2s' }}
+                    onMouseEnter={e => e.target.style.color = '#fff'}
+                    onMouseLeave={e => { if (e.target.textContent !== '✓ Copied!') e.target.style.color = 'var(--text-secondary)'; }}
+                  >
+                    ⎘ Copy
+                  </button>
+                </div>
+                <p
+                  onClick={e => { const r = document.createRange(); r.selectNodeContents(e.currentTarget); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }}
+                  style={{ fontSize: 'calc(0.88rem + 2px)', lineHeight: '1.65', color: 'var(--text-primary)', cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.6rem 0.75rem', border: '1px solid rgba(255,255,255,0.05)', margin: 0, wordBreak: 'break-word' }}
+                >
+                  {overallText}
+                </p>
+                <p style={{ fontSize: 'calc(0.65rem + 2px)', color: 'var(--text-secondary)', marginTop: '0.3rem', opacity: 0.6 }}>
+                  Click text to select · {contentTypes.Overall.length} type{contentTypes.Overall.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            );
+          })()}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.2rem' }}>
+          {platforms.map(({ platform, total_engagement, posts_count, avg_engagement_per_post }) => {
+            const color = PLATFORM_COLORS[platform] || 'var(--accent-blue)';
+            const types = contentTypes?.[platform] || [];
+            const typeText = types.map(({ type }) => type).join(', ');
+
+            const handleCopy = () => {
+              navigator.clipboard.writeText(typeText).then(() => {
+                const btn = document.getElementById(`copy-btn-${platform}`);
+                if (btn) {
+                  btn.textContent = '✓ Copied!';
+                  btn.style.color = '#10b981';
+                  setTimeout(() => { btn.textContent = '⎘ Copy'; btn.style.color = 'var(--text-secondary)'; }, 1800);
+                }
+              });
+            };
+
+            return (
+              <div
+                key={platform}
+                className="glass-panel"
+                style={{ borderColor: `${color}33` }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+                  <span style={{
+                    display: 'inline-block',
+                    width: '10px', height: '10px',
+                    borderRadius: '50%',
+                    background: color,
+                    boxShadow: `0 0 8px ${color}`,
+                    flexShrink: 0,
+                  }} />
+                  <h4 style={{ fontSize: 'calc(1rem + 2px)', color: 'var(--text-primary)', fontWeight: '700' }}>{platform}</h4>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                  <div className="metric-box" style={{ borderColor: `${color}22` }}>
+                    <span>Total Engagements</span>
+                    <strong style={{ fontSize: 'calc(1.4rem + 2px)', color }}>{formatNumber(total_engagement)}</strong>
+                  </div>
+                  <div className="metric-box" style={{ borderColor: `${color}22` }}>
+                    <span>Avg. Eng. / Post</span>
+                    <strong style={{ fontSize: 'calc(1.4rem + 2px)' }}>{formatNumber(avg_engagement_per_post)}</strong>
+                  </div>
+                </div>
+
+                {types.length > 0 && (
+                  <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.9rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <p style={{ fontSize: 'calc(0.68rem + 2px)', color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase', fontWeight: '600' }}>
+                        Content Types
+                      </p>
+                      <button
+                        id={`copy-btn-${platform}`}
+                        onClick={handleCopy}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 'calc(0.72rem + 2px)', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit', padding: '0.1rem 0.4rem', borderRadius: '4px', transition: 'color 0.2s' }}
+                        onMouseEnter={e => e.target.style.color = '#fff'}
+                        onMouseLeave={e => { if (e.target.textContent !== '✓ Copied!') e.target.style.color = 'var(--text-secondary)'; }}
+                      >
+                        ⎘ Copy
+                      </button>
+                    </div>
+                    <p
+                      onClick={e => { const r = document.createRange(); r.selectNodeContents(e.currentTarget); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }}
+                      style={{ fontSize: 'calc(0.88rem + 2px)', lineHeight: '1.65', color: 'var(--text-primary)', cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.6rem 0.75rem', border: '1px solid rgba(255,255,255,0.05)', margin: 0, wordBreak: 'break-word' }}
+                    >
+                      {typeText}
+                    </p>
+                    <p style={{ fontSize: 'calc(0.65rem + 2px)', color: 'var(--text-secondary)', marginTop: '0.3rem', opacity: 0.6 }}>
+                      Click text to select · {types.length} type{types.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                )}
+                <div style={{ marginTop: '0.75rem', fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-secondary)', textAlign: 'right' }}>
+                  {posts_count} post{posts_count !== 1 ? 's' : ''} in period
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderFormatPerformanceSection = () => {
+    if (!formatPerformance || formatPerformance.length === 0) return null;
+
+    let currentPlatform = null;
+
+    return (
+      <div style={{ marginBottom: '3rem' }}>
+        <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
+          <table className="format-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+            <thead>
+              <tr style={{ background: '#b91c1c', color: 'white' }}>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Platform</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Format</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>No. of Posts</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Avg. Reach</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Avg. Engagements</th>
+                <th style={{ padding: '1rem', border: '1px solid #7f1d1d', background: '#b91c1c', color: 'white', textAlign: 'center', textTransform: 'none', fontSize: 'calc(0.95rem + 2px)' }}>Avg. Engagement Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {formatPerformance.map((row, idx) => {
+                const isGrandTotal = row.is_grand_total;
+                const isPlatformTotal = row.is_total && !isGrandTotal;
+                
+                // Track platform to only show name on first row of that platform
+                const showPlatformName = !isGrandTotal && !isPlatformTotal && row.platform !== currentPlatform;
+                if (!isGrandTotal && !isPlatformTotal) {
+                  currentPlatform = row.platform;
+                }
+
+                // Styling logic based on row type
+                let bgStyle = 'transparent';
+                let fontWeight = 'normal';
+                let color = 'var(--text-primary)';
+                
+                if (isGrandTotal) {
+                  bgStyle = 'rgba(255, 255, 255, 0.15)';
+                  fontWeight = 'bold';
+                } else if (isPlatformTotal) {
+                  bgStyle = 'rgba(245, 158, 11, 0.15)'; // light orange/gold tint for platform totals
+                  fontWeight = 'bold';
+                  color = '#fbbf24'; // amber-400
+                }
+
+                return (
+                  <tr key={idx} style={{ background: bgStyle, fontWeight }}>
+                    <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem', color: isGrandTotal ? 'white' : 'var(--text-primary)' }}>
+                      {isGrandTotal ? 'Grand Total' : (isPlatformTotal ? row.format : (showPlatformName ? row.platform : ''))}
+                    </td>
+                    <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem' }}>
+                      {isGrandTotal || isPlatformTotal ? '' : row.format}
+                    </td>
+                    <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem', color: isPlatformTotal ? color : 'var(--text-primary)' }}>
+                      {formatNumber(row.posts)}
+                    </td>
+                    <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem', color: isPlatformTotal ? color : 'var(--text-primary)' }}>
+                      {formatNumber(row.avg_reach)}
+                    </td>
+                    <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem', color: isPlatformTotal ? color : 'var(--text-primary)' }}>
+                      {formatNumber(row.avg_engagement)}
+                    </td>
+                    <td style={{ border: '1px solid rgba(255,255,255,0.1)', padding: '0.8rem', color: isPlatformTotal ? color : 'var(--text-primary)' }}>
+                      {row.avg_er?.toFixed(2)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Executive Summary renderer ──────────────────────────────────────────────
+  const renderExecutiveSummary = () => {
+    if (!executiveSummary && !execLoading) return null;
+
+    if (execLoading) {
+      return (
+        <div className="glass-panel" style={{ marginBottom: '3rem', textAlign: 'center', padding: '3rem' }}>
+          <div className="spinner" style={{ margin: '0 auto 1rem', width: 40, height: 40, borderTopColor: 'var(--accent-purple)' }} />
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.9rem + 2px)' }}>Groq is analysing your data…</p>
+        </div>
+      );
+    }
+
+    if (executiveSummary?.error) {
+      return (
+        <div className="glass-panel" style={{ marginBottom: '3rem', borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)' }}>
+          <p style={{ color: '#f87171' }}>⚠ {executiveSummary.error}</p>
+        </div>
+      );
+    }
+
+    const es = executiveSummary;
+    const PLATFORM_COLORS_EXEC = {
+      Facebook: '#1877f2', Instagram: '#e1306c', TikTok: '#00f2fe',
+      YouTube: '#ff0000', LinkedIn: '#0a66c2',
+    };
+
+    // Build plain-text version for copy
+    const plainText = [
+      `EXECUTIVE SUMMARY — ${es.period || ''}`,
+      ``,
+      `TOP PERFORMING PLATFORM: ${es.top_platform}`,
+      es.top_platform_reason,
+      ``,
+      `KEY HIGHLIGHTS`,
+      ...(es.key_highlights || []).map(h => `• ${h}`),
+      ``,
+      `AUDIENCE BEHAVIOUR`,
+      ...(es.audience_behaviour || []).map(h => `• ${h}`),
+      ``,
+      `HIGH-LEVEL RECOMMENDATIONS`,
+      ...Object.entries(es.recommendations || {}).map(([p, r]) => `${p}: ${r}`),
+    ].join('\n');
+
+    const handleCopyAll = () => {
+      navigator.clipboard.writeText(plainText).then(() => {
+        const btn = document.getElementById('exec-copy-btn');
+        if (btn) {
+          const prev = btn.textContent;
+          btn.textContent = '✓ Copied!';
+          btn.style.color = '#10b981';
+          setTimeout(() => { btn.textContent = prev; btn.style.color = ''; }, 2000);
+        }
+      });
+    };
+
+    return (
+      <div style={{ marginBottom: '3rem' }}>
+        <div
+          className="glass-panel"
+          style={{
+            background: 'linear-gradient(135deg, rgba(20,22,30,0.95) 0%, rgba(15,17,22,0.98) 100%)',
+            borderColor: 'rgba(139,92,246,0.25)',
+            padding: '2rem',
+          }}
+        >
+          {/* Summary header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.8rem' }}>
+            <div>
+              <h2 style={{ fontSize: 'calc(1.6rem + 2px)', marginBottom: '0.25rem', display: 'inline-block' }}>Executive Summary</h2>
+              {es.period && (
+                <p style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Period: {es.period}</p>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button
+                id="exec-copy-btn"
+                onClick={handleCopyAll}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'var(--text-secondary)',
+                  padding: '0.4rem 1rem',
+                  borderRadius: '8px',
+                  fontSize: 'calc(0.8rem + 2px)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontWeight: '600',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+              >
+                ⎘ Copy All
+              </button>
+              <button
+                onClick={() => setExecutiveSummary(null)}
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'var(--text-secondary)',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '8px',
+                  fontSize: 'calc(0.8rem + 2px)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Two-column layout */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+
+            {/* LEFT COLUMN */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+
+              {/* Top Platform */}
+              <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.7), rgba(236,72,153,0.5))', padding: '0.55rem 1rem' }}>
+                  <p style={{ fontSize: 'calc(0.8rem + 2px)', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Top Performing Platform</p>
+                </div>
+                <div style={{ padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  <span style={{
+                    fontSize: 'calc(2rem + 2px)',
+                    width: '2.5rem', height: '2.5rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `${PLATFORM_COLORS_EXEC[es.top_platform] || '#8b5cf6'}22`,
+                    borderRadius: '10px',
+                    border: `1px solid ${PLATFORM_COLORS_EXEC[es.top_platform] || '#8b5cf6'}44`,
+                  }}>
+                    {es.top_platform === 'Facebook' ? '📘' : es.top_platform === 'Instagram' ? '📸' : es.top_platform === 'TikTok' ? '🎵' : es.top_platform === 'YouTube' ? '▶️' : '💼'}
+                  </span>
+                  <div>
+                    <p style={{ fontSize: 'calc(1.3rem + 2px)', fontWeight: '800', color: PLATFORM_COLORS_EXEC[es.top_platform] || '#8b5cf6' }}>{es.top_platform}</p>
+                    <p style={{ fontSize: 'calc(0.78rem + 2px)', color: 'var(--text-secondary)', lineHeight: '1.4', marginTop: '0.1rem' }}>{es.top_platform_reason}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Key Highlights */}
+              <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(90deg, rgba(59,130,246,0.7), rgba(99,102,241,0.5))', padding: '0.55rem 1rem' }}>
+                  <p style={{ fontSize: 'calc(0.8rem + 2px)', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Key Highlights</p>
+                </div>
+                <ul style={{ margin: 0, padding: '1rem 1.2rem 1rem 2.2rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {(es.key_highlights || []).map((h, i) => (
+                    <li key={i} style={{ fontSize: 'calc(0.875rem + 2px)', lineHeight: '1.55', color: 'var(--text-primary)' }}
+                      dangerouslySetInnerHTML={{ __html: h.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
+                    />
+                  ))}
+                </ul>
+              </div>
+
+              {/* Audience Behaviour */}
+              <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(90deg, rgba(16,185,129,0.65), rgba(5,150,105,0.45))', padding: '0.55rem 1rem' }}>
+                  <p style={{ fontSize: 'calc(0.8rem + 2px)', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>Audience Behaviour</p>
+                </div>
+                <ul style={{ margin: 0, padding: '1rem 1.2rem 1rem 2.2rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {(es.audience_behaviour || []).map((h, i) => (
+                    <li key={i} style={{ fontSize: 'calc(0.875rem + 2px)', lineHeight: '1.55', color: 'var(--text-primary)' }}
+                      dangerouslySetInnerHTML={{ __html: h.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
+                    />
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN — Recommendations */}
+            <div style={{ background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '14px', overflow: 'hidden' }}>
+              <div style={{ background: 'linear-gradient(90deg, rgba(236,72,153,0.65), rgba(239,68,68,0.45))', padding: '0.55rem 1rem' }}>
+                <p style={{ fontSize: 'calc(0.8rem + 2px)', fontWeight: '700', letterSpacing: '0.5px', color: '#fff' }}>High-Level Recommendations</p>
+              </div>
+              <div style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                {Object.entries(es.recommendations || {}).map(([platform, rec]) => (
+                  <div key={platform}>
+                    <p style={{
+                      fontSize: 'calc(0.82rem + 2px)',
+                      fontWeight: '700',
+                      color: PLATFORM_COLORS_EXEC[platform] || 'var(--accent-blue)',
+                      marginBottom: '0.3rem',
+                      letterSpacing: '0.2px',
+                    }}>
+                      {platform}
+                    </p>
+                    <p style={{ fontSize: 'calc(0.855rem + 2px)', lineHeight: '1.55', color: 'var(--text-primary)', margin: 0 }}
+                      dangerouslySetInnerHTML={{ __html: `• ${rec.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const activeNavLabel = NAV_ITEMS.find(n => n.id === activeTab)?.label ?? '';
+
+  return (
+    <div className="app-shell">
+
+      {/* ── Sidebar ── */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <h1>CIMB Social Media</h1>
+          <p>Analytics Dashboard</p>
+        </div>
+
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+            <div
+              key={id}
+              className={`nav-item${activeTab === id ? ' active' : ''}`}
+              onClick={() => setActiveTab(id)}
+            >
+              <span className="nav-icon"><Icon size={17} /></span>
+              <span className="nav-label">{label}</span>
+              <span className="nav-indicator" />
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <p>Dulanaka Siriwardana © {new Date().getFullYear()}</p>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              style={{
+                marginTop: '0.6rem', width: '100%',
+                background: 'rgba(185,28,28,0.15)',
+                border: '1px solid rgba(185,28,28,0.35)',
+                borderRadius: '8px', padding: '0.5rem 1rem',
+                color: '#fca5a5', fontSize: 'calc(0.8rem + 2px)', fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: '0.4rem', fontFamily: 'inherit',
+                transition: 'background 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(185,28,28,0.28)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(185,28,28,0.15)'}
+            >
+              ⎋ Sign Out
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* ── Main area ── */}
+      <div className="main-content">
+
+        {/* Sticky top bar */}
+        <div className="top-bar">
+          <div className="top-bar-title">
+            {activeNavLabel}
+            {loading && summary && <span>— updating…</span>}
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div className="glass-panel" style={{ padding: '0.4rem 0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                style={{ background: 'transparent', color: 'white', border: 'none', padding: '0.15rem 0.4rem', borderRadius: '4px', outline: 'none', fontSize: 'calc(0.85rem + 2px)' }}
+              />
+              <span style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.8rem + 2px)' }}>to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                style={{ background: 'transparent', color: 'white', border: 'none', padding: '0.15rem 0.4rem', borderRadius: '4px', outline: 'none', fontSize: 'calc(0.85rem + 2px)' }}
+              />
+            </div>
+
+            <button className="refresh-btn" onClick={handleRefresh} disabled={loading} style={{ padding: '0.6rem 1.1rem', fontSize: 'calc(0.85rem + 2px)' }}>
+              {loading ? <div className="spinner" style={{ width: 16, height: 16 }}></div> : <RefreshCw size={15} />}
+              {loading ? 'Refreshing…' : 'Refresh Data'}
+            </button>
+
+            <button
+              onClick={generateExecSummary}
+              disabled={execLoading}
+              style={{
+                background: execLoading ? 'rgba(139,92,246,0.3)' : 'linear-gradient(135deg, rgba(139,92,246,0.85), rgba(236,72,153,0.75))',
+                color: 'white', border: 'none', padding: '0.6rem 1.1rem', borderRadius: '8px',
+                fontWeight: '700', cursor: execLoading ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                fontSize: 'calc(0.85rem + 2px)', fontFamily: 'inherit', transition: 'opacity 0.2s',
+                boxShadow: '0 4px 15px rgba(139,92,246,0.3)',
+              }}
+              onMouseEnter={e => { if (!execLoading) e.currentTarget.style.opacity = '0.88'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              {execLoading ? <div className="spinner" style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff' }}></div> : <Sparkles size={14} />}
+              {execLoading ? 'Generating…' : 'AI Summary'}
+            </button>
+          </div>
+        </div>
+
+        {/* Page content */}
+        <div className="page-content">
+
+          {activeTab === 'executive' && (
+            <div>
+              {!executiveSummary && !execLoading && (
+                <div className="glass-panel" style={{ textAlign: 'center', padding: '4rem 2rem', borderStyle: 'dashed' }}>
+                  <Sparkles size={40} style={{ margin: '0 auto 1rem', color: 'var(--accent-purple)', display: 'block' }} />
+                  <h3 style={{ marginBottom: '0.5rem' }}>No Summary Yet</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.9rem + 2px)', marginBottom: '1.5rem' }}>Click "AI Summary" in the top bar to generate an executive report for the selected date range.</p>
+                  <button
+                    onClick={generateExecSummary}
+                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.85), rgba(236,72,153,0.75))', color: 'white', border: 'none', padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: 'calc(0.95rem + 2px)', fontFamily: 'inherit' }}
+                  >
+                    ✦ Generate AI Summary
+                  </button>
+                </div>
+              )}
+              {renderExecutiveSummary()}
+            </div>
+          )}
+
+          {activeTab === 'highlights' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <button
+              onClick={exportPlatformHighlights}
+              style={{
+                padding: '0.6rem 1.2rem',
+                backgroundColor: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                boxShadow: '0 4px 6px -1px rgba(220, 38, 38, 0.3)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <Download size={18} /> Export AI Slide (.pptx)
+            </button>
+          </div>
+          {platformStats && Object.entries(platformStats).map(([platformName, stats]) =>
+                renderPlatformCard(platformName, stats)
+              )}
+            </div>
+          )}
+
+          {activeTab === 'engagement' && (
+            <div>
+              {renderEngagementSection()}
+            </div>
+          )}
+
+          {activeTab === 'content' && (
+            <div>
+              {organicContent && Object.entries(organicContent).map(([platformName, data]) =>
+                renderOrganicSection(platformName, data)
+              )}
+            </div>
+          )}
+
+          {activeTab === 'formats' && (
+            <div>
+              <h2 style={{ marginBottom: '1.5rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Organic Content Types & Format Performance</h2>
+              {renderFormatPerformanceSection()}
+            </div>
+          )}
+
+          {activeTab === 'followers' && (
+            <div>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Monthly Followers Data</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.8rem' }}>
+                Month-by-month follower counts and growth rates per platform. Bars show total followers (left axis); the amber line shows month-on-month growth % (right axis).
+              </p>
+              {renderFollowersSection()}
+            </div>
+          )}
+
+          {activeTab === 'download' && (
+            <div style={{ maxWidth: '600px', margin: '0 auto', paddingTop: '2rem' }}>
+              <div className="glass-panel" style={{
+                textAlign: 'center',
+                padding: '3rem 2.5rem',
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(139,92,246,0.08) 100%)',
+                borderColor: 'rgba(59,130,246,0.2)',
+              }}>
+                <div style={{
+                  width: '64px', height: '64px', borderRadius: '18px', margin: '0 auto 1.5rem',
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.25), rgba(139,92,246,0.2))',
+                  border: '1px solid rgba(59,130,246,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Download size={28} style={{ color: 'var(--accent-blue)' }} />
+                </div>
+
+                <h2 style={{ fontSize: 'calc(1.5rem + 2px)', marginBottom: '0.6rem' }}>Download All Contents</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.9rem + 2px)', lineHeight: '1.6', marginBottom: '0.5rem' }}>
+                  Exports all contents (Organic &amp; Paid) for the selected date range across all platforms as an Excel file.
+                </p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.82rem + 2px)', marginBottom: '2rem', opacity: 0.7 }}>
+                  Columns: Date · Platform · Format · Pillar · Organic/Paid · Collab · Title · Caption · Reach · Views · Interaction · ER% · Likes · Comments · Shares · Saves · Reposts · URL · Year Month
+                </p>
+
+                {(startDate && endDate) ? (
+                  <div style={{
+                    display: 'inline-block', background: 'rgba(59,130,246,0.1)',
+                    border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px',
+                    padding: '0.4rem 1rem', marginBottom: '1.8rem', fontSize: 'calc(0.85rem + 2px)', color: 'var(--accent-blue)'
+                  }}>
+                    📅 {startDate} → {endDate}
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'inline-block', background: 'rgba(245,158,11,0.08)',
+                    border: '1px solid rgba(245,158,11,0.2)', borderRadius: '8px',
+                    padding: '0.4rem 1rem', marginBottom: '1.8rem', fontSize: 'calc(0.85rem + 2px)', color: '#fbbf24'
+                  }}>
+                    ⚠ No date range selected — all available data will be exported
+                  </div>
+                )}
+
+                <br />
+                <button
+                  onClick={handleDownloadExcel}
+                  disabled={downloadLoading}
+                  style={{
+                    background: downloadLoading
+                      ? 'rgba(59,130,246,0.3)'
+                      : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                    color: 'white', border: 'none',
+                    padding: '0.85rem 2.2rem', borderRadius: '10px',
+                    fontWeight: '700', cursor: downloadLoading ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                    fontSize: 'calc(1rem + 2px)', fontFamily: 'inherit',
+                    boxShadow: '0 4px 20px rgba(59,130,246,0.35)',
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseEnter={e => { if (!downloadLoading) e.currentTarget.style.opacity = '0.88'; }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                >
+                  {downloadLoading
+                    ? <><div className="spinner" style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff' }}></div> Preparing file…</>
+                    : <><Download size={18} /> Download Excel</>}
+                </button>
+
+                <p style={{ marginTop: '1.2rem', fontSize: 'calc(0.75rem + 2px)', color: 'var(--text-secondary)', opacity: 0.55 }}>
+                  The file is generated fresh from the Data Hub database each time
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'pillar' && (
+            <div>
+              <h2 style={{ marginBottom: '0.5rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Content Mix &amp; Pillar Alignment</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.8rem' }}>
+                Paste your exported &quot;All Contents&quot; Google Sheet URL below. Only Organic posts are included in the ER% calculation.
+              </p>
+
+              {/* URL input */}
+              <div className="glass-panel" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1.5rem', padding: '1rem 1.4rem' }}>
+                <PieChart size={18} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+                <input
+                  type="text"
+                  placeholder="Paste Google Sheet URL here…"
+                  value={pillarSheetUrl}
+                  onChange={e => setPillarSheetUrl(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleFetchPillar()}
+                  style={{
+                    flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                    color: 'var(--text-primary)', fontSize: 'calc(0.88rem + 2px)', fontFamily: 'inherit',
+                  }}
+                />
+                <button
+                  onClick={handleFetchPillar}
+                  disabled={pillarLoading || !pillarSheetUrl.trim()}
+                  style={{
+                    background: pillarLoading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                    color: '#fff', border: 'none', padding: '0.55rem 1.2rem',
+                    borderRadius: '8px', fontWeight: 700, fontSize: 'calc(0.85rem + 2px)',
+                    cursor: pillarLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '0.4rem',
+                    fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {pillarLoading
+                    ? <><div className="spinner" style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> Loading…</>
+                    : 'Load Data'}
+                </button>
+              </div>
+
+              {/* Error */}
+              {pillarError && (
+                <div className="glass-panel" style={{ marginBottom: '1.5rem', borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', padding: '1rem 1.4rem' }}>
+                  <p style={{ color: '#f87171', fontSize: 'calc(0.88rem + 2px)' }}>⚠ {pillarError}</p>
+                </div>
+              )}
+
+              {/* Table */}
+              {pillarData && !pillarError && (
+                <div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.78rem + 2px)', marginBottom: '0.75rem' }}>
+                    Showing avg ER% per Pillar × Platform (Organic only{startDate && endDate ? ` · ${startDate} → ${endDate}` : ''})
+                  </p>
+                  {renderPillarTable()}
+
+                  {/* Download Cross-Platform Report */}
+                  <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={handleDownloadCrossPlatform}
+                      disabled={crossPlatformLoading}
+                      style={{
+                        background: crossPlatformLoading ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg, #059669, #10b981)',
+                        color: '#fff', border: 'none', padding: '0.65rem 1.4rem',
+                        borderRadius: '10px', fontWeight: '700', fontSize: 'calc(0.88rem + 2px)',
+                        cursor: crossPlatformLoading ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                        fontFamily: 'inherit', boxShadow: '0 4px 16px rgba(16,185,129,0.3)',
+                        transition: 'opacity 0.2s',
+                      }}
+                      onMouseEnter={e => { if (!crossPlatformLoading) e.currentTarget.style.opacity = '0.88'; }}
+                      onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                    >
+                      {crossPlatformLoading
+                        ? <><div className="spinner" style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> Preparing…</>
+                        : <><Download size={16} /> Download Cross-Platform Report</>}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Platform Strategy Recommendations ── */}
+          {activeTab === 'strategy' && (
+            <div>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Platform Strategy Recommendations</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.5rem' }}>
+                AI-generated STOP · PAUSE · CONTINUE · ENHANCE framework based on organic ER% and format performance for the selected period.
+              </p>
+
+              {!strategyData && !strategyLoading && (
+                <button onClick={async () => {
+                  setStrategyLoading(true);
+                  try {
+                    let q = startDate && endDate ? `?start_date=${startDate}&end_date=${endDate}` : '';
+                    const r = await axios.get(`${API_URL}/strategy-insights${q}`);
+                    setStrategyData(r.data);
+                  } catch { } finally { setStrategyLoading(false); }
+                }} style={{
+                  background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#fff', border: 'none',
+                  padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: 700, fontSize: 'calc(0.92rem + 2px)',
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit',
+                  boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
+                }}><Target size={18} /> Generate Strategy Insights</button>
+              )}
+
+              {strategyLoading && <p style={{ color: 'var(--text-secondary)' }}>⏳ Generating AI insights… this may take 20–40 seconds.</p>}
+
+              {strategyData?.error && <p style={{ color: '#f87171' }}>⚠ {strategyData.error}</p>}
+
+              {strategyData && !strategyData.error && (() => {
+                const strat = strategyData.platform_strategy || {};
+                const platforms = ['Facebook', 'Instagram', 'YouTube', 'TikTok', 'LinkedIn'];
+                const COLS = [
+                  { key: 'stop',     label: 'STOP',     hdrBg: '#fca5a5', hdrColor: '#7f1d1d' },
+                  { key: 'pause',    label: 'PAUSE',    hdrBg: '#fde68a', hdrColor: '#78350f' },
+                  { key: 'continue', label: 'CONTINUE', hdrBg: '#6ee7b7', hdrColor: '#064e3b' },
+                  { key: 'enhance',  label: 'ENHANCE',  hdrBg: '#a5f3fc', hdrColor: '#164e63' },
+                ];
+                return (
+                  <div>
+                    <div className="glass-panel" style={{ padding: 0, overflow: 'hidden', marginBottom: '1.5rem' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ padding: '0.9rem 1.2rem', background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', fontWeight: 700, color: '#fff', fontSize: 'calc(0.85rem + 2px)', textTransform: 'none', width: '14%' }}></th>
+                            {COLS.map(c => (
+                              <th key={c.key} style={{ padding: '0.9rem 1rem', background: c.hdrBg, border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', fontWeight: 800, color: c.hdrColor, fontSize: 'calc(0.85rem + 2px)', letterSpacing: '0.05em' }}>{c.label}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {platforms.map((plat, i) => {
+                            const pd = strat[plat] || {};
+                            return (
+                              <tr key={plat} style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                                <td style={{ padding: '0.85rem 1.2rem', border: '1px solid rgba(255,255,255,0.07)', fontWeight: 700, fontSize: 'calc(0.9rem + 2px)', color: '#fff', background: 'rgba(185,28,28,0.15)' }}>{plat}</td>
+                                {COLS.map(c => (
+                                  <td key={c.key} style={{ padding: '0.85rem 1rem', border: '1px solid rgba(255,255,255,0.07)', fontSize: 'calc(0.85rem + 2px)', color: 'var(--text-primary)', verticalAlign: 'top' }}>
+                                    {pd[c.key] || '—'}
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Key Takeaways */}
+                    <div className="glass-panel" style={{ background: '#0f172a', borderColor: 'rgba(255,255,255,0.1)' }}>
+                      <h3 style={{ fontSize: 'calc(1rem + 2px)', fontWeight: 700, marginBottom: '1rem', color: '#fff' }}>Key Takeaways</h3>
+                      <ul style={{ paddingLeft: '1.2rem', margin: 0 }}>
+                        {(strategyData.key_takeaways || []).map((t, i) => (
+                          <li key={i} style={{ marginBottom: '0.55rem', fontSize: 'calc(0.88rem + 2px)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* ── Key Learnings & Recommendations ── */}
+          {activeTab === 'learnings' && (
+            <div>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>Key Learnings &amp; Recommendations</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.5rem' }}>
+                AI-derived strategic learnings with concrete action items based on platform engagement data.
+              </p>
+
+              {!strategyData && !strategyLoading && (
+                <button onClick={async () => {
+                  setStrategyLoading(true);
+                  try {
+                    let q = startDate && endDate ? `?start_date=${startDate}&end_date=${endDate}` : '';
+                    const r = await axios.get(`${API_URL}/strategy-insights${q}`);
+                    setStrategyData(r.data);
+                  } catch { } finally { setStrategyLoading(false); }
+                }} style={{
+                  background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#fff', border: 'none',
+                  padding: '0.75rem 1.8rem', borderRadius: '10px', fontWeight: 700, fontSize: 'calc(0.92rem + 2px)',
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'inherit',
+                  boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
+                }}><BookOpen size={18} /> Generate Key Learnings</button>
+              )}
+
+              {strategyLoading && <p style={{ color: 'var(--text-secondary)' }}>⏳ Generating AI insights… this may take 20–40 seconds.</p>}
+              {strategyData?.error && <p style={{ color: '#f87171' }}>⚠ {strategyData.error}</p>}
+
+              {strategyData && !strategyData.error && (
+                <div className="glass-panel" style={{ padding: '1.8rem 2rem' }}>
+                  <div style={{ background: '#b91c1c', borderRadius: '8px', padding: '0.75rem 1.5rem', marginBottom: '1.8rem', textAlign: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: 'calc(1rem + 2px)', color: '#fff', letterSpacing: '0.02em' }}>Key Learnings</span>
+                  </div>
+                  {(strategyData.key_learnings || []).map((item, i) => (
+                    <div key={i} style={{ marginBottom: '1.8rem', paddingBottom: '1.8rem', borderBottom: i < (strategyData.key_learnings.length - 1) ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                      <p style={{ fontWeight: 700, fontSize: 'calc(0.95rem + 2px)', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                        {item.number}. {item.title}
+                      </p>
+                      <p style={{ fontSize: 'calc(0.88rem + 2px)', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '0.75rem' }}>
+                        {item.description}
+                      </p>
+                      <p style={{ fontSize: 'calc(0.88rem + 2px)', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.6 }}>
+                        Action: {item.action}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'wip' && (
+            <div>
+              <h2 style={{ marginBottom: '0.4rem', fontSize: 'calc(1.5rem + 2px)', color: 'var(--accent-blue)' }}>WIP Data</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 'calc(0.85rem + 2px)', marginBottom: '1.5rem' }}>
+                Aggregated metrics from the database for the selected date range.
+              </p>
+              {renderWipSection()}
+            </div>
+          )}
+
+          {/* ── Data Hub ── */}
+          {activeTab === 'data-hub' && (
+            <DataHub startDate={startDate} endDate={endDate} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

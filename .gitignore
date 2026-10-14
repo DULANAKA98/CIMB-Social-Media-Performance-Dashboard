@@ -1,0 +1,33 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.db
+backend/.env
+.test-deps/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+insights-worker/.wrangler/
+insights-worker/.dev.vars
+insights-worker/.secret-handoff/
+
+# Debug / temp files
+backend/debug_*.py
+backend/check_*.py
+backend/dump_*.py
+backend/*.json
+backend/*.txt
+backend/test_*.py
+!backend/test_chat_context.py
+!backend/test_sql_agent.py
+!backend/requirements.txt
+!backend/runtime.txt
+
+# OS
+.DS_Store
+Thumbs.db
