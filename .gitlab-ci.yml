@@ -33,12 +33,17 @@ deploy_backend:
     - apk add --no-cache openssh-client rsync
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-    - chmod 600 "$SSH_PRIVATE_KEY"
+    # Accept SSH_PRIVATE_KEY as a File or a plain variable, and repair common paste damage
+    # (Windows line endings, stray spaces, missing final newline) without printing the key.
+    - if [ -f "$SSH_PRIVATE_KEY" ]; then KEY_TEXT="$(cat "$SSH_PRIVATE_KEY")"; else KEY_TEXT="$SSH_PRIVATE_KEY"; fi
+    - printf '%s\n' "$KEY_TEXT" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; /^$/d' > ~/.ssh/deploy_key
+    - chmod 600 ~/.ssh/deploy_key
+    - ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null || { echo "SSH_PRIVATE_KEY is not a valid private key; paste it again"; exit 1; }
   script:
     # .env files are excluded, so the server's deploy/.env is never overwritten or deleted.
     - >
       rsync -az --delete
       --exclude '.env' --exclude '*.env' --exclude 'venv/' --exclude '__pycache__/' --exclude 'assets/'
-      -e "ssh -i $SSH_PRIVATE_KEY"
+      -e "ssh -i $HOME/.ssh/deploy_key"
       backend deploy "$SSH_USER@$SSH_HOST:/opt/cimb/"
-    - ssh -i "$SSH_PRIVATE_KEY" "$SSH_USER@$SSH_HOST" "cd /opt/cimb/deploy && docker compose up -d --build"
+    - ssh -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" "cd /opt/cimb/deploy && docker compose up -d --build"
