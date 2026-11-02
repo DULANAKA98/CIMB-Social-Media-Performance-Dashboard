@@ -140,6 +140,12 @@ function refreshedLabel(value) {
   return new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kuala_Lumpur' }).format(new Date(value));
 }
 
+// Total Followers reads the latest Metricool count, so it uses a short window ending today (Malaysia time).
+function currentFollowerWindow() {
+  const day = daysAgo => new Date(Date.now() - daysAgo * 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+  return { start_date: day(14), end_date: day(0) };
+}
+
 function Followers({ followers, loading, error, printing = false }) {
   const refreshed = refreshedLabel(followers.lastRefreshedAt);
   const markers = followerChartMarkers(followers.rows);
@@ -389,7 +395,7 @@ export default function PerformanceDashboard({ onLogout }) {
   useEffect(() => {
     const controller = new AbortController();
     setFollowerState({ data: null, loading: true, error: '' });
-    axios.get(`${API_URL}/follower-growth`, { signal: controller.signal, timeout: 60000 })
+    axios.get(`${API_URL}/follower-growth/metricool`, { params: currentFollowerWindow(), signal: controller.signal, timeout: 90000 })
       .then(response => { if (!controller.signal.aborted) setFollowerState({ data: response.data, loading: false, error: '' }); })
       .catch(() => { if (!controller.signal.aborted) setFollowerState({ data: null, loading: false, error: 'Unable to load follower data. Try refreshing the dashboard.' }); });
     return () => controller.abort();
@@ -492,7 +498,7 @@ export default function PerformanceDashboard({ onLogout }) {
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
           <div className={`perf-kpis ${page === 'executive' ? 'executive-kpis' : 'platform-kpis'} ${supportsViews && supportsFollowers ? 'has-five' : ''} ${current.loading ? 'is-loading' : ''}`} aria-busy={current.loading}>
-            {(page === 'executive' || supportsFollowers) && <Kpi label="Total Followers" value={full(latestFollowers.total)} icon={Users} help="Sum of the latest matching daily follower snapshot across the selected social accounts."><span className="delta neutral">{latestFollowers.total == null ? 'Waiting for follower refresh' : `Last refreshed ${refreshedLabel(latestFollowers.lastRefreshedAt)}`}</span></Kpi>}
+            {(page === 'executive' || supportsFollowers) && <Kpi label="Total Followers" value={full(latestFollowers.total)} icon={Users} help="Sum of the latest Metricool follower count across the selected social accounts, fetched when the dashboard loads."><span className="delta neutral">{latestFollowers.total == null ? (followerState.loading ? 'Loading follower count…' : 'Follower count unavailable') : `Last refreshed ${refreshedLabel(latestFollowers.lastRefreshedAt)}`}</span></Kpi>}
             <Kpi label={`Total ${exposureLabel}`} value={full(model.kpis.reach)} icon={Megaphone} help={exposureLabel === 'Reach' ? reachHelp : `Sum of platform-reported ${exposureLabel.toLowerCase()} for content in the selected period.`}><Delta current={model.kpis.reach} previous={previousModel.kpis.reach} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
             {page === 'platform' && supportsViews && <Kpi label="Total Views" value={full(model.kpis.views)} icon={BarChart3} help="Sum of platform-reported content views in the selected period."><Delta current={model.kpis.views} previous={previousModel.kpis.views} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>}
             <Kpi label="Total Engagement" value={full(model.kpis.engagement)} icon={Heart} tone="red" help={engagementHelp}><Delta current={model.kpis.engagement} previous={previousModel.kpis.engagement} label={benchmarkMode === 'year' ? 'vs last year' : 'vs previous period'} /></Kpi>
