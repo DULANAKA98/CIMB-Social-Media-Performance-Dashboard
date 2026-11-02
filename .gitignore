@@ -36,3 +36,10 @@ Thumbs.db
 deploy/.env
 *.env
 !deploy/.env.example
+
+# Private database migration handoff (contains client data)
+handoff_private/
+
+# Local Claude Code configuration (machine-specific access paths)
+CLAUDE.local.md
+.claude/settings.local.json
