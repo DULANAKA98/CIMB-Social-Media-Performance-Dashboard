@@ -558,7 +558,7 @@ def _match_campaign_hashtag(db: Session, campaign: Campaign) -> Dict[str, int]:
     """Assign unassigned posts whose caption carries the campaign hashtag."""
     if not campaign.hashtag:
         return {"matched": 0, "in_other_campaigns": 0}
-    candidates = db.query(Post).filter(Post.title.ilike(campaign_helpers.like_pattern(campaign.hashtag), escape="\\")).all()
+    candidates = db.query(Post).filter(func.lower(Post.title).contains(f"#{campaign.hashtag.lower()}", autoescape=True)).all()
     matched = in_other = 0
     for post in candidates:
         if not campaign_helpers.caption_has_hashtag(post.title, campaign.hashtag):

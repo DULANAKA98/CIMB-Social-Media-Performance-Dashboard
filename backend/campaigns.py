@@ -38,11 +38,6 @@ def caption_has_hashtag(caption: Optional[str], hashtag: str) -> bool:
     return re.search(rf"#{re.escape(hashtag)}{boundary}", caption, flags=re.IGNORECASE) is not None
 
 
-def like_pattern(hashtag: str) -> str:
-    """SQL LIKE pattern for '#<hashtag>' with %, _ and \\ escaped (use escape='\\')."""
-    escaped = hashtag.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%#{escaped}%"
-
 
 def valid_image(value: Optional[str]) -> bool:
     return not value or (len(value) <= MAX_IMAGE_CHARS and IMAGE_PREFIX.match(value) is not None)

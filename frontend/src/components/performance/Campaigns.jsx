@@ -23,7 +23,12 @@ const COMPARE_GROUPS = [
   { key: 'avg_er', label: 'Avg. ER%', format: percent, rows: [['avg_er', 'Avg. ER%'], ['organic_avg_er', 'Avg. organic ER%'], ['paid_avg_er', 'Avg. paid ER%']] },
 ];
 const SPLIT_COLORS = ['#3d2a35', '#ed0027', '#8f1a3c'];
-const errorText = (error, fallback) => error?.response?.data?.detail && typeof error.response.data.detail === 'string' ? error.response.data.detail : fallback;
+const errorText = (error, fallback) => {
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (!error?.response) return `${fallback} (no response from the server)`;
+  return `${fallback} (error ${error.response.status})`;
+};
 const dateSpan = campaign => campaign.first_post ? `${dateLabel(campaign.first_post)} – ${dateLabel(campaign.last_post)}` : 'No posts yet';
 
 // Resize in the browser so the stored picture stays small (it lives in the database).

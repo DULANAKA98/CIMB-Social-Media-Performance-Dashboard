@@ -31,7 +31,6 @@ class CampaignHelperTests(unittest.TestCase):
         self.assertTrue(helpers.caption_has_hashtag("Raya vibes #hmmmdulu! jom", "HmmmDulu!"))
         self.assertFalse(helpers.caption_has_hashtag("Raya vibes #hmmmdulu jom", "HmmmDulu!"))
         self.assertTrue(helpers.caption_has_hashtag("#CIMB-Raya2026 is here", "cimb-raya2026"))
-        self.assertEqual(helpers.like_pattern("50%_off\\"), "%#50\\%\\_off\\\\%")
 
     def test_link_variants_match_and_page_ids_do_not(self):
         same = [
