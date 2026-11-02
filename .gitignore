@@ -25,6 +25,7 @@ backend/*.txt
 backend/test_*.py
 !backend/test_chat_context.py
 !backend/test_sql_agent.py
+!backend/test_campaigns.py
 !backend/requirements.txt
 !backend/runtime.txt
 

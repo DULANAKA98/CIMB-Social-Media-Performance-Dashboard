@@ -14,6 +14,8 @@ const PLATFORM_UPLOADS = [
   { field: 'li_file', label: 'LinkedIn' },
 ];
 const FORMATS = ['Video', 'Static', 'Carousel', 'Reel', 'IG Story', 'Story', 'Article', 'Unknown'];
+// Campaign membership is managed on the Campaigns page, so these cells are read-only here.
+const READ_ONLY_COLS = ['link', 'campaign'];
 const NUMERIC_COLS = ['reach', 'views', 'engagement', 'likes', 'comments', 'shares', 'favorites', 'reposts', 'engagement_rate'];
 
 const COLUMNS = [
@@ -22,6 +24,7 @@ const COLUMNS = [
   { key: 'format', label: 'Format', width: '105px' },
   { key: 'is_organic', label: 'Organic/Paid', width: '115px' },
   { key: 'collab', label: 'Collab', width: '140px' },
+  { key: 'campaign', label: 'Campaign', width: '150px' },
   { key: 'title', label: 'Caption', width: '220px' },
   { key: 'reach', label: 'Reach', width: '90px' },
   { key: 'views', label: 'Views', width: '90px' },
@@ -243,6 +246,15 @@ const DataHub = ({ startDate, endDate }) => {
       ) : <span style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>;
     }
 
+    if (col === 'campaign') {
+      return val ? (
+        <span title={val} style={{
+          display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          background: '#fbecf1', color: '#a3204a', padding: '2px 10px', borderRadius: '999px', fontSize: 'calc(0.75rem + 2px)', fontWeight: 600,
+        }}>{val}</span>
+      ) : <span style={{ color: '#c3b8c6' }}>—</span>;
+    }
+
     if (col === 'platform') {
       const colors = { Facebook: '#1877f2', Instagram: '#e1306c', TikTok: '#00f2fe', YouTube: '#ff0000', LinkedIn: '#0a66c2' };
       return (
@@ -414,7 +426,7 @@ const DataHub = ({ startDate, endDate }) => {
       {/* Data Grid */}
       <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1250px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1400px' }}>
             <thead>
               <tr>
                 {COLUMNS.map(col => (
@@ -456,7 +468,7 @@ const DataHub = ({ startDate, endDate }) => {
                   {COLUMNS.map(col => (
                     <td
                       key={col.key}
-                      onDoubleClick={() => col.key !== 'link' && startEdit(post.id, col.key, post[col.key])}
+                      onDoubleClick={() => !READ_ONLY_COLS.includes(col.key) && startEdit(post.id, col.key, post[col.key])}
                       style={{
                         padding: '0.55rem 0.9rem',
                         fontSize: 'calc(0.82rem + 2px)',
@@ -464,7 +476,7 @@ const DataHub = ({ startDate, endDate }) => {
                         borderBottom: '1px solid rgba(255,255,255,0.04)',
                         maxWidth: col.width,
                         overflow: 'hidden',
-                        cursor: col.key !== 'link' ? 'text' : 'default',
+                        cursor: READ_ONLY_COLS.includes(col.key) ? 'default' : 'text',
                         background: savedCell?.postId === post.id && savedCell?.col === col.key
                           ? 'rgba(16,185,129,0.15)'
                           : 'transparent',

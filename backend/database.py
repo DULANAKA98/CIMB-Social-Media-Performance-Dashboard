@@ -39,7 +39,18 @@ class Post(Base):
     watch_time_hours = Column(Float, default=0)
     engagement_rate = Column(Float, default=0)
     is_organic   = Column(Boolean, default=True)
+    campaign     = Column(Text, nullable=True, index=True)   # campaigns.name; empty when not in a campaign
     created_at   = Column(DateTime, default=datetime.utcnow)
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    name       = Column(Text, nullable=False, unique=True)
+    hashtag    = Column(Text, default="")      # stored without '#', matched case-insensitively in captions
+    image      = Column(Text, default="")      # data:image/... URL, resized in the browser before upload
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class AiReport(Base):
@@ -71,6 +82,9 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     with engine.begin() as connection:
         connection.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS collab TEXT DEFAULT ''"))
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS campaign TEXT"))
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_posts_campaign ON posts (campaign)"))
 
 
 def get_db():

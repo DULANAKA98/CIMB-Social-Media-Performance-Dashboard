@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from data_processor import calculate_fb_ig_engagement_rate, process_data, read_platform_file
-from database import init_db, get_db, Post, AiReport, FollowerSnapshot
+from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign
+import campaigns as campaign_helpers
 import sql_agent
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
@@ -346,10 +347,17 @@ async def upload_platform_files(
             synced += 1
 
         db.commit()
+        # New uploads join existing campaigns whose hashtag appears in their caption.
+        campaign_matches = 0
+        for campaign in db.query(Campaign).all():
+            campaign_matches += _match_campaign_hashtag(db, campaign)["matched"]
+        db.commit()
+        campaign_note = f" {campaign_matches} added to campaigns by hashtag." if campaign_matches else ""
         return {
-            "message": f"Upload complete! {synced} content records synced to the database.",
+            "message": f"Upload complete! {synced} content records synced to the database.{campaign_note}",
             "synced": synced,
             "platforms": uploaded_platforms,
+            "campaign_matches": campaign_matches,
         }
     except Exception as e:
         db.rollback()
@@ -397,6 +405,7 @@ def get_posts(
                     p.platform, p.format, p.engagement, p.reach, p.views, p.engagement_rate
                 ),
                 "is_organic": p.is_organic,
+                "campaign": p.campaign or None,
             }
             for p in posts
         ]
@@ -500,6 +509,236 @@ def create_post(body: NewPost, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(post)
     return {"message": "Post created", "id": post.id}
+
+
+# ── Campaigns ──────────────────────────────────────────────────────────────────
+# posts.campaign holds the campaign name. Hashtag matching only fills posts that
+# are not yet in a campaign, so a manual assignment is never overwritten.
+def _campaign_post_record(p: Post) -> Dict[str, Any]:
+    platform = 'Instagram Stories' if is_instagram_story(p.platform, p.format) else p.platform
+    return {
+        "id": p.id, "platform": platform, "format": p.format,
+        "collab": getattr(p, 'collab', '') or '',
+        "date": p.date.isoformat() if p.date else None,
+        "title": p.title, "link": p.link,
+        "reach": p.reach or 0, "views": p.views or 0, "engagement": p.engagement or 0,
+        "likes": p.likes or 0, "comments": p.comments or 0, "shares": p.shares or 0,
+        "favorites": p.favorites or 0, "reposts": p.reposts or 0,
+        "impressions": getattr(p, 'impressions', 0) or 0,
+        "engagement_rate": effective_engagement_rate(
+            p.platform, p.format, p.engagement, p.reach, p.views, p.engagement_rate
+        ),
+        "is_organic": p.is_organic,
+        "campaign": p.campaign or None,
+    }
+
+
+def _date_filtered(query, start_date: Optional[str], end_date: Optional[str]):
+    if start_date:
+        query = query.filter(Post.date >= pd.to_datetime(start_date))
+    if end_date:
+        query = query.filter(Post.date <= pd.to_datetime(end_date) + pd.Timedelta(days=1, seconds=-1))
+    return query
+
+
+def _campaign_json(campaign: Campaign, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    dates = sorted(r["date"] for r in records if r["date"])
+    return {
+        "id": campaign.id, "name": campaign.name,
+        "hashtag": campaign.hashtag or "", "image": campaign.image or "",
+        "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
+        "first_post": dates[0] if dates else None,
+        "last_post": dates[-1] if dates else None,
+        "platforms": sorted({r["platform"] for r in records if r["platform"]}),
+        **campaign_helpers.summarize(records),
+    }
+
+
+def _match_campaign_hashtag(db: Session, campaign: Campaign) -> Dict[str, int]:
+    """Assign unassigned posts whose caption carries the campaign hashtag."""
+    if not campaign.hashtag:
+        return {"matched": 0, "in_other_campaigns": 0}
+    candidates = db.query(Post).filter(Post.title.ilike(f"%#{campaign.hashtag}%")).all()
+    matched = in_other = 0
+    for post in candidates:
+        if not campaign_helpers.caption_has_hashtag(post.title, campaign.hashtag):
+            continue
+        if not post.campaign:
+            post.campaign = campaign.name
+            matched += 1
+        elif post.campaign != campaign.name:
+            in_other += 1
+    return {"matched": matched, "in_other_campaigns": in_other}
+
+
+def _get_campaign(db: Session, campaign_id: int) -> Campaign:
+    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return campaign
+
+
+class CampaignBody(BaseModel):
+    name: Optional[str] = None
+    hashtag: Optional[str] = None
+    image: Optional[str] = None
+
+
+def _clean_campaign_body(db: Session, body: CampaignBody, current: Optional[Campaign] = None) -> Dict[str, Any]:
+    data = body.dict(exclude_unset=True)
+    if "name" in data:
+        data["name"] = re.sub(r"\s+", " ", data["name"] or "").strip()
+        if not data["name"]:
+            raise HTTPException(status_code=400, detail="Campaign name is required")
+        if len(data["name"]) > 120:
+            raise HTTPException(status_code=400, detail="Campaign name must be 120 characters or fewer")
+        clash = db.query(Campaign).filter(func.lower(Campaign.name) == data["name"].lower())
+        if current is not None:
+            clash = clash.filter(Campaign.id != current.id)
+        if clash.first():
+            raise HTTPException(status_code=409, detail="A campaign with this name already exists")
+    if "hashtag" in data:
+        raw = data["hashtag"] or ""
+        data["hashtag"] = campaign_helpers.normalize_hashtag(raw)
+        if raw.strip().lstrip("#").strip() and not data["hashtag"]:
+            raise HTTPException(status_code=400, detail="Use a single hashtag made of letters, numbers or underscores")
+    if "image" in data:
+        data["image"] = data["image"] or ""
+        if not campaign_helpers.valid_image(data["image"]):
+            raise HTTPException(status_code=400, detail="Campaign picture must be a PNG, JPG, WebP or GIF image under 2 MB")
+    return data
+
+
+@app.get("/api/campaigns")
+def list_campaigns(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    platform: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Campaigns with metrics for posts in the date range (and platform, if given)."""
+    campaigns = db.query(Campaign).order_by(Campaign.created_at.desc(), Campaign.id.desc()).all()
+    posts = _date_filtered(db.query(Post).filter(Post.campaign.isnot(None), Post.campaign != ""), start_date, end_date).all()
+    by_campaign: Dict[str, List[Dict[str, Any]]] = {}
+    for post in posts:
+        record = _campaign_post_record(post)
+        if platform and record["platform"] != platform:
+            continue
+        by_campaign.setdefault(post.campaign, []).append(record)
+    return {"campaigns": [_campaign_json(c, by_campaign.get(c.name, [])) for c in campaigns]}
+
+
+@app.post("/api/campaigns")
+def create_campaign(body: CampaignBody, db: Session = Depends(get_db)):
+    data = _clean_campaign_body(db, body)
+    if "name" not in data:
+        raise HTTPException(status_code=400, detail="Campaign name is required")
+    if not data.get("hashtag"):
+        raise HTTPException(status_code=400, detail="Campaign hashtag is required")
+    campaign = Campaign(name=data["name"], hashtag=data["hashtag"], image=data.get("image", ""))
+    db.add(campaign)
+    db.flush()
+    result = _match_campaign_hashtag(db, campaign)
+    db.commit()
+    db.refresh(campaign)
+    records = [_campaign_post_record(p) for p in db.query(Post).filter(Post.campaign == campaign.name).all()]
+    return {"campaign": _campaign_json(campaign, records), **result}
+
+
+@app.patch("/api/campaigns/{campaign_id}")
+def update_campaign(campaign_id: int, body: CampaignBody, db: Session = Depends(get_db)):
+    campaign = _get_campaign(db, campaign_id)
+    data = _clean_campaign_body(db, body, campaign)
+    if "hashtag" in data and not data["hashtag"]:
+        raise HTTPException(status_code=400, detail="Campaign hashtag is required")
+    if "name" in data and data["name"] != campaign.name:
+        db.query(Post).filter(Post.campaign == campaign.name).update({Post.campaign: data["name"]}, synchronize_session=False)
+    for key, value in data.items():
+        setattr(campaign, key, value)
+    db.flush()
+    result = _match_campaign_hashtag(db, campaign) if "hashtag" in data else {"matched": 0, "in_other_campaigns": 0}
+    db.commit()
+    records = [_campaign_post_record(p) for p in db.query(Post).filter(Post.campaign == campaign.name).all()]
+    return {"campaign": _campaign_json(campaign, records), **result}
+
+
+@app.delete("/api/campaigns/{campaign_id}")
+def delete_campaign(campaign_id: int, db: Session = Depends(get_db)):
+    """Delete the campaign and clear it from its posts. The posts themselves stay in Data Hub."""
+    campaign = _get_campaign(db, campaign_id)
+    released = db.query(Post).filter(Post.campaign == campaign.name).update({Post.campaign: None}, synchronize_session=False)
+    db.delete(campaign)
+    db.commit()
+    return {"message": "Campaign deleted", "released_posts": released}
+
+
+@app.post("/api/campaigns/{campaign_id}/sync")
+def sync_campaign_hashtag(campaign_id: int, db: Session = Depends(get_db)):
+    campaign = _get_campaign(db, campaign_id)
+    result = _match_campaign_hashtag(db, campaign)
+    db.commit()
+    return result
+
+
+@app.get("/api/campaigns/{campaign_id}/posts")
+def get_campaign_posts(
+    campaign_id: int,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    all_records = [_campaign_post_record(p) for p in db.query(Post).filter(Post.campaign == campaign.name).all()]
+    posts = _date_filtered(db.query(Post).filter(Post.campaign == campaign.name), start_date, end_date)
+    records = [_campaign_post_record(p) for p in posts.order_by(Post.date.desc().nullslast()).all()]
+    # Header totals cover the whole campaign; the table follows the page filters.
+    return {"campaign": _campaign_json(campaign, all_records), "posts": records}
+
+
+class CampaignLinks(BaseModel):
+    links: List[str] = Field(default_factory=list)
+    move_from_other: bool = False
+
+
+@app.post("/api/campaigns/{campaign_id}/posts")
+def add_campaign_posts_by_link(campaign_id: int, body: CampaignLinks, db: Session = Depends(get_db)):
+    """Find Data Hub posts by link and add them to the campaign."""
+    campaign = _get_campaign(db, campaign_id)
+    links = [link.strip() for link in body.links if link and link.strip()][:200]
+    if not links:
+        raise HTTPException(status_code=400, detail="Paste at least one post link")
+    index: Dict[str, List[Post]] = {}
+    for post in db.query(Post).filter(Post.link.isnot(None), Post.link != "").all():
+        for key in campaign_helpers.post_link_keys(post.link):
+            index.setdefault(key, []).append(post)
+
+    added, already, in_other, not_found = [], [], [], []
+    for link in links:
+        matches = {p.id: p for key in campaign_helpers.post_link_keys(link) for p in index.get(key, [])}
+        if not matches:
+            not_found.append(link)
+            continue
+        for post in matches.values():
+            if post.campaign == campaign.name:
+                already.append(post.id)
+            elif post.campaign and not body.move_from_other:
+                in_other.append({"link": link, "post_id": post.id, "campaign": post.campaign})
+            else:
+                post.campaign = campaign.name
+                added.append(_campaign_post_record(post))
+    db.commit()
+    return {"added": added, "already_in_campaign": len(set(already)), "in_other_campaigns": in_other, "not_found": not_found}
+
+
+@app.delete("/api/campaigns/{campaign_id}/posts/{post_id}")
+def remove_campaign_post(campaign_id: int, post_id: str, db: Session = Depends(get_db)):
+    campaign = _get_campaign(db, campaign_id)
+    post = db.query(Post).filter(Post.id == post_id, Post.campaign == campaign.name).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post is not in this campaign")
+    post.campaign = None
+    db.commit()
+    return {"message": "Post removed from campaign"}
 
 
 # ── AI Reports cache endpoints ─────────────────────────────────────────────────

@@ -2,88 +2,20 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import axios from 'axios';
-import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Download, ExternalLink, FileText, GitCompare, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Target, TrendingUp, Users, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Database, Download, ExternalLink, FileText, Flag, GitCompare, Heart, House, Info, Lightbulb, LogOut, Megaphone, Menu, RefreshCw, Target, TrendingUp, Users, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import DataHub from './DataHub';
+import Campaigns, { CampaignImage } from './performance/Campaigns';
+import { CHART_STYLE, DateFilter, Empty, Kpi, Panel, PlatformIcon, PostThumbnail, TOOLTIP_STYLE, trapFocus } from './performance/ui';
 import CrossPlatformContent from './performance/CrossPlatformContent';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
-import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, exposureMetric, exposureValue, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './performance/model';
+import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, exposureMetric, exposureValue, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink } from './performance/model';
 import './performance/performance.css';
-
-const BRAND_ICONS = { Facebook: FaFacebookF, Instagram: FaInstagram, 'Instagram Stories': FaInstagram, TikTok: FaTiktok, YouTube: FaYoutube, LinkedIn: FaLinkedinIn };
-const CHART_STYLE = { fontSize: 12, fill: '#818493' };
-const TOOLTIP_STYLE = { background: '#fff', border: '1px solid #e9e9ef', borderRadius: 8, fontSize: 14, color: '#25232a', boxShadow: '0 5px 25px #26081510' };
-
-function trapFocus(event) {
-  if (event.key !== 'Tab') return;
-  const controls = [...event.currentTarget.querySelectorAll('button:not([disabled]), input:not([disabled]), select, a[href]')];
-  if (!controls.length) return;
-  const first = controls[0];
-  const last = controls.at(-1);
-  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-  if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-}
-
-function PlatformIcon({ name, size = 16 }) {
-  const Icon = BRAND_ICONS[name] || BarChart3;
-  const color = PLATFORMS.find(platform => platform.name === name)?.color;
-  return <Icon size={size} color={color} aria-hidden="true" />;
-}
-
-function Panel({ title, subtitle, children, className = '', action }) {
-  return <section className={`perf-panel ${className}`} aria-label={title}>
-    <div className="panel-heading"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>{action}</div>
-    {children}
-  </section>;
-}
-
-function Empty({ icon: Icon = BarChart3, title = 'No data for this period', children, action }) {
-  return <div className="perf-empty"><span className="empty-icon"><Icon size={23} strokeWidth={1.5} /></span><strong>{title}</strong>{children && <p>{children}</p>}{action}</div>;
-}
 
 function Delta({ current, previous, rate = false, label = 'vs previous period' }) {
   const delta = change(current, previous, rate);
   if (!delta) return <span className="delta neutral">Comparison unavailable</span>;
   return <span className={`delta ${delta.value < 0 ? 'negative' : 'positive'}`}>{delta.value < 0 ? <ArrowDown size={11} /> : <ArrowUp size={11} />}<b>{delta.label}</b><span>{label}</span></span>;
-}
-
-function Kpi({ label, value, icon: Icon, children, help, tone = '' }) {
-  return <section className="perf-kpi" aria-label={label}>
-    <div><h2 className="kpi-heading"><span>{label}</span>{help && <span className="metric-help" tabIndex={0} aria-label={`${label}: ${help}`}><Info size={12} /><span role="tooltip">{help}</span></span>}</h2><strong>{value}</strong></div><span className={`kpi-symbol ${tone}`}><Icon size={21} strokeWidth={1.6} /></span>
-    <div className="kpi-detail">{children}</div>
-  </section>;
-}
-
-function DateFilter({ range, onApply, label = 'Reporting period' }) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(range);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = event => { if (!ref.current?.contains(event.target)) setOpen(false); };
-    const escape = event => { if (event.key === 'Escape') setOpen(false); };
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', escape);
-    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', escape); };
-  }, [open]);
-  const invalid = !draft.start || !draft.end || draft.start > draft.end;
-  const apply = value => { onApply(value); setOpen(false); };
-  return <div className="date-filter" ref={ref}>
-    <button className="perf-button date-trigger" aria-expanded={open} onClick={() => { setDraft(range); setOpen(!open); }}><CalendarDays size={15} /><span>{range.start ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates'}</span><ChevronDown size={13} /></button>
-    {open && <div className="date-popover" role="dialog" aria-label={label}>
-      <div className="popover-title"><strong>{label}</strong><button aria-label="Close date filter" className="icon-button" onClick={() => setOpen(false)}><X size={16} /></button></div>
-      <div className="date-shortcuts"><button onClick={() => apply({ start: '', end: '' })}>All time</button><button onClick={() => {
-        const now = new Date();
-        const local = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
-        apply({ start: local(new Date(now.getFullYear(), now.getMonth() - 1, 1)), end: local(new Date(now.getFullYear(), now.getMonth(), 0)) });
-      }}>Last month</button></div>
-      <label>Start date<input type="date" value={draft.start} max={draft.end || undefined} onInput={e => { const value = e.currentTarget.value; setDraft(prev => ({ ...prev, start: value })); }} onChange={e => { const value = e.currentTarget.value; setDraft(prev => ({ ...prev, start: value })); }} /></label>
-      <label>End date<input type="date" value={draft.end} min={draft.start || undefined} onInput={e => { const value = e.currentTarget.value; setDraft(prev => ({ ...prev, end: value })); }} onChange={e => { const value = e.currentTarget.value; setDraft(prev => ({ ...prev, end: value })); }} /></label>
-      {draft.start && draft.end && draft.start > draft.end && <p className="form-error">End date must be on or after start date.</p>}
-      <button className="perf-button primary" disabled={invalid} onClick={() => apply(draft)}>Apply dates</button>
-    </div>}
-  </div>;
 }
 
 function PerformanceChart({ model, exposureLabel = 'Reach', printing = false }) {
@@ -187,25 +119,6 @@ function Formats({ rows, printing = false }) {
   </Panel>;
 }
 
-function PostThumbnail({ post, thumbnails }) {
-  const metricoolSrc = thumbnailForPost(post, thumbnails);
-  const postUrl = safeLink(post.link);
-  const [fallbackSrc, setFallbackSrc] = useState('');
-  const [failedSrc, setFailedSrc] = useState('');
-  useEffect(() => { setFallbackSrc(''); setFailedSrc(''); }, [metricoolSrc, postUrl]);
-  useEffect(() => {
-    if (!postUrl || fallbackSrc || (metricoolSrc && failedSrc !== metricoolSrc)) return;
-    const controller = new AbortController();
-    axios.get(`${API_URL}/post-thumbnail`, { params: { url: postUrl }, signal: controller.signal, timeout: 25000 })
-      .then(response => setFallbackSrc(safeLink(response.data?.picture) || ''))
-      .catch(() => {});
-    return () => controller.abort();
-  }, [fallbackSrc, failedSrc, metricoolSrc, postUrl]);
-  const src = metricoolSrc && failedSrc !== metricoolSrc ? metricoolSrc : fallbackSrc && failedSrc !== fallbackSrc ? fallbackSrc : '';
-  if (!src) return <span className="post-format-icon"><PlatformIcon name={post.platform} size={18} /></span>;
-  return <span className="post-thumbnail"><img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedSrc(src)} /></span>;
-}
-
 const ALL_PLATFORMS = 'All platforms';
 
 function postsForPlatform(posts, platform) {
@@ -284,6 +197,23 @@ function Benchmarks({ current, previous, mode, onMode, hasRange, loading, compar
   </Panel>;
 }
 
+function TopCampaigns({ state, platform, exposureLabel = 'Reach', onOpen, onManage }) {
+  const ranked = state.campaigns.filter(campaign => campaign.posts > 0).sort((a, b) => b.engagement - a.engagement).slice(0, 5);
+  const scope = platform ? `${platform} posts` : 'All platforms';
+  return <Panel title="Top Performing Campaigns" subtitle={`${scope} · ranked by engagement`} className="campaign-panel" action={state.campaigns.length > 0 && <button className="text-button" onClick={onManage}>View all <ArrowUpRight size={12} /></button>}>
+    {state.loading ? <Empty icon={Flag} title="Loading campaigns…" /> : ranked.length ? <>
+      <div className="campaign-columns"><span>Campaign</span><span>{exposureLabel}</span><span>Engagement</span><span>ER%</span></div>
+      <ol className="campaign-rank">{ranked.map((campaign, index) => <li key={campaign.id}>
+        <button onClick={() => onOpen(campaign.id)} title={`Open ${campaign.name}`}><span className="campaign-rank-index">{index + 1}</span><CampaignImage campaign={campaign} className="is-row" /><span><strong>{campaign.name}</strong><small>{full(campaign.posts)} {campaign.posts === 1 ? 'post' : 'posts'} · #{campaign.hashtag}</small></span></button>
+        <em>{compact(campaign.reach)}</em><em>{compact(campaign.engagement)}</em><em>{percent(campaign.avg_er)}</em>
+      </li>)}</ol>
+      <p className="panel-footnote">Campaign posts in the selected reporting period. Avg. ER% is the mean of post ERs.</p>
+    </> : <Empty icon={Target} title={state.campaigns.length ? 'No campaign posts in this period' : 'See the bigger campaign picture'} action={<button className="text-button" onClick={onManage}>{state.campaigns.length ? 'Open Campaigns' : 'Create a campaign'} <ArrowUpRight size={12} /></button>}>
+      {state.error || (state.campaigns.length ? `None of your campaigns have ${platform ? `${platform} ` : ''}posts in this reporting period.` : 'Group posts into campaigns by hashtag or link to compare campaign results here.')}
+    </Empty>}
+  </Panel>;
+}
+
 function Insights({ model, ai, loading, onGenerate, exposureLabel = 'Reach' }) {
   const top = [...model.rows].filter(row => row.engagement > 0).sort((a, b) => b.engagement - a.engagement)[0];
   const highlights = ai?.key_highlights || (top ? [
@@ -317,6 +247,8 @@ export default function PerformanceDashboard({ onLogout }) {
   const [followerHistoryState, setFollowerHistoryState] = useState({ data: null, loading: false, error: '' });
   const [comparisonFollowerState, setComparisonFollowerState] = useState({ data: null, loading: false, error: '' });
   const [thumbnailState, setThumbnailState] = useState({ items: [] });
+  const [campaignId, setCampaignId] = useState(null);
+  const [campaignState, setCampaignState] = useState({ loading: false, campaigns: [], error: '' });
   const [aiState, setAiState] = useState({ data: null, loading: false });
   const aiController = useRef(null);
   const prePrintTitle = useRef(null);
@@ -351,7 +283,8 @@ export default function PerformanceDashboard({ onLogout }) {
         ? 'Each Story ER% is engagement divided by reach, multiplied by 100. This card shows the average Story ER% for the selected period.'
         : 'Each post ER% is engagement divided by reach, multiplied by 100; views are used when reach is unavailable. This card shows the average post ER% for the selected period.';
 
-  const navigate = (next, name = null) => { setPage(next); setPlatform(name); setShowAllPosts(false); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
+  const navigate = (next, name = null) => { setPage(next); setPlatform(name); setShowAllPosts(false); setCampaignId(null); setMobileOpen(false); if (next !== 'data-hub' && page === 'data-hub') setRefreshKey(key => key + 1); };
+  const openCampaign = id => { navigate('campaigns'); setCampaignId(id); };
   useLayoutEffect(() => {
     const root = mainRef.current;
     if (!root) return undefined;
@@ -433,6 +366,15 @@ export default function PerformanceDashboard({ onLogout }) {
     return () => controller.abort();
   }, [range, refreshKey]);
   useEffect(() => {
+    if (page !== 'executive' && page !== 'platform') return undefined;
+    const controller = new AbortController();
+    setCampaignState(prev => ({ ...prev, loading: true, error: '' }));
+    axios.get(`${API_URL}/campaigns`, { params: { ...queryFor(range), ...(platform ? { platform } : {}) }, signal: controller.signal, timeout: 60000 })
+      .then(response => { if (!controller.signal.aborted) setCampaignState({ loading: false, campaigns: response.data?.campaigns || [], error: '' }); })
+      .catch(() => { if (!controller.signal.aborted) setCampaignState({ loading: false, campaigns: [], error: 'Campaign results could not be loaded.' }); });
+    return () => controller.abort();
+  }, [page, platform, range, refreshKey]);
+  useEffect(() => {
     const escape = event => { if (event.key === 'Escape') setMobileOpen(false); };
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
@@ -470,7 +412,7 @@ export default function PerformanceDashboard({ onLogout }) {
       window.requestAnimationFrame(() => window.print());
     });
   };
-  const title = page === 'data-hub' ? 'Data Hub' : page === 'cross-platform' ? 'Cross Platform Content Performance' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
+  const title = page === 'data-hub' ? 'Data Hub' : page === 'campaigns' ? 'Campaigns' : page === 'cross-platform' ? 'Cross Platform Content Performance' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
   const reportPeriod = range.start && range.end ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates';
 
   return <div className={`performance-app ${printing ? 'is-printing' : ''}`}>
@@ -483,6 +425,7 @@ export default function PerformanceDashboard({ onLogout }) {
         <div className={`platform-parent ${page === 'platform' ? 'selected' : ''}`}><button className="perf-nav-item" aria-expanded={platformOpen} aria-controls="platform-submenu" onClick={() => setPlatformOpen(open => !open)}><BarChart3 size={17} /><span>Platform Performance</span></button><button className="submenu-toggle" aria-label="Toggle platform submenu" aria-expanded={platformOpen} aria-controls="platform-submenu" onClick={() => setPlatformOpen(open => !open)}>{platformOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button></div>
         {platformOpen && <div className="platform-submenu" id="platform-submenu">{PLATFORMS.map(item => <button className={`perf-nav-item ${platform === item.name ? 'active' : ''}`} key={item.name} aria-current={platform === item.name ? 'page' : undefined} onClick={() => navigate('platform', item.name)}><PlatformIcon name={item.name} /><span>{item.name}</span>{platform === item.name && <i />}</button>)}</div>}
         <button className={`perf-nav-item ${page === 'cross-platform' ? 'active' : ''}`} aria-current={page === 'cross-platform' ? 'page' : undefined} onClick={() => navigate('cross-platform')}><GitCompare size={17} /><span>Cross Platform Content Performance</span></button>
+        <button className={`perf-nav-item ${page === 'campaigns' ? 'active' : ''}`} aria-current={page === 'campaigns' ? 'page' : undefined} onClick={() => navigate('campaigns')}><Flag size={17} /><span>Campaigns</span></button>
       </nav>
       <div className="perf-sidebar-bottom"><button className={`perf-nav-item ${page === 'data-hub' ? 'active' : ''}`} onClick={() => navigate('data-hub')}><Database size={16} /><span>Data Hub</span></button><button className="perf-nav-item" onClick={onLogout}><LogOut size={16} /><span>Sign out</span></button><p className="brand-tagline">Moving You Forward <span>❯</span></p></div>
     </aside>
@@ -493,7 +436,7 @@ export default function PerformanceDashboard({ onLogout }) {
 
       <main id="performance-main" ref={mainRef} className="perf-main" tabIndex={-1}>
         <div className="dashboard-page" key={`${page}-${platform || 'all'}`}>
-        {page === 'data-hub' ? <div className="data-hub-view"><DataHub startDate={range.start} endDate={range.end} /></div> : page === 'cross-platform' ? <CrossPlatformContent range={range} refreshKey={refreshKey} /> : showAllPosts ? <AllPostsView posts={allPosts} initialPlatform={postsViewPlatform} thumbnails={thumbnailState.items} onBack={() => setShowAllPosts(false)} /> : <>
+        {page === 'data-hub' ? <div className="data-hub-view"><DataHub startDate={range.start} endDate={range.end} /></div> : page === 'cross-platform' ? <CrossPlatformContent range={range} refreshKey={refreshKey} /> : page === 'campaigns' ? <Campaigns campaignId={campaignId} onOpen={setCampaignId} onChanged={() => setRefreshKey(key => key + 1)} /> : showAllPosts ? <AllPostsView posts={allPosts} initialPlatform={postsViewPlatform} thumbnails={thumbnailState.items} onBack={() => setShowAllPosts(false)} /> : <>
           <div className="overview-toolbar"><div className="data-status"><span className={`status-dot ${current.errors.length ? 'warning' : ''}`} />{current.loading ? 'Loading data…' : current.errors.length ? 'Connection needs attention' : current.empty ? 'Ready for your data' : 'Connected to Data Hub'}<button className={`icon-button ${current.loading ? 'is-refreshing' : ''}`} title="Refresh data" aria-label="Refresh data" disabled={current.loading} onClick={() => setRefreshKey(key => key + 1)}><RefreshCw size={14} /></button></div></div>
           {current.errors.length > 0 && <div className="data-notice error" role="alert"><Info size={17} /><span>Some dashboard data could not be loaded ({current.errors.join(', ')}). Unavailable metrics are shown as —.</span><button onClick={() => setRefreshKey(key => key + 1)}>Retry</button></div>}
           {current.empty && <div className="data-notice"><Database size={17} /><span>No posts found for this period. Upload your platform exports or choose another date range.</span><button onClick={() => navigate('data-hub')}>Open Data Hub <ArrowUpRight size={13} /></button></div>}
@@ -507,7 +450,7 @@ export default function PerformanceDashboard({ onLogout }) {
           {page === 'platform' && <div className="platform-section-header"><div><span className="platform-heading-icon">{platform ? <PlatformIcon name={platform} size={23} /> : <BarChart3 size={23} />}</span><h2>{platform || 'All platforms'} <small>{full(model.kpis.posts)} published {isInstagramStories ? 'stories' : 'posts'}</small></h2></div></div>}
           <div className={`perf-grid ${page === 'executive' ? 'executive-grid' : ''} ${isInstagramStories ? 'story-grid' : ''}`} aria-busy={current.loading}>
             <PerformanceChart model={model} exposureLabel={exposureLabel} printing={printing} /><PerformanceBreakdowns model={model} platform={platform} />{supportsFollowers && <Followers followers={followers} loading={followerHistoryState.loading} error={followerHistoryState.error} printing={printing} />}
-            <Panel title="Top Performing Campaigns" subtitle="Campaign-level results" className="campaign-panel"><Empty icon={Target} title="See the bigger campaign picture">Campaign tags are not included in the current data source. This view is ready for campaign mapping.</Empty><div className="campaign-columns"><span>Campaign</span><span>{exposureLabel}</span><span>Engagement</span><span>ER%</span></div></Panel>
+            <TopCampaigns state={campaignState} platform={platform} exposureLabel={page === 'platform' && platform ? exposureLabel : 'Reach'} onOpen={openCampaign} onManage={() => navigate('campaigns')} />
             <Categories rows={model.categories} exposureLabel={exposureLabel} />{page === 'platform' && supportsFormats && <Formats rows={model.formats} printing={printing} />}
             <Benchmarks current={{ ...model.kpis, followers: followers.total }} previous={{ ...previousModel.kpis, followers: comparisonFollowers.total }} mode={benchmarkMode} onMode={setBenchmarkMode} hasRange={!!comparedRange} loading={previous.loading} comparisonEmpty={previous.empty} followerLoading={!!comparedRange && (followerHistoryState.loading || comparisonFollowerState.loading)} comparison={comparedRange} showFollowers={supportsFollowers} exposureLabel={exposureLabel} />
             <TopPosts posts={allPosts} onExpand={selectedPlatform => { setPostsViewPlatform(selectedPlatform); setShowAllPosts(true); }} platform={platform} thumbnails={thumbnailState.items} />
