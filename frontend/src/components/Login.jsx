@@ -39,7 +39,7 @@ export default function Login({ onLogin }) {
       <div className="login-brand">
         <img src="/cimb-logo.jpg?v=2" alt="CIMB" width="180" height="50" />
         <h1 id="login-title">Social Media Performance Dashboard</h1>
-        <p>Created By Gravitas Digital</p>
+        <p>Created by Gravitas Digital Sdn Bhd</p>
       </div>
 
       <form onSubmit={handleSubmit}>
