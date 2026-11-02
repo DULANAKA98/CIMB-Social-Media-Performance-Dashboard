@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, ExternalLink, Eye, FileText, Flag, Hash, Heart, ImagePlus, Link2, Megaphone, Pencil, Percent, Plus, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -69,12 +70,14 @@ function Modal({ title, subtitle, onClose, children, wide = false }) {
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
   }, [onClose]);
-  return <div className="perf-modal-backdrop campaign-modal-backdrop" onPointerDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+  // The page wrapper keeps a transform from its entrance animation, which would make a
+  // fixed backdrop position against the page instead of the window, so render at the app root.
+  return createPortal(<div className="perf-modal-backdrop campaign-modal-backdrop" onPointerDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className={`perf-modal campaign-modal ${wide ? 'is-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} onKeyDown={trapFocus}>
       <div className="campaign-modal-head"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button className="icon-button" aria-label="Close" onClick={onClose}><X size={18} /></button></div>
       {children}
     </div>
-  </div>;
+  </div>, document.querySelector('.performance-app') || document.body);
 }
 
 function CampaignForm({ campaign, onSaved, onCancel }) {
