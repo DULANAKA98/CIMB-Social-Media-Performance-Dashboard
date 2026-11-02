@@ -18,16 +18,30 @@ IMAGE_PREFIX = re.compile(r"^data:image/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/
 
 
 def normalize_hashtag(value: Optional[str]) -> str:
-    """'#HmmmDulu ' -> 'hmmmdulu'. Returns '' when nothing usable is left."""
-    tag = str(value or "").strip().lstrip("#").strip()
-    return tag.lower() if re.fullmatch(r"[\w]+", tag) else ""
+    """' #HmmmDulu! ' -> 'HmmmDulu!'. Special characters are kept as typed.
+
+    Returns '' when the value is empty, contains spaces or is over 100 characters.
+    """
+    tag = str(value or "").strip().lstrip("#")
+    return tag if tag and len(tag) <= 100 and not re.search(r"\s", tag) else ""
 
 
 def caption_has_hashtag(caption: Optional[str], hashtag: str) -> bool:
-    """Whole-tag, case-insensitive match: #hmmmdulu matches, #hmmmdulu2024 does not."""
+    """Case-insensitive match of '#' + the hashtag exactly as entered.
+
+    A tag ending in a letter or number must end there in the caption too:
+    #hmmmdulu matches '#HmmmDulu!' but not '#hmmmdulu2024'.
+    """
     if not hashtag or not caption:
         return False
-    return re.search(rf"#{re.escape(hashtag)}(?!\w)", caption, flags=re.IGNORECASE) is not None
+    boundary = r"(?!\w)" if re.search(r"\w$", hashtag) else ""
+    return re.search(rf"#{re.escape(hashtag)}{boundary}", caption, flags=re.IGNORECASE) is not None
+
+
+def like_pattern(hashtag: str) -> str:
+    """SQL LIKE pattern for '#<hashtag>' with %, _ and \\ escaped (use escape='\\')."""
+    escaped = hashtag.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%#{escaped}%"
 
 
 def valid_image(value: Optional[str]) -> bool:

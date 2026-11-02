@@ -558,7 +558,7 @@ def _match_campaign_hashtag(db: Session, campaign: Campaign) -> Dict[str, int]:
     """Assign unassigned posts whose caption carries the campaign hashtag."""
     if not campaign.hashtag:
         return {"matched": 0, "in_other_campaigns": 0}
-    candidates = db.query(Post).filter(Post.title.ilike(f"%#{campaign.hashtag}%")).all()
+    candidates = db.query(Post).filter(Post.title.ilike(campaign_helpers.like_pattern(campaign.hashtag), escape="\\")).all()
     matched = in_other = 0
     for post in candidates:
         if not campaign_helpers.caption_has_hashtag(post.title, campaign.hashtag):
@@ -601,7 +601,7 @@ def _clean_campaign_body(db: Session, body: CampaignBody, current: Optional[Camp
         raw = data["hashtag"] or ""
         data["hashtag"] = campaign_helpers.normalize_hashtag(raw)
         if raw.strip().lstrip("#").strip() and not data["hashtag"]:
-            raise HTTPException(status_code=400, detail="Use a single hashtag made of letters, numbers or underscores")
+            raise HTTPException(status_code=400, detail="Hashtag cannot contain spaces and must be 100 characters or fewer")
     if "image" in data:
         data["image"] = data["image"] or ""
         if not campaign_helpers.valid_image(data["image"]):

@@ -23,8 +23,15 @@ class CampaignHelperTests(unittest.TestCase):
     def test_hashtag_matches_whole_tag_only(self):
         self.assertTrue(helpers.caption_has_hashtag("Jom! #HmmmDulu.", "hmmmdulu"))
         self.assertFalse(helpers.caption_has_hashtag("#hmmmdulu2024", "hmmmdulu"))
-        self.assertEqual(helpers.normalize_hashtag(" #HmmmDulu "), "hmmmdulu")
+        self.assertEqual(helpers.normalize_hashtag(" #HmmmDulu "), "HmmmDulu")
         self.assertEqual(helpers.normalize_hashtag("two words"), "")
+
+    def test_special_characters_are_kept_and_matched_as_typed(self):
+        self.assertEqual(helpers.normalize_hashtag("#HmmmDulu!"), "HmmmDulu!")
+        self.assertTrue(helpers.caption_has_hashtag("Raya vibes #hmmmdulu! jom", "HmmmDulu!"))
+        self.assertFalse(helpers.caption_has_hashtag("Raya vibes #hmmmdulu jom", "HmmmDulu!"))
+        self.assertTrue(helpers.caption_has_hashtag("#CIMB-Raya2026 is here", "cimb-raya2026"))
+        self.assertEqual(helpers.like_pattern("50%_off\\"), "%#50\\%\\_off\\\\%")
 
     def test_link_variants_match_and_page_ids_do_not(self):
         same = [
@@ -94,6 +101,18 @@ class CampaignApiTests(unittest.TestCase):
 
         self.assertEqual(self.client.delete(f"/api/campaigns/{campaign['id']}").json()["released_posts"], 2)
         self.assertTrue(all(p["campaign"] is None for p in self.client.get("/api/posts").json()["posts"]))
+
+    def test_hashtag_with_special_characters_saves(self):
+        db = SessionLocal()
+        db.add(_post("fb2", "Facebook", "Jom balik #HmmmDulu!", "https://www.facebook.com/cimb/posts/222222"))
+        db.commit()
+        db.close()
+        created = self.client.post("/api/campaigns", json={"name": "Hmmmdulu", "hashtag": "HmmmDulu!"})
+        self.assertEqual(created.status_code, 200, created.text)
+        self.assertEqual(created.json()["campaign"]["hashtag"], "HmmmDulu!")
+        # fb2 and ig1 ("#hmmmdulu!") match; fb1 ("#HmmmDulu" without "!") does not.
+        self.assertEqual(created.json()["matched"], 2)
+        self.assertEqual(self.client.post("/api/campaigns", json={"name": "Spaces", "hashtag": "two words"}).status_code, 400)
 
     def test_existing_assignment_is_not_overwritten(self):
         first = self.client.post("/api/campaigns", json={"name": "First", "hashtag": "hmmmdulu"}).json()
