@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Plus, Trash2, Check, AlertCircle, ChevronLeft, ChevronRight, Search, ExternalLink, UploadCloud } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn'];
 const PLATFORM_UPLOADS = [

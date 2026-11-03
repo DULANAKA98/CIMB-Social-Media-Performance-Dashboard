@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { RefreshCw, Sparkles, BarChart2, Layers, TrendingUp, FileText, Download, PieChart, Target, BookOpen, Database, Users, HardDrive } from 'lucide-react';
 import DataHub from './DataHub';
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const NAV_ITEMS = [
   { id: 'executive', label: 'Executive Summary', icon: Sparkles },

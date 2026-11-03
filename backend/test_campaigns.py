@@ -6,6 +6,11 @@ from datetime import datetime
 _db_dir = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = f"sqlite:///{os.path.join(_db_dir, 'campaigns_test.db')}"
 
+import auth  # noqa: E402
+
+os.environ["SESSION_SECRET"] = "test-secret-" + "x" * 40
+os.environ["DASHBOARD_USERS"] = f"tester:{auth.hash_password('test password 123')}"
+
 from fastapi.testclient import TestClient  # noqa: E402
 
 import campaigns as helpers  # noqa: E402
@@ -69,6 +74,7 @@ class CampaignApiTests(unittest.TestCase):
         db.commit()
         db.close()
         self.client = TestClient(app)
+        self.client.post("/api/auth/login", json={"username": "tester", "password": "test password 123"})
 
     def test_create_matches_hashtag_then_adds_by_link(self):
         created = self.client.post("/api/campaigns", json={"name": "Hmmm Dulu", "hashtag": "#HmmmDulu"})

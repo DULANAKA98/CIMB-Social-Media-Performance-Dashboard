@@ -1,10 +1,17 @@
 /* eslint-disable react/prop-types */
 import { useState } from 'react';
+import axios from 'axios';
 import { Eye, EyeOff, LogIn, Lock, User } from 'lucide-react';
+import { API_URL } from './performance/usePerformanceData';
 import './Login.css';
 
-const VALID_USERNAME = 'dulanaka';
-const VALID_PASSWORD = '1234';
+// Accounts live on the server (DASHBOARD_USERS); this form only sends what was typed.
+const loginError = error => {
+  const status = error?.response?.status;
+  if (status === 401) return 'Invalid username or password.';
+  if (status === 429 || status === 503) return error.response.data?.detail || 'Sign-in is unavailable right now.';
+  return 'Could not reach the dashboard server. Please try again.';
+};
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -18,13 +25,12 @@ export default function Login({ onLogin }) {
     event.preventDefault();
     setError('');
     setLoading(true);
-
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    if (username.trim() === VALID_USERNAME && password === VALID_PASSWORD) {
-      onLogin();
-    } else {
-      setError('Invalid username or password.');
+    try {
+      const response = await axios.post(`${API_URL}/auth/login`, { username: username.trim(), password });
+      setPassword('');
+      onLogin(response.data.username);
+    } catch (err) {
+      setError(loginError(err));
       setShake(true);
       setTimeout(() => setShake(false), 500);
     }

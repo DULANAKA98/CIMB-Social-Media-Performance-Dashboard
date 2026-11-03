@@ -1,10 +1,11 @@
 from fastapi import FastAPI, Query, HTTPException, Response, Depends, File, UploadFile, Header, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from data_processor import calculate_fb_ig_engagement_rate, process_data, read_platform_file
 from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign
+import auth
 import campaigns as campaign_helpers
 import sql_agent
 from sqlalchemy.orm import Session
@@ -32,13 +33,79 @@ load_dotenv()  # Load GROQ_API_KEY and DATABASE_URL from .env
 
 app = FastAPI(title="Social Media Analytics API")
 
+# The live frontend calls /api on its own domain, so no cross-origin access is needed.
+# CORS_ORIGINS (comma-separated) is only for other trusted front ends.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=[o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Login ─────────────────────────────────────────────────────────────────────
+# Every /api route needs a signed session cookie, except signing in/out and the
+# follower refresh job, which authenticates with its own shared secret header.
+AUTH_EXEMPT_PATHS = {"/api/auth/login", "/api/auth/logout", "/api/followers/refresh"}
+login_throttle = auth.LoginThrottle()
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    path = request.url.path
+    if request.method == "OPTIONS" or not path.startswith("/api/") or path in AUTH_EXEMPT_PATHS:
+        return await call_next(request)
+    if not auth.is_configured():
+        return JSONResponse({"detail": "Login is not configured on the server"}, status_code=503)
+    username = auth.read_session(request.cookies.get(auth.COOKIE_NAME))
+    if not username:
+        return JSONResponse({"detail": "Please sign in"}, status_code=401)
+    request.state.user = username
+    return await call_next(request)
+
+
+def _secure_cookie(request: Request) -> bool:
+    return request.url.scheme == "https" or os.getenv("COOKIE_SECURE", "").lower() == "true"
+
+
+class LoginBody(BaseModel):
+    username: str = ""
+    password: str = ""
+
+
+@app.post("/api/auth/login")
+def login(body: LoginBody, request: Request, response: Response):
+    if not auth.is_configured():
+        raise HTTPException(status_code=503, detail="Login is not configured on the server")
+    username = body.username.strip()[:64]
+    wait = login_throttle.retry_after(username)
+    if wait:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed attempts. Try again in {max(1, round(wait / 60))} minute(s).",
+            headers={"Retry-After": str(wait)},
+        )
+    user = auth.authenticate(username, body.password)
+    if not user:
+        login_throttle.failed(username)
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    login_throttle.succeeded(user)
+    response.set_cookie(
+        auth.COOKIE_NAME, auth.create_session(user), max_age=auth.SESSION_SECONDS,
+        httponly=True, secure=_secure_cookie(request), samesite="strict", path="/api",
+    )
+    return {"username": user}
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request, response: Response):
+    response.delete_cookie(auth.COOKIE_NAME, path="/api", httponly=True, secure=_secure_cookie(request), samesite="strict")
+    return {"message": "Signed out"}
+
+
+@app.get("/api/auth/me")
+def current_user(request: Request):
+    return {"username": request.state.user}
 
 # ── Initialize database tables on startup ─────────────────────────────────────
 @app.on_event("startup")

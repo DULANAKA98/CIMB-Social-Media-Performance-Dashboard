@@ -106,6 +106,33 @@ On the server, `crontab -e`, add (01:00 UTC = 09:00 Malaysia time):
 0 1 * * * curl -fsS -X POST http://127.0.0.1:8000/api/followers/refresh -H "X-Follower-Refresh-Secret: <FOLLOWER_REFRESH_SECRET>" >> /home/ubuntu/follower-refresh.log 2>&1
 ```
 
+### 9b. Dashboard sign-in accounts
+Every `/api` request (except the follower refresh above) needs a signed-in session, so the
+backend refuses requests with `503` until these two settings are in `deploy/.env`:
+
+1. On your laptop, in the project folder, create one entry per person (password at least 12
+   characters, typed without being shown):
+   ```bash
+   python backend/hash_password.py
+   ```
+   It prints `username:pbkdf2_sha256....`. Only this salted hash is stored, never the password.
+2. Create the session-signing secret:
+   ```bash
+   python backend/hash_password.py --secret
+   ```
+3. On the server, add both to `deploy/.env` (several users are joined with commas), then restart:
+   ```
+   DASHBOARD_USERS=alice:pbkdf2_sha256...,bob:pbkdf2_sha256...
+   SESSION_SECRET=...
+   ```
+   ```bash
+   cd /opt/cimb/deploy && docker compose up -d backend
+   ```
+
+Sessions last 12 hours. To remove someone, delete their entry; to reset a password, replace
+their entry (their open sessions end at once). Changing `SESSION_SECRET` signs everyone out.
+Ten wrong passwords for one username within 15 minutes lock that username for 15 minutes.
+
 ---
 
 ## Part 2: Frontend (S3 + CloudFront)
