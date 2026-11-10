@@ -194,10 +194,14 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             organic_paid_val = str(row.get('Organic/Paid', '')).strip().lower()
             if organic_paid_val:
                 is_organic = (organic_paid_val == 'organic')
-            else:
+            elif 'Reach from Organic posts' in row.index or 'Lifetime Post Paid Reach' in row.index:
                 organic_reach = get_val(row, 'Reach from Organic posts')
                 paid_reach = get_val(row, 'Lifetime Post Paid Reach')
                 is_organic = (organic_reach > 0 and paid_reach == 0)
+            else:
+                # Newer Meta exports drop the reach split; a boosted post has views from boosted posts.
+                funded = str(row.get('Funded content status', '') or '').strip().lower()
+                is_organic = get_val(row, 'Views from Boosted posts') <= 0 and funded in ('', 'nan')
             
             title = str(row.get('Description', row.get('Post message', '')))
             if not title or title.strip() == 'nan':
