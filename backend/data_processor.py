@@ -181,7 +181,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
         fb_dates = parse_platform_dates(fb.get('Publish time'), "facebook")
         for idx, row in fb.iterrows():
             if pd.isna(row.get('Publish time')): continue
-            reach = get_val(row, 'Reach', get_val(row, 'Lifetime Post Total Reach'))
+            reach = get_val(row, 'Reach', get_val(row, 'Viewers', get_val(row, 'Lifetime Post Total Reach')))  # newer Meta exports call reach 'Viewers'
             views = get_val(row, 'Views')
             
             reactions_etc = get_val(row, 'Reactions, comments and shares')
@@ -234,7 +234,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
         ig_dates = parse_platform_dates(ig.get('Publish time'), "instagram")
         for idx, row in ig.iterrows():
             if pd.isna(row.get('Publish time')): continue
-            reach = get_val(row, 'Reach')
+            reach = get_val(row, 'Reach', get_val(row, 'Viewers'))  # newer Meta exports call reach 'Viewers'
             views = get_val(row, 'Views')
             likes = get_val(row, 'Likes')
             shares = get_val(row, 'Shares')
@@ -278,7 +278,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
         )
         for idx, row in ig_story.iterrows():
             if pd.isna(row.get('Publish time')): continue
-            reach = get_val(row, 'Reach')
+            reach = get_val(row, 'Reach', get_val(row, 'Viewers'))  # newer Meta exports call reach 'Viewers'
             views = get_val(row, 'Views')
             likes = get_val(row, 'Likes')
             shares = get_val(row, 'Shares')
