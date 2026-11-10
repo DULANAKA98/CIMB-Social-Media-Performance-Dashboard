@@ -2426,31 +2426,20 @@ def _cimb_insight_snapshot(df: pd.DataFrame, start_date: Optional[str], end_date
     }
 
 
-@app.get("/api/executive-summary")
-def get_executive_summary(
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    platform: Optional[str] = Query(None),
-):
-    """Generate date- and platform-scoped Key Insights through the CIMB AI Worker."""
+def _cimb_insights_config():
     insights_url = os.getenv("CIMB_INSIGHTS_URL", "").strip()
     insights_key = os.getenv("CIMB_INSIGHTS_KEY", "").strip()
     if not insights_url or not insights_key:
         raise HTTPException(status_code=503, detail="The CIMB insights service is not configured.")
-
     parsed_url = urlparse(insights_url)
     if parsed_url.scheme != "https" or not parsed_url.netloc:
         raise HTTPException(status_code=503, detail="The CIMB insights service URL is invalid.")
+    return insights_url, insights_key
 
-    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
-    if platform:
-        if platform not in PERFORMANCE_PLATFORMS:
-            raise HTTPException(status_code=400, detail="Unsupported performance platform.")
-        df = df[df['platform'] == platform].copy()
-        if df.empty:
-            raise HTTPException(status_code=400, detail=f"No {platform} data is available for the selected period.")
-    snapshot = _cimb_insight_snapshot(df, start_date, end_date)
-    snapshot["platform_scope"] = platform or "All platforms"
+
+def _request_cimb_insights(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Send an aggregate-only snapshot to the CIMB AI Worker and return its insights."""
+    insights_url, insights_key = _cimb_insights_config()
     try:
         response = http_requests.post(
             insights_url,
@@ -2472,6 +2461,76 @@ def get_executive_summary(
     if not isinstance(result.get("key_highlights"), list):
         raise HTTPException(status_code=502, detail="The CIMB insights response is incomplete.")
     return result
+
+
+@app.get("/api/executive-summary")
+def get_executive_summary(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    platform: Optional[str] = Query(None),
+):
+    """Generate date- and platform-scoped Key Insights through the CIMB AI Worker."""
+    _cimb_insights_config()
+    df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
+    if platform:
+        if platform not in PERFORMANCE_PLATFORMS:
+            raise HTTPException(status_code=400, detail="Unsupported performance platform.")
+        df = df[df['platform'] == platform].copy()
+        if df.empty:
+            raise HTTPException(status_code=400, detail=f"No {platform} data is available for the selected period.")
+    snapshot = _cimb_insight_snapshot(df, start_date, end_date)
+    snapshot["platform_scope"] = platform or "All platforms"
+    return _request_cimb_insights(snapshot)
+
+
+CAMPAIGN_INSIGHT_COUNT = 5
+
+
+def _campaign_insight_snapshot(campaign: Campaign, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Aggregate-only campaign snapshot in the shape the CIMB AI Worker validates, plus campaign context."""
+    df = pd.DataFrame(records)
+    df["date"] = pd.to_datetime(df["date"])
+    for column in ("reach", "engagement", "engagement_rate"):
+        df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0)
+    snapshot = _cimb_insight_snapshot(df, None, None)
+    summary = campaign_helpers.summarize(records)
+    snapshot["platform_scope"] = f"Campaign: {campaign.name}"
+    snapshot["campaign"] = {
+        "name": campaign.name,
+        "hashtag": f"#{campaign.hashtag}" if campaign.hashtag else "",
+        **{key: (round(value, 2) if isinstance(value, float) else value) for key, value in summary.items() if value is not None},
+    }
+    top = sorted(records, key=lambda r: float(r.get("engagement") or 0), reverse=True)[:5]
+    snapshot["top_posts_by_engagement"] = [{
+        "platform": r["platform"], "format": r.get("format") or "",
+        "title": " ".join(str(r.get("title") or "").split())[:80],
+        "date": (r.get("date") or "")[:10],
+        "reach": int(campaign_helpers.exposure(r)), "engagement": int(float(r.get("engagement") or 0)),
+        "engagement_rate": round(float(r.get("engagement_rate") or 0), 2),
+        "paid": r.get("is_organic") is False,
+    } for r in top]
+    snapshot["measurement_notes"] = snapshot["measurement_notes"] + [
+        "Campaign reach counts views for TikTok and YouTube and impressions for LinkedIn.",
+        "Organic and paid figures split the same campaign posts by their organic/paid label.",
+    ]
+    return snapshot
+
+
+@app.get("/api/campaigns/{campaign_id}/insights")
+def get_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
+    """Up to five AI insights for one campaign, from the same CIMB AI Worker as Key Insights."""
+    _cimb_insights_config()
+    campaign = _get_campaign(db, campaign_id)
+    records = [_campaign_post_record(p) for p in db.query(Post).filter(Post.campaign == campaign.name).all()]
+    if not records:
+        raise HTTPException(status_code=400, detail="This campaign has no posts yet.")
+    result = _request_cimb_insights(_campaign_insight_snapshot(campaign, records))
+    # The worker returns up to four highlights; top up to five with its observations and recommendations.
+    insights = [{"kind": "highlight", "text": t} for t in result.get("key_highlights") or []]
+    for kind, key in (("observation", "audience_behaviour"), ("recommendation", "recommendations")):
+        for text in result.get(key) or []:
+            insights.append({"kind": kind, "text": text})
+    return {"insights": insights[:CAMPAIGN_INSIGHT_COUNT], "_meta": result.get("_meta", {})}
 
 
 @app.get("/api/executive-summary/groq-legacy", include_in_schema=False)

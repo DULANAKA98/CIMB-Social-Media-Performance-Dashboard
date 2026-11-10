@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, ExternalLink, Eye, FileText, Flag, Hash, Heart, ImagePlus, Info, Link2, Megaphone, Pencil, Percent, Plus, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Check, ChevronLeft, ChevronRight, ExternalLink, Eye, FileText, Flag, Hash, Heart, ImagePlus, Info, Lightbulb, Link2, Megaphone, Pencil, Percent, Plus, RefreshCw, Search, Sparkles, Trash2, Trophy, Users, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { API_URL, queryFor } from './usePerformanceData';
 import { PLATFORMS, compact, dateLabel, full, percent, safeLink } from './model';
@@ -219,6 +219,39 @@ const DETAIL_METRICS = [
 ];
 const SPLIT_LABELS = ['Total', 'Organic', 'Paid'];
 
+const INSIGHT_KINDS = {
+  highlight: { label: 'Highlight', icon: Sparkles },
+  observation: { label: 'Audience', icon: Users },
+  recommendation: { label: 'Recommendation', icon: ArrowUpRight },
+};
+
+// Five AI insights for one campaign, generated on request by the same CIMB Insights service as Key Insights.
+function CampaignInsights({ campaignId }) {
+  const [state, setState] = useState({ loading: false, items: [], error: '', fallback: false });
+  const generate = async () => {
+    setState(prev => ({ ...prev, loading: true, error: '' }));
+    try {
+      const { data } = await axios.get(`${API_URL}/campaigns/${campaignId}/insights`, { timeout: 60000 });
+      setState({ loading: false, items: data.insights || [], error: '', fallback: !!data._meta?.fallback });
+    } catch (error) {
+      setState(prev => ({ ...prev, loading: false, error: errorText(error, 'AI insights are unavailable right now. Try again shortly.') }));
+    }
+  };
+  return <aside className="campaign-insights" aria-label="AI insights">
+    <div className="campaign-insights-head"><span><Lightbulb size={16} />AI insights</span>
+      {state.items.length > 0 && <button className="text-button" disabled={state.loading} onClick={generate}>{state.loading ? 'Generating…' : 'Regenerate'} <RefreshCw size={12} /></button>}</div>
+    {state.loading && !state.items.length ? <div className="campaign-insights-loading">{[0, 1, 2, 3, 4].map(i => <i key={i} />)}</div>
+      : state.items.length ? <ol className="campaign-insights-list">{state.items.map((item, index) => {
+        const kind = INSIGHT_KINDS[item.kind] || INSIGHT_KINDS.highlight;
+        const Icon = kind.icon;
+        return <li key={index} className={`is-${item.kind}`} style={{ '--item-delay': `${index * 60}ms` }}><span className="insight-icon"><Icon size={13} /></span><div><small>{kind.label}</small><p>{item.text.replace(/\*\*/g, '')}</p></div></li>;
+      })}</ol>
+        : <div className="campaign-insights-empty"><Sparkles size={22} /><strong>Get 5 insights on this campaign</strong><p>Highlights, audience patterns and next steps from the campaign's numbers.</p><button className="perf-button primary" onClick={generate}>Generate AI insights</button></div>}
+    {state.error && <p className="form-error" role="alert">{state.error}</p>}
+    <p className="panel-footnote">{state.items.length ? (state.fallback ? 'Calculated highlights · AI was unavailable' : 'AI-generated with CIMB Insights · review before sharing') : "Uses only this campaign's aggregate numbers."}</p>
+  </aside>;
+}
+
 // One campaign's totals split into organic and paid: a chart for the chosen metric and a table of all of them.
 function CampaignBreakdown({ campaign }) {
   const [metricKey, setMetricKey] = useState('reach');
@@ -261,6 +294,7 @@ function CampaignBreakdown({ campaign }) {
         </table>
         <p className="panel-footnote">Bar under each metric: organic share of the total. Click a row to chart it.</p>
       </div>
+      <CampaignInsights key={campaign.id} campaignId={campaign.id} />
     </div>
   </section>;
 }

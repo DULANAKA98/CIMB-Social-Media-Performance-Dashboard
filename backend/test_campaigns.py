@@ -119,6 +119,35 @@ class CampaignApiTests(unittest.TestCase):
         self.assertEqual(created.json()["matched"], 2)
         self.assertEqual(self.client.post("/api/campaigns", json={"name": "Spaces", "hashtag": "two words"}).status_code, 400)
 
+    def test_campaign_insights_use_the_worker_and_return_five(self):
+        from unittest import mock
+        campaign = self.client.post("/api/campaigns", json={"name": "Hmmm Dulu", "hashtag": "hmmmdulu"}).json()["campaign"]
+        sent = {}
+
+        class Reply:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"key_highlights": ["Facebook reached 1000 people in this campaign.", "Instagram drew 40 engagements overall.",
+                                           "Paid posts were 1 of 2 campaign posts."],
+                        "audience_behaviour": ["Engagement suggests interest was steady across the 2 posts."],
+                        "recommendations": ["Repeat the stronger Facebook format in the next wave.", "Test another paid post."]}
+
+        def fake_post(url, headers, json, timeout):
+            sent.update(json)
+            return Reply()
+
+        with mock.patch.dict(os.environ, {"CIMB_INSIGHTS_URL": "https://worker.example/insights", "CIMB_INSIGHTS_KEY": "k"}), \
+                mock.patch("main.http_requests.post", side_effect=fake_post):
+            result = self.client.get(f"/api/campaigns/{campaign['id']}/insights").json()
+        self.assertEqual(len(result["insights"]), 5)
+        self.assertEqual([i["kind"] for i in result["insights"]], ["highlight"] * 3 + ["observation", "recommendation"])
+        self.assertEqual(sent["platform_scope"], "Campaign: Hmmm Dulu")
+        self.assertEqual(sent["campaign"]["posts"], 2)
+        self.assertTrue(all({"name", "posts", "reach", "engagement", "engagement_rate"} <= set(p) for p in sent["platforms"]))
+        self.assertEqual(len(sent["top_posts_by_engagement"]), 2)
+
     def test_existing_assignment_is_not_overwritten(self):
         first = self.client.post("/api/campaigns", json={"name": "First", "hashtag": "hmmmdulu"}).json()
         second = self.client.post("/api/campaigns", json={"name": "Second", "hashtag": "hmmmdulu"}).json()
