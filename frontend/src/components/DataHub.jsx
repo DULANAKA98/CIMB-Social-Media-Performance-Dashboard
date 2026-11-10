@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Plus, Trash2, Check, AlertCircle, ChevronLeft, ChevronRight, Search, ExternalLink, UploadCloud } from 'lucide-react';
+import { Plus, Trash2, Check, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, ExternalLink, UploadCloud } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -516,9 +516,19 @@ const DataHub = ({ startDate, endDate }) => {
             gap: '0.75rem', padding: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.06)',
           }}>
             <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              style={styles.pageBtn}
+              aria-label="First page"
+              title="First page"
+            >
+              <ChevronsLeft size={15} />
+            </button>
+            <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
               style={styles.pageBtn}
+              aria-label="Previous page"
             >
               <ChevronLeft size={15} />
             </button>
@@ -529,8 +539,18 @@ const DataHub = ({ startDate, endDate }) => {
               onClick={() => setPage(p => Math.min(pages, p + 1))}
               disabled={page === pages}
               style={styles.pageBtn}
+              aria-label="Next page"
             >
               <ChevronRight size={15} />
+            </button>
+            <button
+              onClick={() => setPage(pages)}
+              disabled={page === pages}
+              style={styles.pageBtn}
+              aria-label="Last page"
+              title="Last page"
+            >
+              <ChevronsRight size={15} />
             </button>
           </div>
         )}
