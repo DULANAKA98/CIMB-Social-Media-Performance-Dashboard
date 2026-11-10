@@ -308,6 +308,20 @@ PLATFORM_UPLOADS = {
 }
 
 
+def post_upsert(values: Dict[str, Any], rec: Dict[str, Any]):
+    """PostgreSQL insert-or-update for one uploaded post (works with connection poolers)."""
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    stmt = pg_insert(Post).values(**values)
+    updates = {k: v for k, v in values.items() if k not in ("id", "external_id")}
+    # Files without a Collab or Organic/Paid column keep what is already set on the dashboard.
+    for field in ("collab", "is_organic"):
+        if rec.get(field) is None:
+            updates.pop(field)
+    # A file without a Post ID column must not erase a stored one.
+    updates["external_id"] = func.coalesce(stmt.excluded.external_id, Post.external_id)
+    return stmt.on_conflict_do_update(index_elements=["id"], set_=updates)
+
+
 @app.post("/api/upload-platform-files")
 async def upload_platform_files(
     fb_file: Optional[UploadFile] = File(None),
@@ -393,7 +407,7 @@ async def upload_platform_files(
                 "id":              str(rec['id']),
                 "platform":        rec.get('platform', ''),
                 "format":          rec.get('format', ''),
-                "collab":          rec.get('collab', ''),
+                "collab":          rec.get('collab') or '',
                 "date":            date_val,
                 "title":           rec.get('title', ''),
                 "link":            rec.get('link', ''),
@@ -408,17 +422,11 @@ async def upload_platform_files(
                 "impressions":     float(rec.get('impressions') or 0),
                 "watch_time_hours": float(rec.get('watch_time_hours') or 0),
                 "engagement_rate": float(rec.get('engagement_rate') or 0),
-                "is_organic":      bool(rec.get('is_organic', True)),
+                "is_organic":      True if rec.get('is_organic') is None else bool(rec['is_organic']),
                 "external_id":     rec.get('external_id') or None,
             }
 
-            # Native PostgreSQL UPSERT — works with connection poolers, never throws duplicate errors
-            stmt = pg_insert(Post).values(**values)
-            updates = {k: v for k, v in values.items() if k not in ("id", "external_id")}
-            # A file without a Post ID column must not erase a stored one.
-            updates["external_id"] = func.coalesce(stmt.excluded.external_id, Post.external_id)
-            stmt = stmt.on_conflict_do_update(index_elements=["id"], set_=updates)
-            db.execute(stmt)
+            db.execute(post_upsert(values, rec))
             synced += 1
 
         db.commit()

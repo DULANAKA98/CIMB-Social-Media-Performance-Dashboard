@@ -73,6 +73,15 @@ def generate_id(platform_prefix, row, link, title, date, idx):
     hash_val = hashlib.md5(str(unique_str).encode('utf-8')).hexdigest()[:16]
     return f"{platform_prefix}_{hash_val}"
 
+# Collab and organic/paid are usually added by hand; a file without these columns must not
+# overwrite what is already on the dashboard, so the record carries None ('not provided').
+COLLAB_COLUMNS = ('Collab', 'Collaboration', 'Collab Name')
+
+
+def _has_column(frame, *names):
+    return any(name in frame.columns for name in names)
+
+
 def get_val(row, col, default=0):
     val = row.get(col)
     if pd.isna(val): return default
@@ -179,6 +188,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
     # Facebook
     if not fb.empty:
         fb_dates = parse_platform_dates(fb.get('Publish time'), "facebook")
+        has_collab = _has_column(fb, *COLLAB_COLUMNS)
         for idx, row in fb.iterrows():
             if pd.isna(row.get('Publish time')): continue
             reach = get_val(row, 'Reach', get_val(row, 'Viewers', get_val(row, 'Lifetime Post Total Reach')))  # newer Meta exports call reach 'Viewers'
@@ -218,7 +228,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'external_id': get_text(row, 'Post ID').removesuffix('.0') or None,  # stable across exports, unlike the link
                 'platform': 'Facebook',
                 'format': format_val,
-                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
+                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
                 'date': date_str,
                 'title': title,
                 'link': link,
@@ -237,6 +247,8 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
     # Instagram
     if not ig.empty:
         ig_dates = parse_platform_dates(ig.get('Publish time'), "instagram")
+        has_collab = _has_column(ig, *COLLAB_COLUMNS)
+        has_organic_paid = _has_column(ig, 'Organic/Paid')
         for idx, row in ig.iterrows():
             if pd.isna(row.get('Publish time')): continue
             reach = get_val(row, 'Reach', get_val(row, 'Viewers'))  # newer Meta exports call reach 'Viewers'
@@ -260,7 +272,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('ig', row, link, str(row.get('Description', '')), date_str, idx),
                 'platform': 'Instagram',
                 'format': format_val,
-                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
+                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
                 'date': date_str,
                 'title': str(row.get('Description', '')),
                 'link': link,
@@ -273,7 +285,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'favorites': saves,
                 'reposts': 0,
                 'engagement_rate': calculate_fb_ig_engagement_rate(total_eng, reach, views),
-                'is_organic': is_organic
+                'is_organic': is_organic if has_organic_paid else None
             })
 
     # Instagram Stories (uploaded separately from Instagram posts)
@@ -281,6 +293,8 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
         ig_story_dates = parse_platform_dates(
             ig_story.get('Publish time'), "instagram_story"
         )
+        has_collab = _has_column(ig_story, *COLLAB_COLUMNS)
+        has_organic_paid = _has_column(ig_story, 'Organic/Paid')
         for idx, row in ig_story.iterrows():
             if pd.isna(row.get('Publish time')): continue
             reach = get_val(row, 'Reach', get_val(row, 'Viewers'))  # newer Meta exports call reach 'Viewers'
@@ -304,7 +318,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('ig_story', row, link, title, date_str, idx),
                 'platform': 'Instagram',
                 'format': format_val,
-                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
+                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
                 'date': date_str,
                 'title': title,
                 'link': link,
@@ -317,12 +331,14 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'favorites': 0,
                 'reposts': 0,
                 'engagement_rate': (total_eng / reach * 100) if reach > 0 else 0,
-                'is_organic': is_organic
+                'is_organic': is_organic if has_organic_paid else None
             })
             
     # YouTube
     if not yt.empty:
         yt_dates = parse_platform_dates(yt.get('Video publish time'), "youtube")
+        has_collab = _has_column(yt, *COLLAB_COLUMNS)
+        has_organic_paid = _has_column(yt, 'Organic/ Paid', 'Organic/Paid')
         for idx, row in yt.iterrows():
             if pd.isna(row.get('Video publish time')): continue
             views = get_val(row, 'Views')
@@ -344,7 +360,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('yt', row, link, str(row.get('Video title', '')), date_str, idx),
                 'platform': 'YouTube',
                 'format': 'Video',  # Shorts are identified after upload (youtube_formats.py)
-                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
+                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
                 'date': date_str,
                 'title': str(row.get('Video title', '')),
                 'link': link,
@@ -359,12 +375,14 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'impressions': impressions,
                 'watch_time_hours': watch_time,
                 'engagement_rate': (total_eng / views * 100) if views > 0 else 0,
-                'is_organic': is_organic
+                'is_organic': is_organic if has_organic_paid else None
             })
             
     # TikTok
     if not tt.empty:
         tt_dates = parse_platform_dates(tt.get('Post time'), "tiktok")
+        has_collab = _has_column(tt, *COLLAB_COLUMNS)
+        has_organic_paid = _has_column(tt, 'Organic/Paid')
         for idx, row in tt.iterrows():
             if pd.isna(row.get('Post time')): continue
             views = get_val(row, 'Video views')
@@ -386,7 +404,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('tt', row, link, str(row.get('Video title', '')), date_str, idx),
                 'platform': 'TikTok',
                 'format': 'Video',
-                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
+                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
                 'date': date_str,
                 'title': str(row.get('Video title', '')),
                 'link': link,
@@ -399,12 +417,14 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'favorites': favorites,
                 'reposts': 0,
                 'engagement_rate': (total_eng / views * 100) if views > 0 else 0,
-                'is_organic': is_organic
+                'is_organic': is_organic if has_organic_paid else None
             })
             
     # LinkedIn
     if li is not None and not li.empty:
         li_dates = parse_platform_dates(li.get('Created date'), "linkedin")
+        has_collab = _has_column(li, *COLLAB_COLUMNS)
+        has_organic_paid = _has_column(li, 'Organic/Paid', 'Post type')
         for idx, row in li.iterrows():
             if pd.isna(row.get('Created date')): continue
             impressions = get_val(row, 'Impressions')
@@ -427,7 +447,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('li', row, link, title, date_str, idx),
                 'platform': 'LinkedIn',
                 'format': format_val,
-                'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
+                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
                 'date': date_str,
                 'title': title,
                 'link': link,
@@ -441,7 +461,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'reposts': reposts,
                 'impressions': impressions,
                 'engagement_rate': (total_eng / impressions * 100) if impressions > 0 else 0,
-                'is_organic': is_organic
+                'is_organic': is_organic if has_organic_paid else None
             })
 
     df = pd.DataFrame(unified_data)
