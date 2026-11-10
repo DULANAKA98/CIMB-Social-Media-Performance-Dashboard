@@ -13,7 +13,34 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Dict, List
 
+from campaigns import post_link_keys
 from database import Post
+
+
+def resolve_by_link(db, records: List[Dict]) -> int:
+    """Point records at an existing post with the same link but a different id.
+
+    Rows added by hand in Data Hub get a random id, while uploads derive ids from
+    the link; without this, uploading that post later would add a second row.
+    """
+    platforms = {r.get("platform") for r in records if r.get("link")}
+    if not platforms:
+        return 0
+    existing = db.query(Post.id, Post.platform, Post.link).filter(Post.platform.in_(platforms), Post.link.isnot(None)).all()
+    known_ids = {row.id for row in existing}
+    by_key = defaultdict(set)
+    for row in existing:
+        for key in post_link_keys(row.link):
+            by_key[(row.platform, key)].add(row.id)
+    redirected = 0
+    for record in records:
+        if record["id"] in known_ids:
+            continue
+        matches = set().union(*[by_key.get((record.get("platform"), k), set()) for k in post_link_keys(record.get("link"))] or [set()])
+        if len(matches) == 1:
+            record["id"] = matches.pop()
+            redirected += 1
+    return redirected
 
 
 def _caption_key(title) -> str:

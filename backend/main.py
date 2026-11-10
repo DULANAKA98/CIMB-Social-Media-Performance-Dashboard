@@ -391,6 +391,8 @@ async def upload_platform_files(
         youtube_formats.apply_known_formats(db, records)
         # Facebook can change a post's link between exports; keep it on its existing row.
         post_matching.resolve_facebook_ids(db, records)
+        # A post added by hand in Data Hub (random id) is updated, not duplicated, once its link is uploaded.
+        post_matching.resolve_by_link(db, records)
         if not records:
             return {"error": "No valid content records were found in the uploaded files."}
 

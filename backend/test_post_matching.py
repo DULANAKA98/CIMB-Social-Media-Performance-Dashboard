@@ -10,7 +10,7 @@ import pandas as pd  # noqa: E402
 
 from data_processor import process_data  # noqa: E402
 from database import Base, Post, SessionLocal, engine  # noqa: E402
-from post_matching import resolve_facebook_ids  # noqa: E402
+from post_matching import resolve_by_link, resolve_facebook_ids  # noqa: E402
 
 CAPTION = "Consider this your mission briefing. 🫡 🎁\nHere’s how you can join Mission Happiness"
 
@@ -59,6 +59,16 @@ class FacebookMatchingTests(unittest.TestCase):
         records = [record("fb_new_link", "https://www.facebook.com/p/pfbidNEW")]
         self.assertEqual(resolve_facebook_ids(self.db, records), 0)
         self.assertEqual(records[0]["id"], "fb_new_link")
+
+    def test_hand_added_post_is_updated_by_a_later_upload(self):
+        self.db.add(Post(id="2d984b69-manual", platform="TikTok", link="https://www.tiktok.com/@cimbmalaysia/video/7704532093979626759",
+                         title="Typed in Data Hub", date=datetime(2026, 11, 5)))
+        self.db.commit()
+        records = [{"id": "tt_hash_of_link", "platform": "TikTok", "title": "From export",
+                    "link": "https://www.tiktok.com/@cimbmalaysia/video/7704532093979626759?is_from_webapp=1"},
+                   {"id": "tt_brand_new", "platform": "TikTok", "link": "https://www.tiktok.com/@cimbmalaysia/video/7700000000000000009"}]
+        self.assertEqual(resolve_by_link(self.db, records), 1)
+        self.assertEqual([r["id"] for r in records], ["2d984b69-manual", "tt_brand_new"])
 
     def test_facebook_upload_reads_post_id(self):
         empty = pd.DataFrame()

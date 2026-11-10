@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Plus, Trash2, Check, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, ExternalLink, UploadCloud } from 'lucide-react';
 
@@ -14,8 +14,8 @@ const PLATFORM_UPLOADS = [
   { field: 'li_file', label: 'LinkedIn' },
 ];
 const FORMATS = ['Video', 'Shorts', 'Static', 'Carousel', 'Reel', 'IG Story', 'Story', 'Article', 'Unknown'];
-// Campaign membership is managed on the Campaigns page, so these cells are read-only here.
-const READ_ONLY_COLS = ['link', 'campaign'];
+// Campaign membership is managed on the Campaigns page, so it is read-only here.
+const READ_ONLY_COLS = ['campaign'];
 const NUMERIC_COLS = ['reach', 'views', 'engagement', 'likes', 'comments', 'shares', 'favorites', 'reposts', 'engagement_rate'];
 
 const COLUMNS = [
@@ -34,7 +34,7 @@ const COLUMNS = [
   { key: 'comments', label: 'Comments', width: '95px' },
   { key: 'shares', label: 'Shares', width: '80px' },
   { key: 'favorites', label: 'Saves', width: '80px' },
-  { key: 'link', label: 'Link', width: '70px' },
+  { key: 'link', label: 'Link', width: '110px' },
 ];
 
 const DataHub = ({ startDate, endDate }) => {
@@ -65,8 +65,13 @@ const DataHub = ({ startDate, endDate }) => {
 
   // Adding a new row
   const [addingRow, setAddingRow] = useState(false);
+  const [newRowId, setNewRowId] = useState(null);   // highlighted, and its caption opened for typing
+  const [addNotice, setAddNotice] = useState('');
 
+  // Only the latest request may update the table; an older, slower response must not overwrite it.
+  const latestRequest = useRef(0);
   const fetchPosts = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     setLoading(true);
     try {
       const params = { page, limit: 50 };
@@ -76,13 +81,14 @@ const DataHub = ({ startDate, endDate }) => {
       if (endDate) params.end_date = endDate;
       params.sort_order = dateSort;
       const res = await axios.get(`${API_URL}/posts`, { params });
+      if (requestId !== latestRequest.current) return;
       setPosts(res.data.posts || []);
       setTotal(res.data.total || 0);
       setPages(res.data.pages || 1);
     } catch (e) {
-      setPosts([]);
+      if (requestId === latestRequest.current) setPosts([]);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
   }, [page, filterPlatform, search, startDate, endDate, dateSort]);
 
@@ -167,15 +173,32 @@ const DataHub = ({ startDate, endDate }) => {
 
   const handleAddRow = async () => {
     setAddingRow(true);
+    setAddNotice('');
     try {
+      const today = new Date().toISOString().split('T')[0];
       const res = await axios.post(`${API_URL}/posts`, {
-        platform: 'Facebook', format: 'Video', title: 'New Post',
-        date: new Date().toISOString().split('T')[0],
+        platform: 'Facebook', format: 'Video', title: 'New Post', date: today,
       });
+      // Show the new row: it is dated today, so it sits first when sorted newest first.
+      setSearch('');
+      setFilterPlatform('');
+      setDateSort('desc');
+      setPage(1);
+      setNewRowId(res.data.id);
+      if ((endDate && today > endDate) || (startDate && today < startDate)) {
+        setAddNotice("New row added with today's date, which is outside the selected date range. Clear the date filter to see it, or change its date.");
+      }
       fetchPosts();
-    } catch {}
+    } catch {
+      setAddNotice('The new row could not be added. Try again.');
+    }
     setAddingRow(false);
   };
+
+  // Once the new row is on screen, open its caption so the details can be typed straight away.
+  useEffect(() => {
+    if (newRowId && posts.some(p => p.id === newRowId) && !editingCell) startEdit(newRowId, 'title', 'New Post');
+  }, [newRowId, posts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderCell = (post, col) => {
     const isEditing = editingCell?.postId === post.id && editingCell?.col === col;
@@ -240,10 +263,14 @@ const DataHub = ({ startDate, endDate }) => {
 
     if (col === 'link') {
       return val ? (
-        <a href={val} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', display: 'flex', justifyContent: 'center' }}>
-          <ExternalLink size={14} />
-        </a>
-      ) : <span style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>;
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title={`${val}
+Double-click to change`}>
+          <a href={val} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', display: 'flex' }}>
+            <ExternalLink size={14} />
+          </a>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'calc(0.72rem + 2px)', color: '#a08fa6' }}>{val.replace(/^https?:\/\/(www\.)?/, '')}</span>
+        </span>
+      ) : <span style={{ color: '#c3b8c6' }} title="Double-click to add the post link">Add link</span>;
     }
 
     if (col === 'campaign') {
@@ -423,6 +450,12 @@ const DataHub = ({ startDate, endDate }) => {
         </button>
       </div>
 
+      {addNotice && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: '#a35d06', fontSize: 'calc(0.82rem + 2px)' }}>
+          <AlertCircle size={14} /> {addNotice}
+        </div>
+      )}
+
       {/* Data Grid */}
       <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
@@ -459,11 +492,11 @@ const DataHub = ({ startDate, endDate }) => {
                 <tr
                   key={post.id}
                   style={{
-                    background: idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent',
+                    background: post.id === newRowId ? '#fff4d6' : idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent',
                     transition: 'background 0.15s',
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.06)'}
-                  onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent'}
+                  onMouseLeave={e => e.currentTarget.style.background = post.id === newRowId ? '#fff4d6' : idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent'}
                 >
                   {COLUMNS.map(col => (
                     <td
