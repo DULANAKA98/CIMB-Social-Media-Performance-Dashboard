@@ -204,23 +204,27 @@
 
 /* AI insights card next to the campaign table */
 .campaign-breakdown-body { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr) minmax(0, 0.9fr); }
-.campaign-insights { display: flex; flex-direction: column; min-width: 0; background: linear-gradient(160deg, #fff8fa 0%, #fff 60%); border: 1px solid #f6dde5; border-radius: 8px; padding: 14px 14px 10px; }
-.campaign-insights-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.campaign-insights { display: flex; flex-direction: column; min-width: 0; background: linear-gradient(160deg, #fff8fa 0%, #fff 60%); border: 1px solid #f6dde5; border-radius: 8px; padding: 11px 12px 8px; }
+.campaign-insights-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .campaign-insights-head > span { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; color: #90314f; }
 .campaign-insights-head svg { color: #e64e72; }
-.campaign-insights-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; flex: 1; }
-.campaign-insights-list li { display: flex; gap: 9px; align-items: flex-start; background: #fff; border: 1px solid #f3e6eb; border-radius: 7px; padding: 9px 10px; animation: campaign-card-in .4s cubic-bezier(.22, 1, .36, 1) both; animation-delay: var(--item-delay, 0ms); }
-.insight-icon { width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #fdebf0; color: #d81e49; }
+.campaign-insights-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.campaign-insights-list li { display: flex; gap: 8px; align-items: flex-start; background: #fff; border: 1px solid #f3e6eb; border-radius: 7px; padding: 6px 9px; animation: campaign-card-in .4s cubic-bezier(.22, 1, .36, 1) both; animation-delay: var(--item-delay, 0ms); }
+.insight-icon { width: 20px; height: 20px; margin-top: 1px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #fdebf0; color: #d81e49; }
 .campaign-insights-list li.is-observation .insight-icon { background: #eef1fb; color: #4a5fa8; }
 .campaign-insights-list li.is-recommendation .insight-icon { background: #e9f6ef; color: #1b8a5f; }
-.campaign-insights-list small { display: block; font-size: 10px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: #a8899a; margin-bottom: 2px; }
-.campaign-insights-list p { margin: 0; font-size: 12.5px; line-height: 1.55; color: #5d4c62; }
+.campaign-insights-list small { font-size: 9.5px; font-weight: 750; letter-spacing: .3px; text-transform: uppercase; color: #a8899a; margin-right: 6px; }
+.campaign-insights-list p { margin: 0; font-size: 12px; line-height: 1.45; color: #5d4c62; }
 .campaign-insights-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 18px 8px; color: #c2486d; }
 .campaign-insights-empty strong { color: #5a4357; font-size: 14px; }
 .campaign-insights-empty p { color: #9b8ba0; font-size: 12px; line-height: 1.55; margin: 0 0 6px; max-width: 240px; }
 .campaign-insights-loading { display: flex; flex-direction: column; gap: 9px; flex: 1; }
 .campaign-insights-loading i { display: block; height: 46px; border-radius: 7px; background: linear-gradient(90deg, #f7eef2 25%, #fdf6f8 50%, #f7eef2 75%); background-size: 200% 100%; animation: insight-shimmer 1.2s linear infinite; }
 @keyframes insight-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+/* Wide layout: chart and table grow to the insights card's height, so all three columns line up. */
+.campaign-breakdown-body > .perf-table-scroll { display: flex; flex-direction: column; }
+.campaign-breakdown-body > .perf-table-scroll > table { flex: 1 1 auto; }
+@media (min-width: 1401px) { .campaign-breakdown-chart { height: auto; min-height: 300px; } }
 @media (max-width: 1400px) { .campaign-breakdown-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); } .campaign-insights { grid-column: 1 / -1; } }
 @media (max-width: 1050px) { .campaign-breakdown-body { grid-template-columns: 1fr; } }
 

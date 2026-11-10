@@ -244,7 +244,7 @@ function CampaignInsights({ campaignId }) {
       : state.items.length ? <ol className="campaign-insights-list">{state.items.map((item, index) => {
         const kind = INSIGHT_KINDS[item.kind] || INSIGHT_KINDS.highlight;
         const Icon = kind.icon;
-        return <li key={index} className={`is-${item.kind}`} style={{ '--item-delay': `${index * 60}ms` }}><span className="insight-icon"><Icon size={13} /></span><div><small>{kind.label}</small><p>{item.text.replace(/\*\*/g, '')}</p></div></li>;
+        return <li key={index} className={`is-${item.kind}`} style={{ '--item-delay': `${index * 60}ms` }}><span className="insight-icon" title={kind.label}><Icon size={12} /></span><p><small>{kind.label}</small>{item.text.replace(/\*\*/g, '')}</p></li>;
       })}</ol>
         : <div className="campaign-insights-empty"><Sparkles size={22} /><strong>Get 5 insights on this campaign</strong><p>Highlights, audience patterns and next steps from the campaign's numbers.</p><button className="perf-button primary" onClick={generate}>Generate AI insights</button></div>}
     {state.error && <p className="form-error" role="alert">{state.error}</p>}
