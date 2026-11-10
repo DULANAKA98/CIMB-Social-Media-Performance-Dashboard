@@ -74,6 +74,14 @@ class KeepManualFieldsTests(unittest.TestCase):
         self.assertNotRegex(kept, r"\bis_organic\s*=")
         self.assertRegex(kept, r"\breach\s*=")
 
+    def test_upsert_keeps_name_when_file_has_no_caption(self):
+        values = {"id": "ig_story_1", "platform": "Instagram", "title": "", "reach": 1.0, "external_id": None}
+        sql = str(post_upsert(values, {"title": "", "collab": None, "is_organic": None}).compile(dialect=postgresql.dialect()))
+        self.assertNotRegex(sql.split("DO UPDATE SET", 1)[1], r"\btitle\s*=")
+        values["title"] = "New caption"
+        sql = str(post_upsert(values, {"title": "New caption", "collab": None, "is_organic": None}).compile(dialect=postgresql.dialect()))
+        self.assertRegex(sql.split("DO UPDATE SET", 1)[1], r"\btitle\s*=")
+
     def test_upsert_writes_fields_the_file_provided(self):
         written = set_clause({"collab": "Creator X", "is_organic": False})
         self.assertRegex(written, r"\bcollab\s*=")

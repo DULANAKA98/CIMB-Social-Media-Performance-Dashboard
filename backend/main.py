@@ -316,7 +316,10 @@ def post_upsert(values: Dict[str, Any], rec: Dict[str, Any]):
     # Files without a Collab or Organic/Paid column keep what is already set on the dashboard.
     for field in ("collab", "is_organic"):
         if rec.get(field) is None:
-            updates.pop(field)
+            updates.pop(field, None)
+    # Exports without captions (e.g. Instagram Stories) must not blank a name set on the dashboard.
+    if str(rec.get("title") or "").strip().lower() in ("", "nan", "none"):
+        updates.pop("title", None)
     # A file without a Post ID column must not erase a stored one.
     updates["external_id"] = func.coalesce(stmt.excluded.external_id, Post.external_id)
     return stmt.on_conflict_do_update(index_elements=["id"], set_=updates)
