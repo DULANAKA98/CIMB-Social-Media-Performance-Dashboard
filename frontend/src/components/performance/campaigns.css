@@ -179,6 +179,29 @@
 .campaign-panel .campaign-columns { grid-template-columns: minmax(0, 2.7fr) minmax(0, .9fr) minmax(0, 1fr) minmax(0, .75fr); gap: 6px; border-top: 0; padding-top: 0; padding-bottom: 6px; border-bottom: 1px solid #f1eef3; }
 .campaign-panel .panel-footnote { margin-top: 8px; }
 
+/* Campaign page: performance chart + table (replaces the KPI cards) */
+.campaign-breakdown { padding: 19px; }
+.campaign-breakdown .panel-heading { align-items: center; flex-wrap: wrap; }
+.campaign-breakdown .panel-heading h2 { font-size: 16px; }
+.campaign-breakdown-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 22px; align-items: stretch; }
+.campaign-breakdown-chart { height: 300px; min-width: 0; background: linear-gradient(180deg, #fffafb 0%, #fff 70%); border: 1px solid #f3eaee; border-radius: 8px; padding: 6px 4px 0; }
+.campaign-breakdown-table { min-width: 0; }
+.campaign-breakdown-table th, .campaign-breakdown-table td { padding: 11px 12px; font-size: 13px; }
+.campaign-breakdown-table tbody tr { cursor: pointer; transition: background .15s; }
+.campaign-breakdown-table tbody tr:hover td, .campaign-breakdown-table tbody tr:hover th { background: #fffafb; }
+.performance-app .campaign-breakdown-table tbody tr.is-active th, .campaign-breakdown-table tbody tr.is-active td { background: #fff3f6; }
+.campaign-breakdown-table tbody tr.is-active th { box-shadow: inset 3px 0 0 #ed0027; }
+.campaign-breakdown-table td.is-total { color: #2f2530; font-weight: 750; }
+.split-head { display: inline-flex; align-items: center; gap: 6px; }
+.split-head i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.breakdown-metric { display: inline-flex; align-items: center; gap: 8px; color: #4f4453; font-weight: 600; }
+.breakdown-icon { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #f6f1f8; color: #8a6f8f; }
+.campaign-breakdown-table tr.is-active .breakdown-icon { background: #ed0027; color: #fff; }
+.share-bar { display: block; width: 120px; height: 4px; margin: 7px 0 0 34px; border-radius: 999px; background: #8f1a3c33; overflow: hidden; }
+.share-bar i { display: block; height: 100%; background: #ed0027; border-radius: 999px; }
+@media (max-width: 1050px) { .campaign-breakdown-body { grid-template-columns: 1fr; } .campaign-breakdown-chart { height: 260px; } }
+@media (max-width: 760px) { .campaign-breakdown .metric-selector { overflow-x: auto; width: 100%; } .campaign-breakdown-table th, .campaign-breakdown-table td { padding: 9px 8px; font-size: 12px; } }
+
 @media (max-width: 1250px) { .perf-kpis.campaign-detail-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 1050px) { .perf-kpis.campaign-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .campaign-detail-hero { flex-wrap: wrap; } .campaign-detail-actions { width: 100%; justify-content: flex-start; } .campaign-post-controls .metric-selector { margin-left: 0; } }
 @media (max-width: 760px) {

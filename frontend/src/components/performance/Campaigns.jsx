@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, ExternalLink, Eye, FileText, Flag, Hash, Heart, ImagePlus, Link2, Megaphone, Pencil, Percent, Plus, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, ExternalLink, Eye, FileText, Flag, Hash, Heart, ImagePlus, Info, Link2, Megaphone, Pencil, Percent, Plus, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { API_URL, queryFor } from './usePerformanceData';
 import { PLATFORMS, compact, dateLabel, full, percent, safeLink } from './model';
 import { CHART_STYLE, DateFilter, Empty, Kpi, Panel, PlatformIcon, PostThumbnail, TOOLTIP_STYLE, trapFocus } from './ui';
@@ -210,6 +210,61 @@ function CompareCampaigns({ campaigns }) {
   </Panel>;
 }
 
+const DETAIL_METRICS = [
+  { key: 'posts', label: 'Posts', format: full, icon: FileText },
+  { key: 'reach', label: 'Reach', format: full, icon: Megaphone, help: 'TikTok and YouTube count views and LinkedIn counts impressions as reach.' },
+  { key: 'views', label: 'Views', format: full, icon: Eye },
+  { key: 'engagement', label: 'Engagement', format: full, icon: Heart },
+  { key: 'avg_er', label: 'Avg. ER%', format: percent, icon: Percent, rate: true, help: 'Mean of each campaign post’s ER%.' },
+];
+const SPLIT_LABELS = ['Total', 'Organic', 'Paid'];
+
+// One campaign's totals split into organic and paid: a chart for the chosen metric and a table of all of them.
+function CampaignBreakdown({ campaign }) {
+  const [metricKey, setMetricKey] = useState('reach');
+  const metric = DETAIL_METRICS.find(item => item.key === metricKey);
+  const values = m => [campaign[m.key], campaign[`organic_${m.key}`], campaign[`paid_${m.key}`]];
+  const chartRows = SPLIT_LABELS.map((name, i) => ({ name, value: values(metric)[i] ?? 0 }));
+  const axis = metric.rate ? value => `${value}%` : compact;
+  return <section className="perf-panel campaign-breakdown" aria-label="Campaign performance">
+    <div className="panel-heading"><div><h2>Campaign performance</h2><p>All campaign posts · organic and paid split</p></div>
+      <div className="metric-selector" role="group" aria-label="Chart metric"><span>Chart</span>{DETAIL_METRICS.map(item => <button key={item.key} aria-pressed={metricKey === item.key} onClick={() => setMetricKey(item.key)}>{item.label}</button>)}</div>
+    </div>
+    <div className="campaign-breakdown-body">
+      <div className="campaign-breakdown-chart" role="img" aria-label={`${metric.label}: total, organic and paid`}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <BarChart data={chartRows} margin={{ top: 28, right: 12, left: 4, bottom: 4 }} barCategoryGap="28%">
+            <CartesianGrid stroke="#f0f0f4" vertical={false} />
+            <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 13 }} axisLine={false} tickLine={false} />
+            <YAxis tick={CHART_STYLE} axisLine={false} tickLine={false} width={56} tickFormatter={axis} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: '#faf6f8' }} formatter={value => [metric.format(value), metric.label]} />
+            <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={86}>
+              {chartRows.map((row, i) => <Cell key={row.name} fill={SPLIT_COLORS[i]} />)}
+              <LabelList dataKey="value" position="top" formatter={metric.rate ? percent : compact} style={{ fontSize: 13, fontWeight: 700, fill: '#3f3543' }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="perf-table-scroll">
+        <table className="compare-table campaign-breakdown-table">
+          <thead><tr><th>Metric</th>{SPLIT_LABELS.map((label, i) => <th key={label}><span className="split-head"><i style={{ background: SPLIT_COLORS[i] }} />{label}</span></th>)}</tr></thead>
+          <tbody>{DETAIL_METRICS.map(item => {
+            const [total, organic, paid] = values(item);
+            const organicShare = !item.rate && total ? (organic || 0) / total * 100 : null;
+            const Icon = item.icon;
+            return <tr key={item.key} className={metricKey === item.key ? 'is-active' : ''} onClick={() => setMetricKey(item.key)} title="Show in chart">
+              <th scope="row"><span className="breakdown-metric"><span className="breakdown-icon"><Icon size={14} /></span>{item.label}{item.help && <span className="metric-help" tabIndex={0} aria-label={item.help}><Info size={11} /><span role="tooltip">{item.help}</span></span>}</span>
+                {organicShare != null && <span className="share-bar" aria-label={`${organicShare.toFixed(0)}% organic`}><i style={{ width: `${organicShare}%` }} /></span>}</th>
+              <td className="is-total">{item.format(total)}</td><td>{item.format(organic)}</td><td>{item.format(paid)}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+        <p className="panel-footnote">Bar under each metric: organic share of the total. Click a row to chart it.</p>
+      </div>
+    </div>
+  </section>;
+}
+
 function CampaignList({ onOpen, onChanged }) {
   const [state, setState] = useState({ loading: true, campaigns: [], error: '' });
   const [modal, setModal] = useState(null); // {step: 'form'|'matched'|'links', campaign, result}
@@ -339,13 +394,7 @@ function CampaignDetail({ campaignId, onBack, onChanged }) {
     </section>
     {notice && <div className="data-notice campaign-notice" role="status"><Check size={16} /><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss"><X size={14} /></button></div>}
 
-    <div className="perf-kpis campaign-detail-kpis">
-      <Kpi label="Posts" value={full(campaign.posts)} icon={FileText}><span className="delta neutral">{full(campaign.organic_posts)} organic · {full(campaign.paid_posts)} paid</span></Kpi>
-      <Kpi label="Total Reach" value={full(campaign.reach)} icon={Megaphone} help="TikTok and YouTube count views and LinkedIn counts impressions as reach."><span className="delta neutral">{compact(campaign.organic_reach)} organic · {compact(campaign.paid_reach)} paid</span></Kpi>
-      <Kpi label="Total Views" value={full(campaign.views)} icon={Eye}><span className="delta neutral">{compact(campaign.organic_views)} organic · {compact(campaign.paid_views)} paid</span></Kpi>
-      <Kpi label="Total Engagement" value={full(campaign.engagement)} icon={Heart} tone="red"><span className="delta neutral">{compact(campaign.organic_engagement)} organic · {compact(campaign.paid_engagement)} paid</span></Kpi>
-      <Kpi label="Avg. ER%" value={percent(campaign.avg_er)} icon={Percent} help="Mean of each campaign post’s ER%."><span className="delta neutral">{percent(campaign.organic_avg_er)} organic · {percent(campaign.paid_avg_er)} paid</span></Kpi>
-    </div>
+    <CampaignBreakdown campaign={campaign} />
 
     <section className="perf-panel campaign-posts-panel" aria-label="Campaign posts">
       <div className="panel-heading"><div><h2>Campaign content</h2><p>{full(rows.length)} matching {rows.length === 1 ? 'post' : 'posts'}{range.start ? ` · ${dateLabel(range.start)} – ${dateLabel(range.end)}` : ''}</p></div><DateFilter range={range} onApply={setRange} label="Campaign posts period" /></div>
