@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import hashlib
 import io
+import os
 import re
 
 
@@ -80,6 +81,18 @@ COLLAB_COLUMNS = ('Collab', 'Collaboration', 'Collab Name')
 
 def _has_column(frame, *names):
     return any(name in frame.columns for name in names)
+
+
+# Instagram and Facebook exports list collab posts under the partner's account or page.
+OWN_ACCOUNTS = {a.strip().lower() for a in os.getenv('OWN_SOCIAL_ACCOUNTS', 'cimbmalaysia,CIMB Malaysia').split(',') if a.strip()}
+
+
+def _collab(row, has_collab_column, account_column):
+    """A Collab column wins; otherwise a partner's posting account. None = keep what is stored."""
+    if has_collab_column:
+        return get_text(row, *COLLAB_COLUMNS)
+    account = get_text(row, account_column).strip()
+    return account if account and account.lower() not in OWN_ACCOUNTS else None
 
 
 def get_val(row, col, default=0):
@@ -228,7 +241,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'external_id': get_text(row, 'Post ID').removesuffix('.0') or None,  # stable across exports, unlike the link
                 'platform': 'Facebook',
                 'format': format_val,
-                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
+                'collab': _collab(row, has_collab, 'Page name'),
                 'date': date_str,
                 'title': title,
                 'link': link,
@@ -272,7 +285,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('ig', row, link, str(row.get('Description', '')), date_str, idx),
                 'platform': 'Instagram',
                 'format': format_val,
-                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
+                'collab': _collab(row, has_collab, 'Account username'),
                 'date': date_str,
                 'title': str(row.get('Description', '')),
                 'link': link,
@@ -318,7 +331,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
                 'id': generate_id('ig_story', row, link, title, date_str, idx),
                 'platform': 'Instagram',
                 'format': format_val,
-                'collab': get_text(row, *COLLAB_COLUMNS) if has_collab else None,
+                'collab': _collab(row, has_collab, 'Account username'),
                 'date': date_str,
                 'title': title,
                 'link': link,

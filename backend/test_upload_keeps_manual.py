@@ -48,6 +48,26 @@ class KeepManualFieldsTests(unittest.TestCase):
         self.assertIsNone(rec["collab"])
         self.assertIs(rec["is_organic"], False)
 
+    def test_collab_comes_from_partner_account(self):
+        base = {"Publish time": "10/24/2026 10:00", "Description": "x", "Views": "10", "Reach": "8",
+                "Likes": "1", "Comments": "0", "Shares": "0", "Saves": "0"}
+        frame = pd.DataFrame([{**base, "Permalink": "https://www.instagram.com/p/AAA/", "Account username": "johorfoodie"},
+                              {**base, "Permalink": "https://www.instagram.com/p/BBB/", "Account username": "cimbmalaysia"}])
+        records = process_data(EMPTY, frame, EMPTY, EMPTY, EMPTY, ig_story=EMPTY)
+        self.assertEqual([r["collab"] for r in records], ["johorfoodie", None])  # own post keeps its stored collab
+
+        fb = pd.DataFrame([{"Publish time": "10/29/2026 10:00", "Permalink": "https://www.facebook.com/x/posts/1",
+                            "Page name": "Innogen Malaysia", "Viewers": "5", "Views": "9"},
+                           {"Publish time": "10/29/2026 11:00", "Permalink": "https://www.facebook.com/x/posts/2",
+                            "Page name": "CIMB Malaysia", "Viewers": "5", "Views": "9"}])
+        self.assertEqual([r["collab"] for r in process_data(fb, EMPTY, EMPTY, EMPTY, EMPTY, ig_story=EMPTY)],
+                         ["Innogen Malaysia", None])
+
+    def test_collab_column_still_wins_over_account(self):
+        frame = pd.DataFrame([{"Publish time": "10/24/2026 10:00", "Permalink": "https://www.instagram.com/p/AAA/",
+                               "Account username": "johorfoodie", "Collab": "Johor Foodie (KOL)", "Views": "10", "Reach": "8"}])
+        self.assertEqual(process_data(EMPTY, frame, EMPTY, EMPTY, EMPTY, ig_story=EMPTY)[0]["collab"], "Johor Foodie (KOL)")
+
     def test_upsert_skips_fields_the_file_did_not_provide(self):
         kept = set_clause({"collab": None, "is_organic": None})
         self.assertNotRegex(kept, r"\bcollab\s*=")
