@@ -211,8 +211,9 @@
 .campaign-insights-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .campaign-insights-list li { display: flex; gap: 8px; align-items: flex-start; background: #fff; border: 1px solid #f3e6eb; border-radius: 7px; padding: 6px 9px; animation: campaign-card-in .4s cubic-bezier(.22, 1, .36, 1) both; animation-delay: var(--item-delay, 0ms); }
 .insight-icon { width: 20px; height: 20px; margin-top: 1px; flex-shrink: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #fdebf0; color: #d81e49; }
-.campaign-insights-list li.is-observation .insight-icon { background: #eef1fb; color: #4a5fa8; }
-.campaign-insights-list li.is-recommendation .insight-icon { background: #e9f6ef; color: #1b8a5f; }
+.campaign-insights-list li.is-decision { border-color: #cfe9dc; background: #f7fcf9; }
+.campaign-insights-list li.is-decision .insight-icon { background: #e1f3ea; color: #1b8a5f; }
+.campaign-insights-list li.is-decision small { color: #1b8a5f; }
 .campaign-insights-list small { font-size: 9.5px; font-weight: 750; letter-spacing: .3px; text-transform: uppercase; color: #a8899a; margin-right: 6px; }
 .campaign-insights-list p { margin: 0; font-size: 12px; line-height: 1.45; color: #5d4c62; }
 .campaign-insights-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 18px 8px; color: #c2486d; }

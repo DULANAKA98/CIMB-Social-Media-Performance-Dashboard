@@ -220,9 +220,8 @@ const DETAIL_METRICS = [
 const SPLIT_LABELS = ['Total', 'Organic', 'Paid'];
 
 const INSIGHT_KINDS = {
-  highlight: { label: 'Highlight', icon: Sparkles },
-  observation: { label: 'Audience', icon: Users },
-  recommendation: { label: 'Recommendation', icon: ArrowUpRight },
+  insight: { label: 'Insight', icon: Sparkles },
+  decision: { label: 'Decision', icon: ArrowUpRight },
 };
 
 // Five AI insights for one campaign, generated on request by the same CIMB Insights service as Key Insights.
@@ -242,11 +241,11 @@ function CampaignInsights({ campaignId }) {
       {state.items.length > 0 && <button className="text-button" disabled={state.loading} onClick={generate}>{state.loading ? 'Generating…' : 'Regenerate'} <RefreshCw size={12} /></button>}</div>
     {state.loading && !state.items.length ? <div className="campaign-insights-loading">{[0, 1, 2, 3, 4].map(i => <i key={i} />)}</div>
       : state.items.length ? <ol className="campaign-insights-list">{state.items.map((item, index) => {
-        const kind = INSIGHT_KINDS[item.kind] || INSIGHT_KINDS.highlight;
+        const kind = INSIGHT_KINDS[item.kind] || INSIGHT_KINDS.insight;
         const Icon = kind.icon;
         return <li key={index} className={`is-${item.kind}`} style={{ '--item-delay': `${index * 60}ms` }}><span className="insight-icon" title={kind.label}><Icon size={12} /></span><p><small>{kind.label}</small>{item.text.replace(/\*\*/g, '')}</p></li>;
       })}</ol>
-        : <div className="campaign-insights-empty"><Sparkles size={22} /><strong>Get 5 insights on this campaign</strong><p>Highlights, audience patterns and next steps from the campaign's numbers.</p><button className="perf-button primary" onClick={generate}>Generate AI insights</button></div>}
+        : <div className="campaign-insights-empty"><Sparkles size={22} /><strong>Get 5 insights on this campaign</strong><p>What this campaign's numbers really mean, and the decisions they point to.</p><button className="perf-button primary" onClick={generate}>Generate AI insights</button></div>}
     {state.error && <p className="form-error" role="alert">{state.error}</p>}
     <p className="panel-footnote">{state.items.length ? (state.fallback ? 'Calculated highlights · AI was unavailable' : 'AI-generated with CIMB Insights · review before sharing') : "Uses only this campaign's aggregate numbers."}</p>
   </aside>;

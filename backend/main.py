@@ -7,6 +7,7 @@ from data_processor import calculate_fb_ig_engagement_rate, process_data, read_p
 from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign
 import auth
 import campaigns as campaign_helpers
+import campaign_insights
 import post_matching
 import youtube_formats
 import sql_agent
@@ -2483,54 +2484,29 @@ def get_executive_summary(
     return _request_cimb_insights(snapshot)
 
 
-CAMPAIGN_INSIGHT_COUNT = 5
-
-
-def _campaign_insight_snapshot(campaign: Campaign, records: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Aggregate-only campaign snapshot in the shape the CIMB AI Worker validates, plus campaign context."""
-    df = pd.DataFrame(records)
-    df["date"] = pd.to_datetime(df["date"])
-    for column in ("reach", "engagement", "engagement_rate"):
-        df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0)
-    snapshot = _cimb_insight_snapshot(df, None, None)
-    summary = campaign_helpers.summarize(records)
-    snapshot["platform_scope"] = f"Campaign: {campaign.name}"
-    snapshot["campaign"] = {
-        "name": campaign.name,
-        "hashtag": f"#{campaign.hashtag}" if campaign.hashtag else "",
-        **{key: (round(value, 2) if isinstance(value, float) else value) for key, value in summary.items() if value is not None},
-    }
-    top = sorted(records, key=lambda r: float(r.get("engagement") or 0), reverse=True)[:5]
-    snapshot["top_posts_by_engagement"] = [{
-        "platform": r["platform"], "format": r.get("format") or "",
-        "title": " ".join(str(r.get("title") or "").split())[:80],
-        "date": (r.get("date") or "")[:10],
-        "reach": int(campaign_helpers.exposure(r)), "engagement": int(float(r.get("engagement") or 0)),
-        "engagement_rate": round(float(r.get("engagement_rate") or 0), 2),
-        "paid": r.get("is_organic") is False,
-    } for r in top]
-    snapshot["measurement_notes"] = snapshot["measurement_notes"] + [
-        "Campaign reach counts views for TikTok and YouTube and impressions for LinkedIn.",
-        "Organic and paid figures split the same campaign posts by their organic/paid label.",
-    ]
-    return snapshot
-
-
 @app.get("/api/campaigns/{campaign_id}/insights")
 def get_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
-    """Up to five AI insights for one campaign, from the same CIMB AI Worker as Key Insights."""
+    """Five strategic AI points (3 insights, 2 decisions) about one campaign, from its own posts only."""
     _cimb_insights_config()
     campaign = _get_campaign(db, campaign_id)
     records = [_campaign_post_record(p) for p in db.query(Post).filter(Post.campaign == campaign.name).all()]
     if not records:
         raise HTTPException(status_code=400, detail="This campaign has no posts yet.")
-    result = _request_cimb_insights(_campaign_insight_snapshot(campaign, records))
-    # The worker returns up to four highlights; top up to five with its observations and recommendations.
-    insights = [{"kind": "highlight", "text": t} for t in result.get("key_highlights") or []]
-    for kind, key in (("observation", "audience_behaviour"), ("recommendation", "recommendations")):
-        for text in result.get(key) or []:
-            insights.append({"kind": kind, "text": text})
-    return {"insights": insights[:CAMPAIGN_INSIGHT_COUNT], "_meta": result.get("_meta", {})}
+    facts = campaign_insights.build_facts(campaign.name, campaign.hashtag or "", records)
+    messages = campaign_insights.build_messages(facts)
+    insights: List[Dict[str, str]] = []
+    for _attempt in range(2):  # retry once if too many points cite numbers the fact sheet lacks
+        try:
+            output = sql_agent._llm_json(messages, 900)
+        except sql_agent.SqlAgentError as exc:
+            print(f"Campaign insights request failed: {exc}")
+            raise HTTPException(status_code=502, detail="The CIMB insights service is temporarily unavailable.") from exc
+        insights = campaign_insights.clean_and_ground(output, facts)
+        if len(insights) >= campaign_insights.INSIGHT_COUNT - 1:
+            break
+    if len(insights) < 3:
+        raise HTTPException(status_code=502, detail="The AI could not produce reliable insights. Try again.")
+    return {"insights": insights, "_meta": {"generated_at": datetime.now(timezone.utc).isoformat()}}
 
 
 @app.get("/api/executive-summary/groq-legacy", include_in_schema=False)

@@ -119,7 +119,7 @@ class CampaignApiTests(unittest.TestCase):
         self.assertEqual(created.json()["matched"], 2)
         self.assertEqual(self.client.post("/api/campaigns", json={"name": "Spaces", "hashtag": "two words"}).status_code, 400)
 
-    def test_campaign_insights_use_the_worker_and_return_five(self):
+    def test_campaign_insights_are_campaign_only_and_grounded(self):
         from unittest import mock
         campaign = self.client.post("/api/campaigns", json={"name": "Hmmm Dulu", "hashtag": "hmmmdulu"}).json()["campaign"]
         sent = {}
@@ -129,24 +129,29 @@ class CampaignApiTests(unittest.TestCase):
 
             @staticmethod
             def json():
-                return {"key_highlights": ["Facebook reached 1000 people in this campaign.", "Instagram drew 40 engagements overall.",
-                                           "Paid posts were 1 of 2 campaign posts."],
-                        "audience_behaviour": ["Engagement suggests interest was steady across the 2 posts."],
-                        "recommendations": ["Repeat the stronger Facebook format in the next wave.", "Test another paid post."]}
+                return {"output": {"insights": [
+                    {"kind": "insight", "text": "CIMB Malaysia's paid post took 33.3% of reach but organic ER was 5.0% vs 8.0%."},
+                    {"kind": "decision", "text": "Boost the Facebook post next wave: it drew 1000 reach from a single post."},
+                    {"kind": "insight", "text": "Instagram earned 80.0 engagements per 1000 reach, far above Facebook."},
+                    {"kind": "insight", "text": "This invented figure of 123456 people should be dropped by grounding."},
+                    {"kind": "insight", "text": "Both posts landed in the same week, so the campaign peaked early."},
+                    {"kind": "decision", "text": "Brief the next Instagram post like this one, which reached 500 people."},
+                ]}}
 
         def fake_post(url, headers, json, timeout):
-            sent.update(json)
+            sent.update(url=url, prompt=json["messages"][1]["content"])
             return Reply()
 
-        with mock.patch.dict(os.environ, {"CIMB_INSIGHTS_URL": "https://worker.example/insights", "CIMB_INSIGHTS_KEY": "k"}), \
-                mock.patch("main.http_requests.post", side_effect=fake_post):
+        with mock.patch.dict(os.environ, {"CIMB_INSIGHTS_URL": "https://worker.example/insights", "CIMB_INSIGHTS_KEY": "k"}),                 mock.patch("sql_agent.http_requests.post", side_effect=fake_post):
             result = self.client.get(f"/api/campaigns/{campaign['id']}/insights").json()
-        self.assertEqual(len(result["insights"]), 5)
-        self.assertEqual([i["kind"] for i in result["insights"]], ["highlight"] * 3 + ["observation", "recommendation"])
-        self.assertEqual(sent["platform_scope"], "Campaign: Hmmm Dulu")
-        self.assertEqual(sent["campaign"]["posts"], 2)
-        self.assertTrue(all({"name", "posts", "reach", "engagement", "engagement_rate"} <= set(p) for p in sent["platforms"]))
-        self.assertEqual(len(sent["top_posts_by_engagement"]), 2)
+        texts = [i["text"] for i in result["insights"]]
+        self.assertEqual(sent["url"], "https://worker.example/sql")
+        self.assertIn('"campaign":"Hmmm Dulu"', sent["prompt"])
+        self.assertNotIn("categor", sent["prompt"].split("Fact sheet:")[1])
+        self.assertEqual(len(texts), 5)
+        self.assertFalse(any("123456" in t for t in texts))
+        self.assertFalse(any("CIMB" in t for t in texts))
+        self.assertEqual([i["kind"] for i in result["insights"]], ["insight"] * 3 + ["decision"] * 2)
 
     def test_existing_assignment_is_not_overwritten(self):
         first = self.client.post("/api/campaigns", json={"name": "First", "hashtag": "hmmmdulu"}).json()
