@@ -40,6 +40,7 @@ class Post(Base):
     engagement_rate = Column(Float, default=0)
     is_organic   = Column(Boolean, default=True)
     campaign     = Column(Text, nullable=True, index=True)   # campaigns.name; empty when not in a campaign
+    external_id  = Column(Text, nullable=True, index=True)   # platform's own post ID (Meta "Post ID" for Facebook)
     created_at   = Column(DateTime, default=datetime.utcnow)
 
 
@@ -94,6 +95,8 @@ def init_db():
     with engine.begin() as connection:
         connection.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS campaign TEXT"))
         connection.execute(text("CREATE INDEX IF NOT EXISTS ix_posts_campaign ON posts (campaign)"))
+        connection.execute(text("ALTER TABLE posts ADD COLUMN IF NOT EXISTS external_id TEXT"))
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_posts_external_id ON posts (external_id)"))
 
 
 def get_db():

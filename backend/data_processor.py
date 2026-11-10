@@ -215,6 +215,7 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             
             unified_data.append({
                 'id': generate_id('fb', row, link, title, date_str, idx),
+                'external_id': get_text(row, 'Post ID').removesuffix('.0') or None,  # stable across exports, unlike the link
                 'platform': 'Facebook',
                 'format': format_val,
                 'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),

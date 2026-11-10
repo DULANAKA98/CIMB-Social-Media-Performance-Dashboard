@@ -7,6 +7,7 @@ from data_processor import calculate_fb_ig_engagement_rate, process_data, read_p
 from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign
 import auth
 import campaigns as campaign_helpers
+import post_matching
 import youtube_formats
 import sql_agent
 from sqlalchemy.orm import Session
@@ -374,6 +375,8 @@ async def upload_platform_files(
         )
         # Keep each YouTube video's checked Shorts/Video label; new videos are checked after the upload.
         youtube_formats.apply_known_formats(db, records)
+        # Facebook can change a post's link between exports; keep it on its existing row.
+        post_matching.resolve_facebook_ids(db, records)
         if not records:
             return {"error": "No valid content records were found in the uploaded files."}
 
@@ -406,14 +409,15 @@ async def upload_platform_files(
                 "watch_time_hours": float(rec.get('watch_time_hours') or 0),
                 "engagement_rate": float(rec.get('engagement_rate') or 0),
                 "is_organic":      bool(rec.get('is_organic', True)),
+                "external_id":     rec.get('external_id') or None,
             }
 
             # Native PostgreSQL UPSERT — works with connection poolers, never throws duplicate errors
             stmt = pg_insert(Post).values(**values)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["id"],
-                set_={k: v for k, v in values.items() if k != "id"}
-            )
+            updates = {k: v for k, v in values.items() if k not in ("id", "external_id")}
+            # A file without a Post ID column must not erase a stored one.
+            updates["external_id"] = func.coalesce(stmt.excluded.external_id, Post.external_id)
+            stmt = stmt.on_conflict_do_update(index_elements=["id"], set_=updates)
             db.execute(stmt)
             synced += 1
 
