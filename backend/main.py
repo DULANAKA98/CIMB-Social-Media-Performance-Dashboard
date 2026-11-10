@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, HTTPException, Response, Depends, File, UploadFile, Header, Request
+from fastapi import FastAPI, Query, HTTPException, Response, Depends, File, UploadFile, Header, Request, BackgroundTasks
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
@@ -7,6 +7,7 @@ from data_processor import calculate_fb_ig_engagement_rate, process_data, read_p
 from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign
 import auth
 import campaigns as campaign_helpers
+import youtube_formats
 import sql_agent
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
@@ -314,6 +315,7 @@ async def upload_platform_files(
     tt_file: Optional[UploadFile] = File(None),
     yt_file: Optional[UploadFile] = File(None),
     li_file: Optional[UploadFile] = File(None),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ):
     from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -370,6 +372,8 @@ async def upload_platform_files(
             frames["li"],
             ig_story=frames["ig_story"],
         )
+        # Keep each YouTube video's checked Shorts/Video label; new videos are checked after the upload.
+        youtube_formats.apply_known_formats(db, records)
         if not records:
             return {"error": "No valid content records were found in the uploaded files."}
 
@@ -420,8 +424,12 @@ async def upload_platform_files(
             campaign_matches += _match_campaign_hashtag(db, campaign)["matched"]
         db.commit()
         campaign_note = f" {campaign_matches} added to campaigns by hashtag." if campaign_matches else ""
+        youtube_note = ""
+        if any(r.get("platform") == "YouTube" for r in records) and background_tasks is not None:
+            background_tasks.add_task(youtube_formats.classify_pending)
+            youtube_note = " New YouTube videos are being labelled as Shorts or Video; refresh in a minute."
         return {
-            "message": f"Upload complete! {synced} content records synced to the database.{campaign_note}",
+            "message": f"Upload complete! {synced} content records synced to the database.{campaign_note}{youtube_note}",
             "synced": synced,
             "platforms": uploaded_platforms,
             "campaign_matches": campaign_matches,

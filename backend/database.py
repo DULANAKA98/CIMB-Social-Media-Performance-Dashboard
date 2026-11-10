@@ -53,6 +53,15 @@ class Campaign(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class YoutubeFormat(Base):
+    """Whether a YouTube video is a Short, as decided by youtube.com/shorts/<id>; checked once per video."""
+    __tablename__ = "youtube_formats"
+
+    video_id   = Column(String, primary_key=True)
+    format     = Column(String, nullable=False)   # 'Shorts' or 'Video'
+    checked_at = Column(DateTime, default=datetime.utcnow)
+
+
 class AiReport(Base):
     __tablename__ = "ai_reports"
 

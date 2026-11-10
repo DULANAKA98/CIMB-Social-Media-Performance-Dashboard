@@ -334,14 +334,11 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             date_str = yt_dates[idx].isoformat() if pd.notna(yt_dates[idx]) else None
             # YouTube Studio prefixes IDs that start with "-" with a space.
             link = f"https://youtube.com/watch?v={str(row.get('Content', '')).strip()}"
-            # YouTube Studio exports have no format; a "Format" column (Shorts/Video, from checking
-            # each youtube.com/shorts/<id> link) may be added before upload. Without it: Video.
-            yt_format = 'Shorts' if get_text(row, 'Format').strip().lower() in ('short', 'shorts') else 'Video'
 
             unified_data.append({
                 'id': generate_id('yt', row, link, str(row.get('Video title', '')), date_str, idx),
                 'platform': 'YouTube',
-                'format': yt_format,
+                'format': 'Video',  # Shorts are identified after upload (youtube_formats.py)
                 'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
                 'title': str(row.get('Video title', '')),
