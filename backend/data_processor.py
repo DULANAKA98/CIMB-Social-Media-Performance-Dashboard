@@ -332,12 +332,16 @@ def process_data(fb, ig, yt, tt, li=None, ig_story=None):
             is_organic = (organic_paid_val == 'organic') if organic_paid_val else True
             
             date_str = yt_dates[idx].isoformat() if pd.notna(yt_dates[idx]) else None
-            link = f"https://youtube.com/watch?v={row.get('Content', '')}"
+            # YouTube Studio prefixes IDs that start with "-" with a space.
+            link = f"https://youtube.com/watch?v={str(row.get('Content', '')).strip()}"
+            # YouTube Studio exports have no format; a "Format" column (Shorts/Video, from checking
+            # each youtube.com/shorts/<id> link) may be added before upload. Without it: Video.
+            yt_format = 'Shorts' if get_text(row, 'Format').strip().lower() in ('short', 'shorts') else 'Video'
 
             unified_data.append({
                 'id': generate_id('yt', row, link, str(row.get('Video title', '')), date_str, idx),
                 'platform': 'YouTube',
-                'format': 'Video',
+                'format': yt_format,
                 'collab': get_text(row, 'Collab', 'Collaboration', 'Collab Name'),
                 'date': date_str,
                 'title': str(row.get('Video title', '')),

@@ -13,7 +13,7 @@ const PLATFORM_UPLOADS = [
   { field: 'yt_file', label: 'YouTube' },
   { field: 'li_file', label: 'LinkedIn' },
 ];
-const FORMATS = ['Video', 'Static', 'Carousel', 'Reel', 'IG Story', 'Story', 'Article', 'Unknown'];
+const FORMATS = ['Video', 'Shorts', 'Static', 'Carousel', 'Reel', 'IG Story', 'Story', 'Article', 'Unknown'];
 // Campaign membership is managed on the Campaigns page, so these cells are read-only here.
 const READ_ONLY_COLS = ['link', 'campaign'];
 const NUMERIC_COLS = ['reach', 'views', 'engagement', 'likes', 'comments', 'shares', 'favorites', 'reposts', 'engagement_rate'];
