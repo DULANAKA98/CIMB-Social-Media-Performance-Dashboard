@@ -258,7 +258,8 @@
   .campaign-breakdown-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) !important; gap: 10px; }
   .campaign-insights:has(.campaign-insights-empty) { display: none; }
   .campaign-insights { grid-column: 1 / -1 !important; padding: 8px; }
-  .campaign-insights-list { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  /* Fill the row with however many insights came back (3 to 5), like the dashboard does. */
+  .campaign-insights-list { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
   .campaign-insights-list li { animation: none; padding: 5px 7px; }
   .campaign-insights-list p { font-size: 8.5px; line-height: 1.4; }
   .campaign-insights-list .insight-headline { font-size: 9px; }
