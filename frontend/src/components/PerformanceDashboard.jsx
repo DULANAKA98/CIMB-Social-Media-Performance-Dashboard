@@ -6,7 +6,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, BarChart3, Check, ChevronD
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import DataHub from './DataHub';
 import Campaigns, { CampaignImage } from './performance/Campaigns';
-import { CHART_STYLE, DateFilter, Empty, Kpi, Panel, PlatformIcon, PostThumbnail, TOOLTIP_STYLE, trapFocus } from './performance/ui';
+import { CHART_STYLE, DateFilter, Empty, Kpi, Panel, PlatformIcon, PostThumbnail, PREPARE_PRINT_EVENT, TOOLTIP_STYLE, trapFocus, waitForImages } from './performance/ui';
 import CrossPlatformContent from './performance/CrossPlatformContent';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
 import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, exposureMetric, exposureValue, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink } from './performance/model';
@@ -407,9 +407,12 @@ export default function PerformanceDashboard({ onLogout }) {
     prePrintTitle.current = document.title;
     document.title = 'Social Media Performance Report';
     flushSync(() => setPrinting(true));
+    // Lists that show every row in the report (e.g. campaign posts) expand now, before the print dialog.
+    window.dispatchEvent(new Event(PREPARE_PRINT_EVENT));
     window.requestAnimationFrame(() => {
       window.dispatchEvent(new Event('resize'));
-      window.requestAnimationFrame(() => window.print());
+      // Thumbnails load lazily on screen; load them all and wait, so none are blank in the PDF.
+      waitForImages(document.querySelector('.performance-app')).then(() => window.requestAnimationFrame(() => window.print()));
     });
   };
   const title = page === 'data-hub' ? 'Data Hub' : page === 'campaigns' ? 'Campaigns' : page === 'cross-platform' ? 'Cross Platform Content Performance' : showAllPosts ? 'Top Performing Posts' : platform ? `${platform} Performance` : page === 'platform' ? 'Platform Performance' : 'Executive Overview';
@@ -432,7 +435,7 @@ export default function PerformanceDashboard({ onLogout }) {
 
     <div className="perf-workspace">
       {import.meta.env.DEV && import.meta.env.VITE_UI_PREVIEW === 'true' && <div className="preview-notice">UI preview · Synthetic test data · Not connected to the live database</div>}
-      <header className="perf-header"><div className="header-brand"><button className="mobile-only icon-button" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={22} /></button><span className="cimb-wordmark"><img src="/cimb-logo.jpg?v=2" alt="CIMB" width="144" height="40" /></span><div className="header-titles"><h1><span className="screen-title">Social Media Performance Dashboard</span><span className="print-title">Social Media Performance Report</span></h1><p>{title}</p><p className="print-report-period">Reporting period: {reportPeriod}</p></div></div><div className="header-actions"><DateFilter range={range} onApply={setRange} /><button className="perf-button primary export-button" onClick={printReport} title="Print or save this dashboard as a PDF"><Download size={14} /><span>Download report</span></button></div></header>
+      <header className="perf-header"><div className="header-brand"><button className="mobile-only icon-button" aria-label="Open navigation" onClick={() => setMobileOpen(true)}><Menu size={22} /></button><span className="cimb-wordmark"><img src="/cimb-logo.jpg?v=2" alt="CIMB" width="144" height="40" /></span><div className="header-titles"><h1><span className="screen-title">Social Media Performance Dashboard</span><span className="print-title">Social Media Performance Report</span></h1><p>{title}</p><p className="print-report-period">Reporting period: {reportPeriod}</p></div></div><div className="header-actions"><DateFilter range={range} onApply={setRange} /><button className="perf-button primary export-button" onClick={printReport} disabled={printing} title="Print or save this dashboard as a PDF"><Download size={14} /><span>{printing ? 'Preparing…' : 'Download report'}</span></button></div></header>
 
       <main id="performance-main" ref={mainRef} className="perf-main" tabIndex={-1}>
         <div className="dashboard-page" key={`${page}-${platform || 'all'}`}>

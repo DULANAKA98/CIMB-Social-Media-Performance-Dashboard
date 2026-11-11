@@ -76,6 +76,35 @@ export function DateFilter({ range, onApply, label = 'Reporting period' }) {
   </div>;
 }
 
+// Fired by Download report before printing, so components can show everything the report needs.
+export const PREPARE_PRINT_EVENT = 'cimb:prepare-print';
+
+// Load every image inside `root` now (lazy ones included) and resolve once all have loaded or failed,
+// or after `timeoutMs` so a slow image never blocks the report.
+let pendingThumbnailLookups = 0;
+
+export function waitForImages(root, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise(resolve => {
+    // Give React a moment to render rows added for printing, then let per-post thumbnail lookups finish.
+    const waitForLookups = () => {
+      if (pendingThumbnailLookups > 0 && Date.now() < deadline) { window.setTimeout(waitForLookups, 200); return; }
+      window.setTimeout(waitForLoads, 150);
+    };
+    const waitForLoads = () => {
+      const images = Array.from((root || document).querySelectorAll('img'));
+      images.forEach(img => { if (img.loading === 'lazy') img.loading = 'eager'; });
+      const pending = images.filter(img => !img.complete);
+      if (!pending.length) { resolve(); return; }
+      let left = pending.length;
+      const done = () => { left -= 1; if (left <= 0) { window.clearTimeout(timer); resolve(); } };
+      const timer = window.setTimeout(resolve, Math.max(1500, deadline - Date.now()));
+      pending.forEach(img => { img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); });
+    };
+    window.setTimeout(waitForLookups, 150);
+  });
+}
+
 export function PostThumbnail({ post, thumbnails }) {
   const metricoolSrc = thumbnailForPost(post, thumbnails);
   const postUrl = safeLink(post.link);
@@ -85,9 +114,11 @@ export function PostThumbnail({ post, thumbnails }) {
   useEffect(() => {
     if (!postUrl || fallbackSrc || (metricoolSrc && failedSrc !== metricoolSrc)) return;
     const controller = new AbortController();
+    pendingThumbnailLookups += 1;
     axios.get(`${API_URL}/post-thumbnail`, { params: { url: postUrl }, signal: controller.signal, timeout: 25000 })
       .then(response => setFallbackSrc(safeLink(response.data?.picture) || ''))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { pendingThumbnailLookups -= 1; });
     return () => controller.abort();
   }, [fallbackSrc, failedSrc, metricoolSrc, postUrl]);
   const src = metricoolSrc && failedSrc !== metricoolSrc ? metricoolSrc : fallbackSrc && failedSrc !== fallbackSrc ? fallbackSrc : '';

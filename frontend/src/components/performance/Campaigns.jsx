@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowUpRight, Check, ChevronLeft, ChevronRight, ExternalLink
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { API_URL, queryFor } from './usePerformanceData';
 import { PLATFORMS, compact, dateLabel, full, percent, safeLink } from './model';
-import { CHART_STYLE, DateFilter, Empty, Kpi, Panel, PlatformIcon, PostThumbnail, TOOLTIP_STYLE, trapFocus } from './ui';
+import { CHART_STYLE, DateFilter, Empty, Kpi, Panel, PlatformIcon, PostThumbnail, PREPARE_PRINT_EVENT, TOOLTIP_STYLE, trapFocus } from './ui';
 import './campaigns.css';
 
 const ALL_PLATFORMS = 'All platforms';
@@ -379,10 +379,11 @@ function usePrinting() {
     const off = () => setPrinting(false);
     const media = window.matchMedia('print');
     const change = event => (event.matches ? on() : off());
+    window.addEventListener(PREPARE_PRINT_EVENT, on);
     window.addEventListener('beforeprint', on);
     window.addEventListener('afterprint', off);
     media.addEventListener?.('change', change);
-    return () => { window.removeEventListener('beforeprint', on); window.removeEventListener('afterprint', off); media.removeEventListener?.('change', change); };
+    return () => { window.removeEventListener(PREPARE_PRINT_EVENT, on); window.removeEventListener('beforeprint', on); window.removeEventListener('afterprint', off); media.removeEventListener?.('change', change); };
   }, []);
   return printing;
 }
