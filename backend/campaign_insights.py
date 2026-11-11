@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 import campaigns as helpers
 
 INSIGHT_COUNT = 5
+MAX_TOKENS = 1200  # the AI service's maximum; a cut-off reply is unreadable
 KINDS = ("insight", "decision")
 
 
@@ -249,6 +250,8 @@ Rules:
 - Copy every number exactly from the fact sheet, writing thousands with commas (2,581,914). ER values are
   percentages: always add "%". Do not calculate new numbers.
 - Plain, confident English. No markdown, no jargon.
+- Never put a double quote character inside "headline" or "text"; use single quotes if needed.
+- Reply with the JSON object only: no text before or after it, no code fences.
 
 Return JSON: {{"insights": [{{"kind": "insight", "headline": "...", "text": "..."}}, ...]}}
 

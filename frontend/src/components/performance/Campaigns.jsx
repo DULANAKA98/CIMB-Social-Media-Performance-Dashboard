@@ -230,7 +230,9 @@ function CampaignInsights({ campaignId }) {
   const generate = async () => {
     setState(prev => ({ ...prev, loading: true, error: '' }));
     try {
-      const { data } = await axios.get(`${API_URL}/campaigns/${campaignId}/insights`, { timeout: 60000 });
+      const fetchInsights = () => axios.get(`${API_URL}/campaigns/${campaignId}/insights`, { timeout: 60000 });
+      // A busy AI service sometimes fails one request; ask once more before showing an error.
+      const { data } = await fetchInsights().catch(error => (error.response?.status >= 500 || !error.response ? fetchInsights() : Promise.reject(error)));
       setState({ loading: false, items: data.insights || [], error: '', fallback: !!data._meta?.fallback });
     } catch (error) {
       setState(prev => ({ ...prev, loading: false, error: errorText(error, 'AI insights are unavailable right now. Try again shortly.') }));
