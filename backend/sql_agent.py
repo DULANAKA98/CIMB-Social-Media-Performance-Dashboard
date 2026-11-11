@@ -260,22 +260,46 @@ Semantics that matter:
 
 
 # -- Model providers ----------------------------------------------------------
+def worker_endpoints(path: str = "/sql") -> List[tuple]:
+    """(url, key) for the main AI Worker and, when configured, the backup one, in the order to try them.
+
+    The backup (CIMB_INSIGHTS_BACKUP_URL / CIMB_INSIGHTS_BACKUP_KEY) takes over when the main
+    Worker fails, for example after its account's daily Workers AI allowance runs out.
+    """
+    endpoints = []
+    for url_var, key_var in (("CIMB_INSIGHTS_URL", "CIMB_INSIGHTS_KEY"),
+                             ("CIMB_INSIGHTS_BACKUP_URL", "CIMB_INSIGHTS_BACKUP_KEY")):
+        raw = os.getenv(url_var, "").strip()
+        key = os.getenv(key_var, "").strip()
+        parsed = urlparse(raw)
+        if raw and key and parsed.scheme == "https" and parsed.netloc:
+            endpoints.append((parsed._replace(path=path, params="", query="", fragment="").geturl(), key))
+    return endpoints
+
+
 def worker_sql_url() -> Optional[str]:
-    """The Worker's /sql route, derived from the configured insights URL."""
-    raw = os.getenv("CIMB_INSIGHTS_URL", "").strip()
-    key = os.getenv("CIMB_INSIGHTS_KEY", "").strip()
-    if not raw or not key:
-        return None
-    parsed = urlparse(raw)
-    if parsed.scheme != "https" or not parsed.netloc:
-        return None
-    return parsed._replace(path="/sql", params="", query="", fragment="").geturl()
+    """The main Worker's /sql route, derived from the configured insights URL."""
+    endpoints = worker_endpoints()
+    return endpoints[0][0] if endpoints else None
+
+
+def worker_json(messages: List[Dict[str, str]], max_tokens: int) -> Dict[str, Any]:
+    """Ask the main Worker; if it fails, ask the backup Worker."""
+    last_error: Optional[SqlAgentError] = None
+    for index, (url, key) in enumerate(worker_endpoints()):
+        try:
+            return _worker_json(url, messages, max_tokens, key=key)
+        except SqlAgentError as exc:
+            last_error = exc
+            if index == 0 and len(worker_endpoints()) > 1:
+                print("Main AI Worker failed (%s); trying the backup Worker." % exc)
+    raise last_error or SqlAgentError("The CIMB AI service is not configured.")
 
 
 def _worker_json(url: str, messages: List[Dict[str, str]], max_tokens: int,
-                 response_format: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                 response_format: Optional[Dict[str, Any]] = None, key: Optional[str] = None) -> Dict[str, Any]:
     headers = {
-        "x-api-key": os.getenv("CIMB_INSIGHTS_KEY", "").strip(),
+        "x-api-key": (key or os.getenv("CIMB_INSIGHTS_KEY", "")).strip(),
         "content-type": "application/json",
     }
     try:
@@ -300,9 +324,8 @@ def _worker_json(url: str, messages: List[Dict[str, str]], max_tokens: int,
 
 def _llm_json(messages: List[Dict[str, str]], max_tokens: int) -> Dict[str, Any]:
     """Call the configured provider: the Cloudflare Worker, else Groq."""
-    url = worker_sql_url()
-    if url:
-        return _worker_json(url, messages, max_tokens)
+    if worker_endpoints():
+        return worker_json(messages, max_tokens)
     groq_key = os.getenv("GROQ_API_KEY", "").strip()
     if groq_key:
         return _groq_json(groq_key, messages, max_tokens)

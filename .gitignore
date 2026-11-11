@@ -31,6 +31,7 @@ backend/test_*.py
 !backend/test_facebook_upload.py
 !backend/test_post_matching.py
 !backend/test_upload_keeps_manual.py
+!backend/test_backup_worker.py
 !backend/requirements.txt
 !backend/runtime.txt
 

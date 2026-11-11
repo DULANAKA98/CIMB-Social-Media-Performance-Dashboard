@@ -2435,8 +2435,25 @@ def _cimb_insights_config():
 
 
 def _request_cimb_insights(snapshot: Dict[str, Any]) -> Dict[str, Any]:
-    """Send an aggregate-only snapshot to the CIMB AI Worker and return its insights."""
-    insights_url, insights_key = _cimb_insights_config()
+    """Send an aggregate-only snapshot to the CIMB AI Worker (then the backup Worker) and return its insights."""
+    _cimb_insights_config()
+    endpoints = sql_agent.worker_endpoints("/insights")
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[HTTPException] = None
+    for insights_url, insights_key in endpoints:
+        try:
+            result = _request_cimb_insights_from(insights_url, insights_key, snapshot)
+        except HTTPException as exc:
+            error = exc
+            continue
+        if not (result.get("_meta") or {}).get("fallback"):
+            return result  # a real AI answer
+    if result is not None:
+        return result  # every Worker fell back; keep the last answer
+    raise error or HTTPException(status_code=503, detail="The CIMB insights service is not configured.")
+
+
+def _request_cimb_insights_from(insights_url: str, insights_key: str, snapshot: Dict[str, Any]) -> Dict[str, Any]:
     try:
         response = http_requests.post(
             insights_url,
@@ -2492,10 +2509,9 @@ def get_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
     messages = campaign_insights.build_messages(facts)
     # Three attempts run at once so a slow or unreadable one
     # does not hold up the page; the best answer wins.
-    url = sql_agent.worker_sql_url()
     best: List[Dict[str, str]] = []
     pool = ThreadPoolExecutor(max_workers=3)
-    futures = [pool.submit(sql_agent._worker_json, url, messages, campaign_insights.MAX_TOKENS)
+    futures = [pool.submit(sql_agent.worker_json, messages, campaign_insights.MAX_TOKENS)
                for _ in range(3)]
     try:
         for future in as_completed(futures, timeout=25):  # stay inside the CDN request timeout
