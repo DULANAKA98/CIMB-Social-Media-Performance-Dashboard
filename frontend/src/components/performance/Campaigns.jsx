@@ -257,7 +257,7 @@ function CampaignInsights({ campaignId, dataVersion }) {
   };
   return <aside className="campaign-insights" aria-label="AI insights">
     <div className="campaign-insights-head"><span><Lightbulb size={16} />AI insights</span>
-      {state.items.length > 0 && <button className="text-button" disabled={state.loading} onClick={generate}>{state.loading ? 'Generating…' : 'Regenerate'} <RefreshCw size={12} /></button>}</div>
+      {state.items.length > 0 && <button className="perf-button campaign-insights-regenerate" disabled={state.loading} onClick={generate}><RefreshCw size={16} className={state.loading ? 'spin' : ''} />{state.loading ? 'Generating…' : 'Regenerate insights'}</button>}</div>
     {state.loading && !state.items.length ? <div className="campaign-insights-loading">{[0, 1, 2, 3, 4].map(i => <i key={i} />)}</div>
       : state.items.length ? <ol className="campaign-insights-list">{state.items.map((item, index) => {
         const kind = INSIGHT_KINDS[item.kind] || INSIGHT_KINDS.insight;
@@ -266,7 +266,7 @@ function CampaignInsights({ campaignId, dataVersion }) {
       })}</ol>
         : <div className="campaign-insights-empty"><Sparkles size={22} /><strong>{state.outdated ? 'Campaign data has changed' : 'Get 5 insights on this campaign'}</strong><p>{state.outdated ? 'New posts or updated numbers since the last insights. Generate fresh ones.' : "What this campaign's numbers really mean, and the decisions they point to."}</p><button className="perf-button primary" onClick={generate}>Generate AI insights</button></div>}
     {state.error && <p className="form-error" role="alert">{state.error}</p>}
-    <p className="panel-footnote">{state.items.length ? `AI-generated with CIMB Insights${state.generatedAt ? ` · ${generatedLabel(state.generatedAt)}` : ''} · review before sharing` : "Uses only this campaign's aggregate numbers."}</p>
+    <p className="panel-footnote">{state.items.length ? `AI-generated${state.generatedAt ? ` · ${generatedLabel(state.generatedAt)}` : ''} · review before sharing` : "Uses only this campaign's aggregate numbers."}</p>
   </aside>;
 }
 
