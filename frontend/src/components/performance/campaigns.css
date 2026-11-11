@@ -216,6 +216,8 @@
 .campaign-insights-list li.is-decision small { color: #1b8a5f; }
 .campaign-insights-list small { font-size: 9.5px; font-weight: 750; letter-spacing: .3px; text-transform: uppercase; color: #a8899a; margin-right: 6px; }
 .campaign-insights-list p { margin: 0; font-size: 12px; line-height: 1.45; color: #5d4c62; }
+.campaign-insights-list .insight-headline { font-size: 12.5px; font-weight: 700; color: #3f3543; margin-bottom: 2px; }
+.campaign-insights-list li.is-decision .insight-headline { color: #15583e; }
 .campaign-insights-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 18px 8px; color: #c2486d; }
 .campaign-insights-empty strong { color: #5a4357; font-size: 14px; }
 .campaign-insights-empty p { color: #9b8ba0; font-size: 12px; line-height: 1.55; margin: 0 0 6px; max-width: 240px; }
@@ -261,6 +263,7 @@
   .campaign-insights { grid-column: auto !important; padding: 8px; }
   .campaign-insights-list li { animation: none; padding: 5px 7px; }
   .campaign-insights-list p { font-size: 8.5px; line-height: 1.4; }
+  .campaign-insights-list .insight-headline { font-size: 9px; }
   .campaign-insights-list small { font-size: 7px; }
   .campaign-insights .insight-icon { width: 16px; height: 16px; }
   .campaign-breakdown-chart { height: 230px !important; min-height: 0; padding: 4px; }

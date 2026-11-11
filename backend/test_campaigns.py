@@ -129,13 +129,15 @@ class CampaignApiTests(unittest.TestCase):
 
             @staticmethod
             def json():
+                pad = " This suggests the audience responds to the content itself, so the next wave should be planned around it."
                 return {"output": {"insights": [
-                    {"kind": "insight", "text": "CIMB Malaysia's paid post took 33.3% of reach but organic ER was 5.0% vs 8.0%."},
-                    {"kind": "decision", "text": "Boost the Facebook post next wave: it drew 1000 reach from a single post."},
-                    {"kind": "insight", "text": "Instagram earned 80.0 engagements per 1000 reach, far above Facebook."},
-                    {"kind": "insight", "text": "This invented figure of 123456 people should be dropped by grounding."},
-                    {"kind": "insight", "text": "Both posts landed in the same week, so the campaign peaked early."},
-                    {"kind": "decision", "text": "Brief the next Instagram post like this one, which reached 500 people."},
+                    {"kind": "insight", "headline": "Paid bought reach", "text": "CIMB Malaysia's paid post took 33.3% of reach." + pad},
+                    {"kind": "decision", "headline": "Boost Facebook", "text": "Boost the Facebook post: it drew 1,000 reach from one post." + pad},
+                    {"kind": "insight", "headline": "Instagram works", "text": "Instagram earned 80 engagements per 1,000 reach." + pad},
+                    {"kind": "insight", "headline": "Invented", "text": "This invented figure of 123,456 people should be dropped." + pad},
+                    {"kind": "insight", "headline": "Too short", "text": "Organic ER is 5% vs paid 8%."},
+                    {"kind": "insight", "headline": "Early peak", "text": "Both posts landed in the same week, so the campaign peaked early." + pad},
+                    {"kind": "decision", "headline": "Repeat the brief", "text": "Brief the next Instagram post like this one, which reached 500." + pad},
                 ]}}
 
         def fake_post(url, headers, json, timeout):
@@ -149,7 +151,8 @@ class CampaignApiTests(unittest.TestCase):
         self.assertIn('"campaign":"Hmmm Dulu"', sent["prompt"])
         self.assertNotIn("categor", sent["prompt"].split("Fact sheet:")[1])
         self.assertEqual(len(texts), 5)
-        self.assertFalse(any("123456" in t for t in texts))
+        self.assertFalse(any("123,456" in t or "Organic ER is" in t for t in texts))
+        self.assertTrue(all(i["headline"] for i in result["insights"]))
         self.assertFalse(any("CIMB" in t for t in texts))
         self.assertEqual([i["kind"] for i in result["insights"]], ["insight"] * 3 + ["decision"] * 2)
 

@@ -67,6 +67,70 @@ def _post(r: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _f(value) -> str:
+    """Number as the reader sees it: thousands commas, at most 2 decimals."""
+    if value is None:
+        return "n/a"
+    if isinstance(value, float) and not value.is_integer():
+        return f"{value:,.2f}".rstrip("0").rstrip(".")
+    return f"{int(value):,}"
+
+
+def _patterns(total, split, platforms, formats, collabs, weekly, top3_share, top_post) -> List[str]:
+    """Plain statements of the notable tensions in the numbers, for the model to interpret."""
+    out = []
+    o, p = split.get("organic") or {}, split.get("paid") or {}
+    if o.get("posts") and p.get("posts"):
+        out.append(f"Paid posts were {_f(p['posts'])} of {_f(total['posts'])} posts but carried "
+                   f"{_f(p.get('share_of_campaign_reach_pct'))}% of reach and {_f(p.get('share_of_campaign_engagement_pct'))}% "
+                   f"of engagement. Organic earned {_f(o.get('engagements_per_1000_reach'))} engagements per 1,000 reach vs "
+                   f"{_f(p.get('engagements_per_1000_reach'))} for paid; organic ER {_f(o.get('avg_er_pct'))}% vs paid "
+                   f"{_f(p.get('avg_er_pct'))}%.")
+    if collabs:
+        c, own = collabs["collab"], collabs["own"]
+        out.append(f"Creator collab posts were {_f(c['posts'])} of {_f(total['posts'])} posts: "
+                   f"{_f(c.get('share_of_campaign_reach_pct'))}% of reach but {_f(c.get('share_of_campaign_engagement_pct'))}% "
+                   f"of engagement. Collab ER {_f(c.get('avg_er_pct'))}% vs {_f(own.get('avg_er_pct'))}% for own posts "
+                   f"({_f(collabs.get('collab_er_vs_own_er_times'))} times).")
+    sized = [row for row in platforms if row["posts"] >= 3 and row.get("engagements_per_1000_reach") is not None
+             and (row.get("share_of_campaign_reach_pct") or 0) >= 5]
+    if len(sized) >= 2:
+        best = max(sized, key=lambda row: row["engagements_per_1000_reach"])
+        worst = min(sized, key=lambda row: row["engagements_per_1000_reach"])
+        out.append(f"{best['name']} earned {_f(best['engagements_per_1000_reach'])} engagements per 1,000 reach "
+                   f"({_f(best.get('share_of_campaign_reach_pct'))}% of reach, {_f(best.get('share_of_campaign_engagement_pct'))}% "
+                   f"of engagement); {worst['name']} earned {_f(worst['engagements_per_1000_reach'])} "
+                   f"({_f(worst.get('share_of_campaign_reach_pct'))}% of reach, {_f(worst.get('share_of_campaign_engagement_pct'))}% "
+                   f"of engagement).")
+    rated = [row for row in formats if row["posts"] >= 3 and row.get("avg_er_pct") is not None]
+    if len(rated) >= 2:
+        best = max(rated, key=lambda row: row["avg_er_pct"])
+        worst = min(rated, key=lambda row: row["avg_er_pct"])
+        out.append(f"Best format by ER: {best['name']} at {_f(best['avg_er_pct'])}% over {_f(best['posts'])} posts, "
+                   f"{_f(best['reach_per_post'])} reach per post. Weakest: {worst['name']} at {_f(worst['avg_er_pct'])}% over "
+                   f"{_f(worst['posts'])} posts, {_f(worst['reach_per_post'])} reach per post.")
+    if top3_share is not None and top_post:
+        out.append(f"The top 3 posts delivered {_f(top3_share)}% of all reach. The biggest was a "
+                   f"{'paid' if top_post['paid'] else 'organic'} {top_post['platform']} {top_post['format']} on "
+                   f"{top_post['date']} with {_f(top_post['reach'])} reach and {_f(top_post['er_pct'])}% ER.")
+    if len(weekly) >= 3:
+        peak = max(weekly, key=lambda row: row["reach"])
+        busiest = max(weekly, key=lambda row: row["posts"])
+        best_er = max((row for row in weekly if row["posts"] >= 3), key=lambda row: row.get("avg_er_pct") or 0, default=None)
+        text = (f"Peak reach week started {peak['week_starting']}: {_f(peak['posts'])} posts, "
+                f"{_f(peak.get('share_of_campaign_reach_pct'))}% of campaign reach. Busiest week started "
+                f"{busiest['week_starting']} with {_f(busiest['posts'])} posts and "
+                f"{_f(busiest.get('share_of_campaign_reach_pct'))}% of reach.")
+        if best_er:
+            text += f" Highest ER week (3+ posts) started {best_er['week_starting']} at {_f(best_er.get('avg_er_pct'))}%."
+        out.append(text)
+    stories = next((row for row in platforms if row["name"] == "Instagram Stories"), None)
+    if stories and total["posts"]:
+        out.append(f"Instagram Stories were {_f(stories['posts'])} of {_f(total['posts'])} posts but "
+                   f"{_f(stories.get('share_of_campaign_reach_pct'))}% of reach, {_f(stories['reach_per_post'])} reach per story.")
+    return out
+
+
 def _week_start(value: str) -> Optional[date]:
     try:
         day = datetime.fromisoformat(value[:10]).date()
@@ -124,16 +188,21 @@ def build_facts(campaign_name: str, hashtag: str, records: List[Dict[str, Any]])
     by_er = sorted(rated, key=lambda r: _num(r.get("engagement_rate")), reverse=True)
     median_er = sorted(_num(r.get("engagement_rate")) for r in records)[len(records) // 2] if records else 0
 
+    platforms = by(lambda r: r["platform"])
+    formats = by(lambda r: f"{r['platform']} {r.get('format') or ''}".strip())
+    totals = {**_group(records, total_reach, total_eng), "views": int(sum(_num(r.get("views")) for r in records)),
+              "median_post_er_pct": round(median_er, 2)}
     return {
         "campaign": campaign_name,
+        "patterns_to_interpret": _patterns(totals, split, platforms, formats, collabs, timeline, top3_share,
+                                           _post(by_reach[0]) if by_reach else None),
         "hashtag": f"#{hashtag}" if hashtag else "",
         "period": {"first_post": dates[0] if dates else "", "last_post": dates[-1] if dates else "",
                    "weeks_active": len(weeks)},
-        "totals": {**_group(records, total_reach, total_eng), "views": int(sum(_num(r.get("views")) for r in records)),
-                   "median_post_er_pct": round(median_er, 2)},
+        "totals": totals,
         "organic_vs_paid": split,
-        "platforms": by(lambda r: r["platform"]),
-        "formats": by(lambda r: f"{r['platform']} {r.get('format') or ''}".strip()),
+        "platforms": platforms,
+        "formats": formats,
         "creator_collabs_vs_own_posts": collabs,
         "weekly": timeline,
         "concentration": {"top_3_posts_share_of_reach_pct": top3_share,
@@ -156,21 +225,32 @@ SYSTEM = (
 
 
 def build_messages(facts: Dict[str, Any]) -> List[Dict[str, str]]:
-    rules = f"""Write exactly 5 points about the campaign "{facts['campaign']}" using only the fact sheet below.
+    rules = f"""Write exactly 5 points about the campaign "{facts['campaign']}" for its marketing manager, using only the
+fact sheet below. "patterns_to_interpret" lists the notable tensions already found in the numbers; build on them.
 
-- Points 1-3, kind "insight": a hidden pattern or tension in the numbers and why it matters. Compare things
-  (organic vs paid, platform vs platform, format vs format, early weeks vs later weeks, collabs vs own posts,
-  a few posts carrying the reach). Never just restate a total; the reader can already see the totals.
-- Points 4-5, kind "decision": a specific, practical decision for the next wave of this campaign or the next
-  similar campaign: what to do more of, cut, move budget to or from, test, or brief differently, and the
-  number that justifies it. No generic advice like "keep monitoring" or "post consistently".
-- Talk only about this campaign. Never mention content categories, topics or anything outside the fact sheet.
+The manager can already see every total and ratio. A point that only restates numbers is worthless.
+Each point must say what the numbers MEAN: the likely reason behind the pattern and its consequence.
+
+Each point has three parts:
+- "headline": the takeaway in plain words, at most 70 characters, no numbers. Example: "Paid bought eyeballs, not conversations".
+- "text": 2 sentences, 180-300 characters. Sentence 1 gives the evidence: 2-3 numbers that show the contrast.
+  Sentence 2 explains what it suggests or why it matters, e.g. "This suggests...", "So...", "The risk is...".
+- "kind": "insight" for points 1-3, "decision" for points 4-5.
+
+Insights: pick the 3 most important, different tensions (for example paid vs organic efficiency, creators vs own
+posts, platform or format efficiency, a few posts carrying the results, timing and fatigue across weeks).
+Decisions: a concrete move for the next wave of this campaign or the next similar one: shift budget from X to Y,
+scale or cut a format, change how creators are briefed, change timing, or test something specific. Name what to do,
+where, and the number that justifies it. Banned: "keep monitoring", "post consistently", "leverage", "optimize content".
+
+Rules:
+- Talk only about this campaign. Never mention content categories or topics.
 - Never write "CIMB Malaysia" or "CIMB's"; the reader is CIMB. Do not start with the campaign name.
-- Every number you write must be copied exactly from the fact sheet. ER values are percentages: write them
-  with "%". Do not calculate new numbers; ratios, shares and per-post figures are already provided.
-- Each point is one or two short sentences, at most 230 characters. Plain words, no jargon, no markdown.
+- Copy every number exactly from the fact sheet, writing thousands with commas (2,581,914). ER values are
+  percentages: always add "%". Do not calculate new numbers.
+- Plain, confident English. No markdown, no jargon.
 
-Return JSON: {{"insights": [{{"kind": "insight", "text": "..."}}, ...]}}
+Return JSON: {{"insights": [{{"kind": "insight", "headline": "...", "text": "..."}}, ...]}}
 
 Fact sheet: {json.dumps(facts, ensure_ascii=False, separators=(',', ':'))}"""
     return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": rules}]
@@ -201,15 +281,16 @@ def clean_and_ground(output: Any, facts: Dict[str, Any]) -> List[Dict[str, str]]
     for item in items if isinstance(items, list) else []:
         if not isinstance(item, dict):
             continue
-        text = " ".join(str(item.get("text") or "").replace("**", "").split())
-        text = _BRAND.sub("", text)
-        text = text[:1].upper() + text[1:]
+        text = _BRAND.sub("", " ".join(str(item.get("text") or "").replace("**", "").split()))
+        headline = _BRAND.sub("", " ".join(str(item.get("headline") or "").replace("**", "").split())).rstrip(".")
+        text, headline = text[:1].upper() + text[1:], headline[:1].upper() + headline[1:]
         kind = item.get("kind") if item.get("kind") in KINDS else "insight"
-        if len(text) < 20 or len(text) > 320:
+        # Too short means it only restated numbers; the prompt asks for evidence plus meaning.
+        if len(text) < 110 or len(text) > 420 or len(headline) > 90:
             continue
-        if not _tokens(text) <= allowed:
+        if not (_tokens(text) | _tokens(headline)) <= allowed:
             continue
-        kept.append({"kind": kind, "text": text})
+        kept.append({"kind": kind, "headline": headline, "text": text})
     # Insights first, then decisions, as the reader expects.
     kept.sort(key=lambda item: KINDS.index(item["kind"]))
     return kept[:INSIGHT_COUNT]
