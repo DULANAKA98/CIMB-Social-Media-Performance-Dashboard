@@ -132,6 +132,31 @@ function unwrapModelResponse(result) {
   return JSON.parse(cleaned);
 }
 
+// Read a model reply as JSON, tolerating the usual slips: text around the object, code fences,
+// raw line breaks inside strings and trailing commas.
+export function parseModelJson(result) {
+  if (result && typeof result.response === "object" && result.response !== null) return result.response;
+  const raw = typeof result?.response === "string" ? result.response : typeof result === "string" ? result : "";
+  const attempts = [];
+  const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  attempts.push(trimmed);
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start >= 0 && end > start) attempts.push(trimmed.slice(start, end + 1));
+  const body = attempts[attempts.length - 1];
+  attempts.push(body.replace(/[\r\n\t]+/g, " "));
+  attempts.push(body.replace(/[\r\n\t]+/g, " ").replace(/,\s*([}\]])/g, "$1"));
+  for (const text of attempts) {
+    try {
+      const value = JSON.parse(text);
+      if (value && typeof value === "object") return value;
+    } catch {
+      // try the next repair
+    }
+  }
+  throw new Error(`Model reply is not JSON (${raw.length} chars)`);
+}
+
 function validInsightArray(value, min = 1, max = 4) {
   return Array.isArray(value)
     && value.length >= min
@@ -314,14 +339,21 @@ export default {
       if (!wellFormed) return json({ error: "invalid_sql_request" }, 422);
 
       const maxTokens = Math.min(Number(parsed.value.max_tokens) || 900, 1200);
+      const base = { messages, temperature: 0.1, max_tokens: maxTokens };
+      const format = parsed.value.response_format;
+      // JSON mode: when the caller sends a JSON schema, ask the model for valid JSON in that shape.
+      if (format && format.type === "json_schema" && format.json_schema && typeof format.json_schema === "object") {
+        try {
+          const result = await env.AI.run(SQL_MODEL, { ...base, response_format: { type: "json_schema", json_schema: format.json_schema } });
+          return json({ output: parseModelJson(result), _meta: { model: SQL_MODEL, json_mode: true } });
+        } catch (error) {
+          // Not fatal: fall through to a normal request with tolerant parsing.
+          console.error("JSON mode failed, retrying without it:", error instanceof Error ? error.message : "unknown error");
+        }
+      }
       try {
-        const format = parsed.value.response_format;
-        // JSON mode: when the caller sends a JSON schema, the model can only produce valid JSON in that shape.
-        const jsonMode = format && format.type === "json_schema" && format.json_schema && typeof format.json_schema === "object"
-          ? { response_format: { type: "json_schema", json_schema: format.json_schema } }
-          : {};
-        const result = await env.AI.run(SQL_MODEL, { messages, temperature: 0.1, max_tokens: maxTokens, ...jsonMode });
-        return json({ output: unwrapModelResponse(result), _meta: { model: SQL_MODEL } });
+        const result = await env.AI.run(SQL_MODEL, base);
+        return json({ output: parseModelJson(result), _meta: { model: SQL_MODEL } });
       } catch (error) {
         console.error("SQL proxy generation failed", error instanceof Error ? error.message : "unknown error");
         return json({ error: "generation_failed" }, 502);

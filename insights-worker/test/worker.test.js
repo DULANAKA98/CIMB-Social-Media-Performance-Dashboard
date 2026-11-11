@@ -158,3 +158,34 @@ test("sql route passes a JSON schema through as JSON mode", async () => {
   await call({ messages: [{ role: "user", content: "hi" }] });
   assert.equal(seen[1].response_format, undefined);
 });
+
+test("reads model replies with the usual JSON slips", async () => {
+  const { parseModelJson } = await import("../src/index.js");
+  const cases = [
+    'Here are the insights:\n{"insights": [{"kind": "insight", "text": "a"}]}\nHope this helps!',
+    '```json\n{"insights": [{"kind": "insight", "text": "line one\nline two"}]}\n```',
+    '{"insights": [{"kind": "insight", "text": "a"},]}',
+  ];
+  for (const response of cases) assert.equal(parseModelJson({ response }).insights[0].kind, "insight");
+  assert.throws(() => parseModelJson({ response: "no json here" }));
+});
+
+test("sql route retries without JSON mode when the model rejects it", async () => {
+  const seen = [];
+  const env = {
+    CIMB_INSIGHTS_KEY: "test-secret",
+    AI: { run: async (model, options) => {
+      seen.push(options);
+      if (options.response_format) throw new Error("JSON Mode couldn't be met");
+      return { response: '{"insights": []}' };
+    } },
+  };
+  const response = await worker.fetch(new Request("https://example.com/sql", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": "test-secret" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "hi" }], response_format: { type: "json_schema", json_schema: { type: "object" } } }),
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(seen.length, 2);
+  assert.deepEqual((await response.json()).output, { insights: [] });
+});
