@@ -244,4 +244,42 @@
   .campaign-post-controls .metric-selector { overflow-x: auto; }
   .campaign-grid { grid-template-columns: 1fr; }
 }
-@media print { .campaigns-view button, .campaign-post-controls, .compare-picker { display: none !important; } }
+@media print {
+  .campaigns-view button, .campaign-post-controls, .compare-picker, .campaigns-view .post-pagination, .campaign-detail-actions { display: none !important; }
+  /* Header card: compact, so the performance panel fits on page 1 with it. */
+  .campaign-detail-hero { padding: 10px 12px; gap: 12px; box-shadow: none; border-radius: 6px; break-inside: avoid; }
+  .campaign-detail-hero .campaign-image.is-hero { width: 58px; height: 58px; font-size: 13px; border-radius: 8px; box-shadow: none; }
+  .campaign-detail-text { gap: 3px; }
+  .campaign-detail-text h2 { font-size: 17px; }
+  .campaign-detail-text > p { font-size: 9px; }
+  /* Performance: chart, table and AI insights side by side; an ungenerated insights card is left out. */
+  .campaign-breakdown { padding: 10px; margin-top: 8px; break-inside: avoid; }
+  .campaign-breakdown .metric-selector { display: none !important; }
+  .campaign-breakdown-body { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr) minmax(0, 1fr) !important; gap: 10px; }
+  .campaign-breakdown-body:has(.campaign-insights-empty) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) !important; }
+  .campaign-insights:has(.campaign-insights-empty) { display: none; }
+  .campaign-insights { grid-column: auto !important; padding: 8px; }
+  .campaign-insights-list li { animation: none; padding: 5px 7px; }
+  .campaign-insights-list p { font-size: 8.5px; line-height: 1.4; }
+  .campaign-insights-list small { font-size: 7px; }
+  .campaign-insights .insight-icon { width: 16px; height: 16px; }
+  .campaign-breakdown-chart { height: 230px !important; min-height: 0; padding: 4px; }
+  /* The chart keeps its on-screen pixel size while printing; scale the drawing to fit the print box. */
+  .campaign-breakdown-chart .fixed-print-chart, .campaign-breakdown-chart .recharts-wrapper,
+  .campaign-breakdown-chart .recharts-surface { width: 100% !important; height: 100% !important; }
+  .campaign-breakdown-table th, .campaign-breakdown-table td { padding: 6px 7px; font-size: 9px; }
+  .campaign-breakdown .breakdown-icon { width: 20px; height: 20px; }
+  .campaign-breakdown .panel-footnote, .campaign-insights .panel-footnote { font-size: 7px; }
+  /* Content table: every column fits the page width; rows stay whole across pages. */
+  .campaigns-view .cross-table-scroll { overflow: visible !important; }
+  .campaign-post-table { width: 100%; min-width: 0; table-layout: auto; }
+  .campaign-post-table th:nth-child(n) { width: auto; position: static; }
+  .campaign-post-table th, .campaign-post-table td { padding: 4px 4px !important; font-size: 7.5px !important; white-space: nowrap; }
+  .campaign-post-table th:first-child, .campaign-post-table td:first-child { max-width: 190px; white-space: normal; }
+  .campaign-post-table th:last-child, .campaign-post-table td:last-child { display: none; }
+  .campaign-post-table .post-identity a, .campaign-post-table .post-identity strong { font-size: 7.5px; }
+  .campaign-post-table .post-identity a svg { display: none; }
+  .campaign-post-table .organic-chip { padding: 1px 5px; font-size: 7px; }
+  .campaign-post-table tr { break-inside: avoid; }
+  .campaign-post-table thead { display: table-header-group; }
+}

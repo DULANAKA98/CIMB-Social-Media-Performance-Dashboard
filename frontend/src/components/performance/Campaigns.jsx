@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import axios from 'axios';
 import { ArrowLeft, ArrowUpRight, Check, ChevronLeft, ChevronRight, ExternalLink, Eye, FileText, Flag, Hash, Heart, ImagePlus, Info, Lightbulb, Link2, Megaphone, Pencil, Percent, Plus, RefreshCw, Search, Sparkles, Trash2, Trophy, Users, X } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -253,6 +253,7 @@ function CampaignInsights({ campaignId }) {
 
 // One campaign's totals split into organic and paid: a chart for the chosen metric and a table of all of them.
 function CampaignBreakdown({ campaign }) {
+  const printing = usePrinting();
   const [metricKey, setMetricKey] = useState('reach');
   const metric = DETAIL_METRICS.find(item => item.key === metricKey);
   const values = m => [campaign[m.key], campaign[`organic_${m.key}`], campaign[`paid_${m.key}`]];
@@ -264,7 +265,17 @@ function CampaignBreakdown({ campaign }) {
     </div>
     <div className="campaign-breakdown-body">
       <div className="campaign-breakdown-chart" role="img" aria-label={`${metric.label}: total, organic and paid`}>
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+        {printing ? <div className="fixed-print-chart">
+          <BarChart width={420} height={300} data={chartRows} margin={{ top: 28, right: 12, left: 4, bottom: 4 }} barCategoryGap="28%">
+            <CartesianGrid stroke="#f0f0f4" vertical={false} />
+            <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 13 }} axisLine={false} tickLine={false} />
+            <YAxis tick={CHART_STYLE} axisLine={false} tickLine={false} width={56} tickFormatter={axis} />
+            <Bar isAnimationActive={false} dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={86}>
+              {chartRows.map((row, i) => <Cell key={row.name} fill={SPLIT_COLORS[i]} />)}
+              <LabelList dataKey="value" position="top" formatter={metric.rate ? percent : compact} style={{ fontSize: 13, fontWeight: 700, fill: '#3f3543' }} />
+            </Bar>
+          </BarChart>
+        </div> : <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <BarChart data={chartRows} margin={{ top: 28, right: 12, left: 4, bottom: 4 }} barCategoryGap="28%">
             <CartesianGrid stroke="#f0f0f4" vertical={false} />
             <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 13 }} axisLine={false} tickLine={false} />
@@ -275,7 +286,7 @@ function CampaignBreakdown({ campaign }) {
               <LabelList dataKey="value" position="top" formatter={metric.rate ? percent : compact} style={{ fontSize: 13, fontWeight: 700, fill: '#3f3543' }} />
             </Bar>
           </BarChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer>}
       </div>
       <div className="perf-table-scroll">
         <table className="compare-table campaign-breakdown-table">
@@ -341,7 +352,24 @@ function CampaignList({ onOpen, onChanged }) {
   </div>;
 }
 
+// True while the page is printing, so a PDF includes every post, not only the current page of the list.
+function usePrinting() {
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    const on = () => flushSync(() => setPrinting(true));
+    const off = () => setPrinting(false);
+    const media = window.matchMedia('print');
+    const change = event => (event.matches ? on() : off());
+    window.addEventListener('beforeprint', on);
+    window.addEventListener('afterprint', off);
+    media.addEventListener?.('change', change);
+    return () => { window.removeEventListener('beforeprint', on); window.removeEventListener('afterprint', off); media.removeEventListener?.('change', change); };
+  }, []);
+  return printing;
+}
+
 function CampaignDetail({ campaignId, onBack, onChanged }) {
+  const printing = usePrinting();
   const [range, setRange] = useState({ start: '', end: '' });
   const [reload, setReload] = useState(0);
   const [state, setState] = useState({ loading: true, campaign: null, posts: [], error: '' });
@@ -386,7 +414,7 @@ function CampaignDetail({ campaignId, onBack, onChanged }) {
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pageStart = (currentPage - 1) * pageSize;
-  const visible = rows.slice(pageStart, pageStart + pageSize);
+  const visible = printing ? rows : rows.slice(pageStart, pageStart + pageSize);
   const refresh = () => { setReload(value => value + 1); onChanged(); };
 
   const removePost = async post => {
