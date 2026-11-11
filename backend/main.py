@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from data_processor import calculate_fb_ig_engagement_rate, process_data, read_platform_file
-from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign
+from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign, CampaignInsight
 import auth
 import campaigns as campaign_helpers
 import campaign_insights
@@ -756,6 +756,7 @@ def delete_campaign(campaign_id: int, db: Session = Depends(get_db)):
     """Delete the campaign and clear it from its posts. The posts themselves stay in Data Hub."""
     campaign = _get_campaign(db, campaign_id)
     released = db.query(Post).filter(Post.campaign == campaign.name).update({Post.campaign: None}, synchronize_session=False)
+    db.query(CampaignInsight).filter(CampaignInsight.campaign_id == campaign.id).delete(synchronize_session=False)
     db.delete(campaign)
     db.commit()
     return {"message": "Campaign deleted", "released_posts": released}
@@ -2497,15 +2498,33 @@ def get_executive_summary(
     return _request_cimb_insights(snapshot)
 
 
+def _campaign_facts(db: Session, campaign: Campaign) -> Optional[Dict[str, Any]]:
+    records = [_campaign_post_record(p) for p in db.query(Post).filter(Post.campaign == campaign.name).all()]
+    return campaign_insights.build_facts(campaign.name, campaign.hashtag or "", records) if records else None
+
+
+@app.get("/api/campaigns/{campaign_id}/insights/saved")
+def get_saved_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
+    """The last generated insights, while the campaign's data is unchanged since they were generated."""
+    campaign = _get_campaign(db, campaign_id)
+    saved = db.query(CampaignInsight).filter(CampaignInsight.campaign_id == campaign.id).first()
+    if not saved:
+        return {"insights": [], "status": "none"}
+    facts = _campaign_facts(db, campaign)
+    if not facts or campaign_insights.fingerprint(facts) != saved.fingerprint:
+        return {"insights": [], "status": "outdated"}
+    return {"insights": json.loads(saved.insights), "status": "saved",
+            "_meta": {"generated_at": saved.generated_at.replace(tzinfo=timezone.utc).isoformat()}}
+
+
 @app.get("/api/campaigns/{campaign_id}/insights")
 def get_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
     """Five strategic AI points (3 insights, 2 decisions) about one campaign, from its own posts only."""
     _cimb_insights_config()
     campaign = _get_campaign(db, campaign_id)
-    records = [_campaign_post_record(p) for p in db.query(Post).filter(Post.campaign == campaign.name).all()]
-    if not records:
+    facts = _campaign_facts(db, campaign)
+    if not facts:
         raise HTTPException(status_code=400, detail="This campaign has no posts yet.")
-    facts = campaign_insights.build_facts(campaign.name, campaign.hashtag or "", records)
     messages = campaign_insights.build_messages(facts)
     # Three attempts run at once so a slow or unreadable one
     # does not hold up the page; the best answer wins.
@@ -2530,7 +2549,15 @@ def get_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
         pool.shutdown(wait=False, cancel_futures=True)  # do not wait for slower attempts
     if not best:
         raise HTTPException(status_code=502, detail="The AI could not generate insights. Try again.")
-    return {"insights": best, "_meta": {"generated_at": datetime.now(timezone.utc).isoformat()}}
+    # Keep them so the campaign page shows them again until the campaign's data changes.
+    generated_at = datetime.now(timezone.utc)
+    saved = db.query(CampaignInsight).filter(CampaignInsight.campaign_id == campaign.id).first() or CampaignInsight(campaign_id=campaign.id)
+    saved.fingerprint = campaign_insights.fingerprint(facts)
+    saved.insights = json.dumps(best, ensure_ascii=False)
+    saved.generated_at = generated_at.replace(tzinfo=None)
+    db.merge(saved)
+    db.commit()
+    return {"insights": best, "_meta": {"generated_at": generated_at.isoformat()}}
 
 
 @app.get("/api/executive-summary/groq-legacy", include_in_schema=False)

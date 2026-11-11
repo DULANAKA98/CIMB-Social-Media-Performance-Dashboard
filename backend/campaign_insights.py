@@ -5,6 +5,7 @@ ratios, timeline, standout posts), so the model can point at what the numbers me
 without doing arithmetic. Every number in a returned insight must appear in that
 fact sheet; anything else is dropped.
 """
+import hashlib
 import json
 import re
 from collections import defaultdict
@@ -218,6 +219,11 @@ def build_facts(campaign_name: str, hashtag: str, records: List[Dict[str, Any]])
         ],
     }
 
+
+
+def fingerprint(facts: Dict[str, Any]) -> str:
+    """Changes whenever anything the insights are based on changes: posts, their metrics, the campaign name."""
+    return hashlib.sha256(json.dumps(facts, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 SYSTEM = (
     "You are a senior social media strategist on the CIMB in-house team, reviewing one campaign for the "

@@ -54,6 +54,20 @@ class Campaign(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class CampaignInsight(Base):
+    """The last AI insights generated for a campaign, and a fingerprint of the campaign data they were based on.
+
+    They are shown again until the campaign's data changes (posts added or removed, metrics
+    updated by an upload, or the campaign renamed), at which point the fingerprint no longer matches.
+    """
+    __tablename__ = "campaign_insights"
+
+    campaign_id  = Column(Integer, primary_key=True)
+    fingerprint  = Column(String, nullable=False)
+    insights     = Column(Text, nullable=False)    # JSON list of {kind, headline, text}
+    generated_at = Column(DateTime, default=datetime.utcnow)
+
+
 class YoutubeFormat(Base):
     """Whether a YouTube video is a Short, as decided by youtube.com/shorts/<id>; checked once per video."""
     __tablename__ = "youtube_formats"

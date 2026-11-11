@@ -185,6 +185,29 @@ class CampaignApiTests(unittest.TestCase):
         self.assertEqual(len(sent), 3)
         self.assertTrue(all("response_format" not in body for body in sent))  # the live worker rejects JSON mode
 
+    def test_insights_are_kept_until_campaign_data_changes(self):
+        from unittest import mock
+        campaign = self.client.post("/api/campaigns", json={"name": "Hmmm Dulu", "hashtag": "hmmmdulu"}).json()["campaign"]
+        self.assertEqual(self.client.get(f"/api/campaigns/{campaign['id']}/insights/saved").json()["status"], "none")
+        pad = " This suggests the audience responds to the content itself, so the next wave should be planned around it."
+        good = {"output": {"insights": [{"kind": "insight", "headline": f"Point {i}", "text": f"Facebook drew 1,000 reach from one post.{pad}"}
+                                        for i in range(5)]}}
+        with mock.patch.dict(os.environ, {"CIMB_INSIGHTS_URL": "https://worker.example/insights", "CIMB_INSIGHTS_KEY": "k"}),                 mock.patch("sql_agent.http_requests.post", return_value=mock.Mock(status_code=200, json=lambda: good)):
+            generated = self.client.get(f"/api/campaigns/{campaign['id']}/insights").json()
+        saved = self.client.get(f"/api/campaigns/{campaign['id']}/insights/saved").json()
+        self.assertEqual(saved["status"], "saved")
+        self.assertEqual(saved["insights"], generated["insights"])
+        self.assertTrue(saved["_meta"]["generated_at"])
+        # New content makes the saved insights outdated.
+        self.client.post(f"/api/campaigns/{campaign['id']}/posts", json={"links": ["tiktok.com/@cimb/video/7400000000000000001"]})
+        self.assertEqual(self.client.get(f"/api/campaigns/{campaign['id']}/insights/saved").json()["status"], "outdated")
+        # Deleting the campaign removes them.
+        self.client.delete(f"/api/campaigns/{campaign['id']}")
+        from database import CampaignInsight
+        db = SessionLocal()
+        self.assertEqual(db.query(CampaignInsight).count(), 0)
+        db.close()
+
     def test_campaign_without_hashtag_uses_links_only(self):
         created = self.client.post("/api/campaigns", json={"name": "Links only", "hashtag": ""})
         self.assertEqual(created.status_code, 200, created.text)

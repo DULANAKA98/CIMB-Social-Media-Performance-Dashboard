@@ -225,15 +225,32 @@ const INSIGHT_KINDS = {
 };
 
 // Five AI insights for one campaign, generated on request by the same CIMB Insights service as Key Insights.
-function CampaignInsights({ campaignId }) {
-  const [state, setState] = useState({ loading: false, items: [], error: '', fallback: false });
+const generatedLabel = value => {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? date.toLocaleString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
+};
+
+// Five AI insights for one campaign. The last ones are kept and shown again until the campaign's data changes.
+function CampaignInsights({ campaignId, dataVersion }) {
+  const [state, setState] = useState({ loading: false, items: [], error: '', generatedAt: '', outdated: false });
+  useEffect(() => {
+    const controller = new AbortController();
+    axios.get(`${API_URL}/campaigns/${campaignId}/insights/saved`, { signal: controller.signal, timeout: 30000 })
+      .then(({ data }) => setState(prev => (prev.loading ? prev : {
+        ...prev, items: data.insights || [], generatedAt: data._meta?.generated_at || '', outdated: data.status === 'outdated', error: '',
+      })))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [campaignId, dataVersion]);
   const generate = async () => {
     setState(prev => ({ ...prev, loading: true, error: '' }));
     try {
       const fetchInsights = () => axios.get(`${API_URL}/campaigns/${campaignId}/insights`, { timeout: 60000 });
       // A busy AI service sometimes fails one request; ask once more before showing an error.
       const { data } = await fetchInsights().catch(error => (error.response?.status >= 500 || !error.response ? fetchInsights() : Promise.reject(error)));
-      setState({ loading: false, items: data.insights || [], error: '', fallback: !!data._meta?.fallback });
+      setState({ loading: false, items: data.insights || [], error: '', generatedAt: data._meta?.generated_at || '', outdated: false });
     } catch (error) {
       setState(prev => ({ ...prev, loading: false, error: errorText(error, 'AI insights are unavailable right now. Try again shortly.') }));
     }
@@ -247,9 +264,9 @@ function CampaignInsights({ campaignId }) {
         const Icon = kind.icon;
         return <li key={index} className={`is-${item.kind}`} style={{ '--item-delay': `${index * 60}ms` }}><span className="insight-icon" title={kind.label}><Icon size={12} /></span><div><p className="insight-headline"><small>{kind.label}</small>{item.headline || ''}</p><p>{item.text.replace(/\*\*/g, '')}</p></div></li>;
       })}</ol>
-        : <div className="campaign-insights-empty"><Sparkles size={22} /><strong>Get 5 insights on this campaign</strong><p>What this campaign's numbers really mean, and the decisions they point to.</p><button className="perf-button primary" onClick={generate}>Generate AI insights</button></div>}
+        : <div className="campaign-insights-empty"><Sparkles size={22} /><strong>{state.outdated ? 'Campaign data has changed' : 'Get 5 insights on this campaign'}</strong><p>{state.outdated ? 'New posts or updated numbers since the last insights. Generate fresh ones.' : "What this campaign's numbers really mean, and the decisions they point to."}</p><button className="perf-button primary" onClick={generate}>Generate AI insights</button></div>}
     {state.error && <p className="form-error" role="alert">{state.error}</p>}
-    <p className="panel-footnote">{state.items.length ? 'AI-generated with CIMB Insights · review before sharing' : "Uses only this campaign's aggregate numbers."}</p>
+    <p className="panel-footnote">{state.items.length ? `AI-generated with CIMB Insights${state.generatedAt ? ` · ${generatedLabel(state.generatedAt)}` : ''} · review before sharing` : "Uses only this campaign's aggregate numbers."}</p>
   </aside>;
 }
 
@@ -306,7 +323,7 @@ function CampaignBreakdown({ campaign }) {
         </table>
         <p className="panel-footnote">Bar under each metric: organic share of the total. Click a row to chart it.</p>
       </div>
-      <CampaignInsights key={campaign.id} campaignId={campaign.id} />
+      <CampaignInsights key={campaign.id} campaignId={campaign.id} dataVersion={[campaign.posts, campaign.reach, campaign.views, campaign.engagement, campaign.name].join('|')} />
     </div>
   </section>;
 }
