@@ -175,7 +175,7 @@ class CampaignApiTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200, result.text)
         self.assertEqual(len(result.json()["insights"]), 5)
 
-    def test_campaign_insights_use_json_mode_and_no_calculated_text(self):
+    def test_campaign_insights_make_three_plain_attempts_and_no_calculated_text(self):
         from unittest import mock
         campaign = self.client.post("/api/campaigns", json={"name": "Hmmm Dulu", "hashtag": "hmmmdulu"}).json()["campaign"]
         sent = []
@@ -183,7 +183,7 @@ class CampaignApiTests(unittest.TestCase):
             result = self.client.get(f"/api/campaigns/{campaign['id']}/insights")
         self.assertEqual(result.status_code, 502)
         self.assertEqual(len(sent), 3)
-        self.assertTrue(all(body["response_format"]["type"] == "json_schema" for body in sent))
+        self.assertTrue(all("response_format" not in body for body in sent))  # the live worker rejects JSON mode
 
     def test_campaign_without_hashtag_uses_links_only(self):
         created = self.client.post("/api/campaigns", json={"name": "Links only", "hashtag": ""})

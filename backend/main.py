@@ -2490,13 +2490,13 @@ def get_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="This campaign has no posts yet.")
     facts = campaign_insights.build_facts(campaign.name, campaign.hashtag or "", records)
     messages = campaign_insights.build_messages(facts)
-    # JSON mode makes every reply readable. Three attempts run at once so a slow or failed one
+    # Three attempts run at once so a slow or unreadable one
     # does not hold up the page; the best answer wins.
     url = sql_agent.worker_sql_url()
     best: List[Dict[str, str]] = []
     pool = ThreadPoolExecutor(max_workers=3)
-    futures = [pool.submit(sql_agent._worker_json, url, messages, campaign_insights.MAX_TOKENS,
-                           campaign_insights.RESPONSE_FORMAT) for _ in range(3)]
+    futures = [pool.submit(sql_agent._worker_json, url, messages, campaign_insights.MAX_TOKENS)
+               for _ in range(3)]
     try:
         for future in as_completed(futures, timeout=25):  # stay inside the CDN request timeout
             try:
