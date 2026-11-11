@@ -726,9 +726,7 @@ def create_campaign(body: CampaignBody, db: Session = Depends(get_db)):
     data = _clean_campaign_body(db, body)
     if "name" not in data:
         raise HTTPException(status_code=400, detail="Campaign name is required")
-    if not data.get("hashtag"):
-        raise HTTPException(status_code=400, detail="Campaign hashtag is required")
-    campaign = Campaign(name=data["name"], hashtag=data["hashtag"], image=data.get("image", ""))
+    campaign = Campaign(name=data["name"], hashtag=data.get("hashtag", ""), image=data.get("image", ""))
     db.add(campaign)
     db.flush()
     result = _match_campaign_hashtag(db, campaign)
@@ -742,8 +740,6 @@ def create_campaign(body: CampaignBody, db: Session = Depends(get_db)):
 def update_campaign(campaign_id: int, body: CampaignBody, db: Session = Depends(get_db)):
     campaign = _get_campaign(db, campaign_id)
     data = _clean_campaign_body(db, body, campaign)
-    if "hashtag" in data and not data["hashtag"]:
-        raise HTTPException(status_code=400, detail="Campaign hashtag is required")
     if "name" in data and data["name"] != campaign.name:
         db.query(Post).filter(Post.campaign == campaign.name).update({Post.campaign: data["name"]}, synchronize_session=False)
     for key, value in data.items():

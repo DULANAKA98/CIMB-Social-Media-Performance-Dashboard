@@ -156,6 +156,19 @@ class CampaignApiTests(unittest.TestCase):
         self.assertFalse(any("CIMB" in t for t in texts))
         self.assertEqual([i["kind"] for i in result["insights"]], ["insight"] * 3 + ["decision"] * 2)
 
+    def test_campaign_without_hashtag_uses_links_only(self):
+        created = self.client.post("/api/campaigns", json={"name": "Links only", "hashtag": ""})
+        self.assertEqual(created.status_code, 200, created.text)
+        self.assertEqual(created.json()["matched"], 0)
+        campaign = created.json()["campaign"]
+        self.assertEqual(campaign["hashtag"], "")
+        added = self.client.post(f"/api/campaigns/{campaign['id']}/posts", json={"links": ["https://www.instagram.com/p/AAA111/"]})
+        self.assertEqual([row["id"] for row in added.json()["added"]], ["ig1"])
+        tagged = self.client.post("/api/campaigns", json={"name": "Tagged", "hashtag": "hmmmdulu"}).json()["campaign"]
+        cleared = self.client.patch(f"/api/campaigns/{tagged['id']}", json={"hashtag": ""})
+        self.assertEqual(cleared.status_code, 200, cleared.text)
+        self.assertEqual(cleared.json()["campaign"]["hashtag"], "")
+
     def test_existing_assignment_is_not_overwritten(self):
         first = self.client.post("/api/campaigns", json={"name": "First", "hashtag": "hmmmdulu"}).json()
         second = self.client.post("/api/campaigns", json={"name": "Second", "hashtag": "hmmmdulu"}).json()

@@ -204,7 +204,7 @@ function TopCampaigns({ state, platform, exposureLabel = 'Reach', onOpen, onMana
     {state.loading ? <Empty icon={Flag} title="Loading campaigns…" /> : ranked.length ? <>
       <div className="campaign-columns"><span>Campaign</span><span>{exposureLabel}</span><span>Engagement</span><span>ER%</span></div>
       <ol className="campaign-rank">{ranked.map((campaign, index) => <li key={campaign.id}>
-        <button onClick={() => onOpen(campaign.id)} title={`Open ${campaign.name}`}><span className="campaign-rank-index">{index + 1}</span><CampaignImage campaign={campaign} className="is-row" /><span><strong>{campaign.name}</strong><small>{full(campaign.posts)} {campaign.posts === 1 ? 'post' : 'posts'} · #{campaign.hashtag}</small></span></button>
+        <button onClick={() => onOpen(campaign.id)} title={`Open ${campaign.name}`}><span className="campaign-rank-index">{index + 1}</span><CampaignImage campaign={campaign} className="is-row" /><span><strong>{campaign.name}</strong><small>{full(campaign.posts)} {campaign.posts === 1 ? 'post' : 'posts'}{campaign.hashtag ? ` · #${campaign.hashtag}` : ''}</small></span></button>
         <em>{compact(campaign.reach)}</em><em>{compact(campaign.engagement)}</em><em>{percent(campaign.avg_er)}</em>
       </li>)}</ol>
       <p className="panel-footnote">Campaign posts in the selected reporting period. Avg. ER% is the mean of post ERs.</p>

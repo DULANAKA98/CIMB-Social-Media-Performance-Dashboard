@@ -284,3 +284,4 @@
   .campaign-post-table tr { break-inside: avoid; }
   .campaign-post-table thead { display: table-header-group; }
 }
+.campaign-form .optional-label { font-style: normal; font-weight: 500; color: #a99caa; font-size: 11px; margin-left: 4px; }

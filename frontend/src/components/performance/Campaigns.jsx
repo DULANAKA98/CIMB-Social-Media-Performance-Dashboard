@@ -110,10 +110,10 @@ function CampaignForm({ campaign, onSaved, onCancel }) {
       <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={event => { pickImage(event.target.files?.[0]); event.target.value = ''; }} />
     </div>
     <label>Campaign name<input value={name} maxLength={120} required placeholder="e.g. Hmmm Dulu Raya 2026" onChange={event => setName(event.target.value)} /></label>
-    <label>Campaign hashtag<span className="hashtag-input"><Hash size={15} /><input value={hashtag.replace(/^#/, '')} required placeholder="hmmmdulu" onChange={event => setHashtag(event.target.value.replace(/\s/g, ''))} /></span>
-      <small>Posts whose caption includes <b>#{tag || 'hashtag'}</b> are added automatically. Matching ignores upper and lower case.</small></label>
+    <label><span>Campaign hashtag <em className="optional-label">optional</em></span><span className="hashtag-input"><Hash size={15} /><input value={hashtag.replace(/^#/, '')} placeholder="hmmmdulu" onChange={event => setHashtag(event.target.value.replace(/\s/g, ''))} /></span>
+      <small>{tag ? <>Posts whose caption includes <b>#{tag}</b> are added automatically. Matching ignores upper and lower case.</> : 'Leave it empty to add posts by pasting their links instead.'}</small></label>
     {state.error && <p className="form-error" role="alert">{state.error}</p>}
-    <div className="campaign-form-actions"><button type="button" className="perf-button" onClick={onCancel}>Cancel</button><button className="perf-button primary" disabled={state.saving || !name.trim() || !tag}>{state.saving ? <><RefreshCw size={14} className="spin" />Saving…</> : campaign ? 'Save changes' : <><Plus size={14} />Create campaign</>}</button></div>
+    <div className="campaign-form-actions"><button type="button" className="perf-button" onClick={onCancel}>Cancel</button><button className="perf-button primary" disabled={state.saving || !name.trim()}>{state.saving ? <><RefreshCw size={14} className="spin" />Saving…</> : campaign ? 'Save changes' : <><Plus size={14} />Create campaign</>}</button></div>
   </form>;
 }
 
@@ -164,7 +164,7 @@ function AddPostsForm({ campaign, onAdded, onCancel }) {
 
 function CampaignCard({ campaign, onOpen, style }) {
   return <button className="campaign-card" style={style} onClick={() => onOpen(campaign.id)} aria-label={`Open campaign ${campaign.name}`}>
-    <div className="campaign-card-media"><CampaignImage campaign={campaign} /><span className="campaign-card-tag">#{campaign.hashtag}</span></div>
+    <div className="campaign-card-media"><CampaignImage campaign={campaign} />{campaign.hashtag && <span className="campaign-card-tag">#{campaign.hashtag}</span>}</div>
     <div className="campaign-card-body">
       <div className="campaign-card-title"><h3>{campaign.name}</h3><ChevronRight size={16} /></div>
       <p>{dateSpan(campaign)} · {full(campaign.posts)} {campaign.posts === 1 ? 'post' : 'posts'}</p>
@@ -323,7 +323,7 @@ function CampaignList({ onOpen, onChanged }) {
   const campaigns = state.campaigns.filter(c => `${c.name} ${c.hashtag}`.toLowerCase().includes(search.trim().toLowerCase().replace(/^#/, '')));
   const totals = state.campaigns.reduce((acc, c) => ({ posts: acc.posts + c.posts, reach: acc.reach + c.reach, engagement: acc.engagement + c.engagement }), { posts: 0, reach: 0, engagement: 0 });
   const closeModal = () => { setModal(null); };
-  const saved = data => { setModal({ step: 'matched', campaign: data.campaign, result: data }); load(); onChanged(); };
+  const saved = data => { setModal({ step: data.campaign.hashtag ? 'matched' : 'links', campaign: data.campaign, result: data }); load(); onChanged(); };
 
   return <div className="campaigns-view">
     <div className="campaigns-hero">
@@ -340,13 +340,13 @@ function CampaignList({ onOpen, onChanged }) {
     <Panel title="Manage Campaigns" subtitle="Open a campaign to see its posts, add content and edit details" className="campaign-manage" action={state.campaigns.length > 3 ? <label className="campaign-search"><Search size={14} /><span className="sr-only">Search campaigns</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search campaigns or hashtags…" /></label> : null}>
       {state.loading ? <div className="cross-loading"><RefreshCw size={19} />Loading campaigns…</div>
         : state.error ? <Empty icon={Flag} title={state.error} action={<button className="perf-button" onClick={load}>Try again</button>}>Check the connection and try again.</Empty>
-          : !state.campaigns.length ? <div className="campaigns-empty"><span className="empty-icon"><Flag size={24} strokeWidth={1.5} /></span><strong>Create your first campaign</strong><p>Give it a name, a picture and its hashtag. Every Data Hub post that uses the hashtag is added automatically.</p><button className="perf-button primary" onClick={() => setModal({ step: 'form' })}><Plus size={14} />New campaign</button></div>
-            : <div className="campaign-grid">{campaigns.map((campaign, index) => <CampaignCard key={campaign.id} campaign={campaign} onOpen={onOpen} style={{ '--card-delay': `${Math.min(index, 8) * 40}ms` }} />)}<button className="campaign-card is-new" onClick={() => setModal({ step: 'form' })}><span><Plus size={22} /></span><strong>New campaign</strong><small>Name, picture and hashtag</small></button></div>}
+          : !state.campaigns.length ? <div className="campaigns-empty"><span className="empty-icon"><Flag size={24} strokeWidth={1.5} /></span><strong>Create your first campaign</strong><p>Give it a name and a picture. Add a hashtag to collect posts automatically, or add posts by link.</p><button className="perf-button primary" onClick={() => setModal({ step: 'form' })}><Plus size={14} />New campaign</button></div>
+            : <div className="campaign-grid">{campaigns.map((campaign, index) => <CampaignCard key={campaign.id} campaign={campaign} onOpen={onOpen} style={{ '--card-delay': `${Math.min(index, 8) * 40}ms` }} />)}<button className="campaign-card is-new" onClick={() => setModal({ step: 'form' })}><span><Plus size={22} /></span><strong>New campaign</strong><small>Name, picture and optional hashtag</small></button></div>}
     </Panel>
 
     {state.campaigns.length > 1 && <CompareCampaigns campaigns={state.campaigns} />}
 
-    {modal?.step === 'form' && <Modal title="New campaign" subtitle="Posts with this hashtag in their caption join the campaign automatically." onClose={closeModal}><CampaignForm onSaved={saved} onCancel={closeModal} /></Modal>}
+    {modal?.step === 'form' && <Modal title="New campaign" subtitle="Give it a name. Add a hashtag to collect posts automatically, or add posts by link." onClose={closeModal}><CampaignForm onSaved={saved} onCancel={closeModal} /></Modal>}
     {modal?.step === 'matched' && <Modal title={modal.campaign.name} onClose={closeModal}><MatchSummary result={modal.result} hashtag={modal.campaign.hashtag} onAddPosts={() => setModal(prev => ({ ...prev, step: 'links' }))} onDone={() => { closeModal(); onOpen(modal.campaign.id); }} /></Modal>}
     {modal?.step === 'links' && <Modal title="Add posts by link" subtitle={`Add Data Hub posts to ${modal.campaign.name}`} onClose={closeModal} wide><AddPostsForm campaign={modal.campaign} onAdded={() => { load(); onChanged(); }} onCancel={() => { closeModal(); onOpen(modal.campaign.id); }} /></Modal>}
   </div>;
@@ -445,10 +445,10 @@ function CampaignDetail({ campaignId, onBack, onChanged }) {
     <button className="perf-button back-button" onClick={onBack}><ArrowLeft size={15} />All campaigns</button>
     <section className="campaign-detail-hero">
       <CampaignImage campaign={campaign} className="is-hero" />
-      <div className="campaign-detail-text"><span className="campaigns-eyebrow"><Hash size={13} />{campaign.hashtag}</span><h2>{campaign.name}</h2><p>{dateSpan(campaign)} · {full(campaign.posts)} {campaign.posts === 1 ? 'post' : 'posts'}</p><div className="campaign-card-platforms">{campaign.platforms.map(name => <span key={name}><PlatformIcon name={name} size={12} />{name}</span>)}</div></div>
+      <div className="campaign-detail-text">{campaign.hashtag ? <span className="campaigns-eyebrow"><Hash size={13} />{campaign.hashtag}</span> : <span className="campaigns-eyebrow"><Link2 size={13} />Posts added by link</span>}<h2>{campaign.name}</h2><p>{dateSpan(campaign)} · {full(campaign.posts)} {campaign.posts === 1 ? 'post' : 'posts'}</p><div className="campaign-card-platforms">{campaign.platforms.map(name => <span key={name}><PlatformIcon name={name} size={12} />{name}</span>)}</div></div>
       <div className="campaign-detail-actions">
         <button className="perf-button primary" onClick={() => setModal('links')}><Plus size={14} />Add posts</button>
-        <button className="perf-button" disabled={busy === 'sync'} onClick={resync} title={`Find new Data Hub posts with #${campaign.hashtag}`}><RefreshCw size={14} className={busy === 'sync' ? 'spin' : ''} />Sync hashtag</button>
+        {campaign.hashtag && <button className="perf-button" disabled={busy === 'sync'} onClick={resync} title={`Find new Data Hub posts with #${campaign.hashtag}`}><RefreshCw size={14} className={busy === 'sync' ? 'spin' : ''} />Sync hashtag</button>}
         <button className="perf-button" onClick={() => setModal('edit')}><Pencil size={14} />Edit</button>
         <button className="perf-button danger" disabled={busy === 'delete'} onClick={remove} aria-label="Delete campaign" title="Delete campaign"><Trash2 size={14} /></button>
       </div>
@@ -481,7 +481,7 @@ function CampaignDetail({ campaignId, onBack, onChanged }) {
           </tr>)}</tbody>
         </table></div>
         <nav className="post-pagination cross-pagination" aria-label="Campaign post pages"><span>Showing {pageStart + 1}–{Math.min(pageStart + pageSize, rows.length)} of {rows.length}</span><div><button aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(value => Math.max(1, value - 1))}><ChevronLeft size={15} /></button><span>Page {currentPage} of {pageCount}</span><button aria-label="Next page" disabled={currentPage === pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}><ChevronRight size={15} /></button></div></nav>
-      </> : <Empty icon={FileText} title={state.posts.length ? 'No matching posts' : 'No posts in this campaign yet'} action={!state.posts.length && <button className="perf-button primary" onClick={() => setModal('links')}><Plus size={14} />Add posts by link</button>}>{state.posts.length ? 'Try another search, platform or date range.' : range.start ? 'No campaign posts in this period.' : `Posts with #${campaign.hashtag} appear here automatically after they are uploaded to Data Hub.`}</Empty>}
+      </> : <Empty icon={FileText} title={state.posts.length ? 'No matching posts' : 'No posts in this campaign yet'} action={!state.posts.length && <button className="perf-button primary" onClick={() => setModal('links')}><Plus size={14} />Add posts by link</button>}>{state.posts.length ? 'Try another search, platform or date range.' : range.start ? 'No campaign posts in this period.' : campaign.hashtag ? `Posts with #${campaign.hashtag} appear here automatically after they are uploaded to Data Hub.` : 'Add posts by pasting their links.'}</Empty>}
     </section>
 
     {modal === 'links' && <Modal title="Add posts by link" subtitle={`Add Data Hub posts to ${campaign.name}`} onClose={() => setModal(null)} wide><AddPostsForm campaign={campaign} onAdded={refresh} onCancel={() => setModal(null)} /></Modal>}
