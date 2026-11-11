@@ -190,7 +190,9 @@
 .campaign-breakdown-table tbody tr { cursor: pointer; transition: background .15s; }
 .campaign-breakdown-table tbody tr:hover td, .campaign-breakdown-table tbody tr:hover th { background: #fffafb; }
 .performance-app .campaign-breakdown-table tbody tr.is-active th, .campaign-breakdown-table tbody tr.is-active td { background: #fff3f6; }
-.campaign-breakdown-table tbody tr.is-active th { box-shadow: inset 3px 0 0 #ed0027; }
+/* Left marker as a border: an inset shadow bleeds onto the row's top edge in PDFs. */
+.campaign-breakdown-table tbody th { border-left: 3px solid transparent; }
+.campaign-breakdown-table tbody tr.is-active th { border-left-color: #ed0027; }
 .campaign-breakdown-table td.is-total { color: #2f2530; font-weight: 750; }
 .split-head { display: inline-flex; align-items: center; gap: 6px; }
 .split-head i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
