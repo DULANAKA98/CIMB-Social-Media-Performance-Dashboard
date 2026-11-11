@@ -285,7 +285,7 @@ function CampaignBreakdown({ campaign }) {
     <div className="campaign-breakdown-body">
       <div className="campaign-breakdown-chart" role="img" aria-label={`${metric.label}: total, organic and paid`}>
         {printing ? <div className="fixed-print-chart">
-          <BarChart width={420} height={300} data={chartRows} margin={{ top: 28, right: 12, left: 4, bottom: 4 }} barCategoryGap="28%">
+          <BarChart width={452} height={222} data={chartRows} margin={{ top: 28, right: 12, left: 4, bottom: 4 }} barCategoryGap="28%">
             <CartesianGrid stroke="#f0f0f4" vertical={false} />
             <XAxis dataKey="name" tick={{ ...CHART_STYLE, fontSize: 13 }} axisLine={false} tickLine={false} />
             <YAxis tick={CHART_STYLE} axisLine={false} tickLine={false} width={56} tickFormatter={axis} />

@@ -257,7 +257,8 @@
   /* Performance: chart, table and AI insights side by side; an ungenerated insights card is left out. */
   .campaign-breakdown { padding: 10px; margin-top: 8px; break-inside: avoid; }
   .campaign-breakdown .metric-selector { display: none !important; }
-  .campaign-breakdown-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) !important; gap: 10px; }
+  /* The chart prints at an exact size (it is drawn at 452x222 inside a 460x230 box), so it is never squeezed. */
+  .campaign-breakdown-body { grid-template-columns: 460px minmax(0, 1fr) !important; gap: 12px; }
   .campaign-insights:has(.campaign-insights-empty) { display: none; }
   .campaign-insights { grid-column: 1 / -1 !important; padding: 8px; }
   /* Fill the row with however many insights came back (3 to 5), like the dashboard does. */
@@ -267,7 +268,7 @@
   .campaign-insights-list .insight-headline { font-size: 9px; }
   .campaign-insights-list small { font-size: 7px; }
   .campaign-insights .insight-icon { width: 16px; height: 16px; }
-  .campaign-breakdown-chart { height: 230px !important; min-height: 0; padding: 4px; }
+  .campaign-breakdown-chart { width: 460px; height: 230px !important; min-height: 0; padding: 4px; box-sizing: border-box; }
   /* The chart keeps its on-screen pixel size while printing; scale the drawing to fit the print box. */
   .campaign-breakdown-chart .fixed-print-chart, .campaign-breakdown-chart .recharts-wrapper,
   .campaign-breakdown-chart .recharts-surface { width: 100% !important; height: 100% !important; }
