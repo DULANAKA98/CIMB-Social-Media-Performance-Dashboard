@@ -300,109 +300,28 @@ def clean_and_ground(output: Any, facts: Dict[str, Any]) -> List[Dict[str, str]]
     return kept[:INSIGHT_COUNT]
 
 
-# ── Calculated fallback ──────────────────────────────────────────────────────
-# Used when the AI cannot give a readable answer, and to top up a short one, so the
-# campaign page always shows insights. Every number comes straight from the fact sheet.
 
-def _rows(facts: Dict[str, Any], key: str) -> List[Dict[str, Any]]:
-    return [row for row in facts.get(key) or [] if isinstance(row, dict)]
-
-
-def fallback_insights(facts: Dict[str, Any]) -> List[Dict[str, str]]:
-    total = facts.get("totals") or {}
-    split = facts.get("organic_vs_paid") or {}
-    o, p = split.get("organic") or {}, split.get("paid") or {}
-    collabs = facts.get("creator_collabs_vs_own_posts") or None
-    platforms = [r for r in _rows(facts, "platforms") if r.get("posts", 0) >= 2]
-    formats = [r for r in _rows(facts, "formats") if r.get("posts", 0) >= 3 and r.get("avg_er_pct") is not None]
-    top3 = (facts.get("concentration") or {}).get("top_3_posts_share_of_reach_pct")
-    stories = next((r for r in platforms if r.get("name") == "Instagram Stories"), None)
-    insights, decisions = [], []
-
-    if o.get("posts") and p.get("posts"):
-        o_e, p_e = o.get("engagements_per_1000_reach"), p.get("engagements_per_1000_reach")
-        if o_e is not None and p_e is not None and o_e > p_e:
-            insights.append(("Paid bought reach, organic earned engagement",
-                             f"Paid posts carried {_f(p.get('share_of_campaign_reach_pct'))}% of reach, but organic earned "
-                             f"{_f(o_e)} engagements per 1,000 reach against {_f(p_e)} for paid. Boosting widened the audience "
-                             f"far more than it sparked conversation."))
-            decisions.append(("Boost proven organic winners, not cold posts",
-                              f"Organic ER was {_f(o.get('avg_er_pct'))}% vs {_f(p.get('avg_er_pct'))}% for paid. Next wave, put "
-                              f"paid budget behind posts that already earn organic engagement, so the reach you buy also responds."))
-        else:
-            insights.append(("Paid reach also brought engagement",
-                             f"Paid posts carried {_f(p.get('share_of_campaign_reach_pct'))}% of reach and "
-                             f"{_f(p.get('share_of_campaign_engagement_pct'))}% of engagement, with ER {_f(p.get('avg_er_pct'))}% "
-                             f"vs {_f(o.get('avg_er_pct'))}% organic. The boosted content resonated, not just reached."))
-    if collabs and collabs.get("collab_er_vs_own_er_times"):
-        c, own = collabs["collab"], collabs["own"]
-        if (c.get("avg_er_pct") or 0) > (own.get("avg_er_pct") or 0):
-            insights.append(("Creators drove the conversation",
-                             f"Creator collab posts earned {_f(c.get('avg_er_pct'))}% ER against {_f(own.get('avg_er_pct'))}% for "
-                             f"own posts ({_f(collabs['collab_er_vs_own_er_times'])} times), on "
-                             f"{_f(c.get('share_of_campaign_reach_pct'))}% of reach. Audiences respond to faces they follow."))
-            decisions.append(("Brief more creator collabs",
-                              f"Collabs earned {_f(collabs['collab_er_vs_own_er_times'])} times the ER of own posts. Add creator "
-                              f"posts to the next wave and boost the best ones, instead of boosting brand posts alone."))
-    eff = [r for r in platforms if r.get("engagements_per_1000_reach") is not None and (r.get("share_of_campaign_reach_pct") or 0) >= 5]
-    if len(eff) >= 2:
-        best = max(eff, key=lambda r: r["engagements_per_1000_reach"])
-        worst = min(eff, key=lambda r: r["engagements_per_1000_reach"])
-        insights.append((f"{best['name']} engages, {worst['name']} mostly reaches",
-                         f"{best['name']} earned {_f(best['engagements_per_1000_reach'])} engagements per 1,000 reach; "
-                         f"{worst['name']} earned {_f(worst['engagements_per_1000_reach'])} on "
-                         f"{_f(worst.get('share_of_campaign_reach_pct'))}% of reach. The same budget buys very different responses."))
-        decisions.append((f"Lean the next wave toward {best['name']}",
-                          f"{best['name']} returned {_f(best['engagements_per_1000_reach'])} engagements per 1,000 reach vs "
-                          f"{_f(worst['engagements_per_1000_reach'])} on {worst['name']}. Shift effort there when the goal is response, not raw reach."))
-    if top3 is not None and top3 >= 40 and (total.get("posts") or 0) > 5:
-        insights.append(("A few posts carried the campaign",
-                         f"The top 3 posts delivered {_f(top3)}% of all reach across {_f(total.get('posts'))} posts. "
-                         f"Results depend heavily on a handful of pieces, so a single weak hero post can sink a wave."))
-    if len(formats) >= 2:
-        best = max(formats, key=lambda r: r["avg_er_pct"])
-        worst = min(formats, key=lambda r: r["avg_er_pct"])
-        if best["name"] != worst["name"]:
-            insights.append((f"{best['name']} outperformed {worst['name']}",
-                             f"{best['name']} averaged {_f(best['avg_er_pct'])}% ER over {_f(best['posts'])} posts, against "
-                             f"{_f(worst['avg_er_pct'])}% for {worst['name']}. Format choice changed how people responded."))
-            decisions.append((f"Make {best['name']} the lead format",
-                              f"At {_f(best['avg_er_pct'])}% ER vs {_f(worst['avg_er_pct'])}% for {worst['name']}, plan more "
-                              f"{best['name']} pieces and fewer {worst['name']} posts in the next wave."))
-    if stories and total.get("posts"):
-        insights.append(("Stories kept the campaign visible, not growing",
-                         f"Instagram Stories were {_f(stories['posts'])} of {_f(total['posts'])} posts but "
-                         f"{_f(stories.get('share_of_campaign_reach_pct'))}% of reach, {_f(stories.get('reach_per_post'))} per story. "
-                         f"They remind existing followers rather than reach new people."))
-        decisions.append(("Use Stories for reminders, feed for reach",
-                          f"Each story reached about {_f(stories.get('reach_per_post'))} people. Keep Stories for countdowns and "
-                          f"reminders, and put reach goals on feed posts and paid placements."))
-    if not insights:
-        insights.append(("Campaign at a glance",
-                         f"{_f(total.get('posts'))} posts reached {_f(total.get('reach'))} with {_f(total.get('engagement'))} "
-                         f"engagements, averaging {_f(total.get('avg_er_pct'))}% ER. Add more posts to compare formats and platforms."))
-    if not decisions:
-        decisions.append(("Test one variable next wave",
-                          f"With {_f(total.get('posts'))} posts at {_f(total.get('avg_er_pct'))}% average ER, test one change at a "
-                          f"time (format, creator or timing) so the next wave shows what actually moves engagement."))
-    return ([{"kind": "insight", "headline": h, "text": t} for h, t in insights[:3]]
-            + [{"kind": "decision", "headline": h, "text": t} for h, t in decisions[:2]])
-
-
-def top_up(ai_items: List[Dict[str, str]], facts: Dict[str, Any]) -> List[Dict[str, str]]:
-    """Fill a short AI answer to 3 insights + 2 decisions with calculated points."""
-    want = {"insight": 3, "decision": 2}
-    have = {kind: [i for i in ai_items if i["kind"] == kind][:want[kind]] for kind in want}
-    calculated = fallback_insights(facts)
-    for item in calculated:
-        if len(have[item["kind"]]) < want[item["kind"]]:
-            have[item["kind"]].append(item)
-    chosen = have["insight"] + have["decision"]
-    # Still short (e.g. no decisions to be had): use the remaining points of either kind.
-    for item in ai_items + calculated:
-        if len(chosen) >= INSIGHT_COUNT:
-            break
-        if item not in chosen:
-            chosen.append(item)
-    chosen.sort(key=lambda item: KINDS.index(item["kind"]))
-    return chosen[:INSIGHT_COUNT]
+# Cloudflare Workers AI "JSON mode": the model is constrained to this shape, so its reply is always valid JSON.
+RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "type": "object",
+        "properties": {
+            "insights": {
+                "type": "array",
+                "minItems": 5,
+                "maxItems": 5,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": list(KINDS)},
+                        "headline": {"type": "string"},
+                        "text": {"type": "string"},
+                    },
+                    "required": ["kind", "headline", "text"],
+                },
+            },
+        },
+        "required": ["insights"],
+    },
+}

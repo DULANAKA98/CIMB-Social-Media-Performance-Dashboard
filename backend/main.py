@@ -2490,16 +2490,18 @@ def get_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="This campaign has no posts yet.")
     facts = campaign_insights.build_facts(campaign.name, campaign.hashtag or "", records)
     messages = campaign_insights.build_messages(facts)
-    # The model sometimes writes a reply the AI service cannot read. Ask three times at once and keep
-    # the best answer; fill any gap with calculated points so the page never shows an error.
+    # JSON mode makes every reply readable. Three attempts run at once so a slow or failed one
+    # does not hold up the page; the best answer wins.
+    url = sql_agent.worker_sql_url()
     best: List[Dict[str, str]] = []
     pool = ThreadPoolExecutor(max_workers=3)
-    futures = [pool.submit(sql_agent._llm_json, messages, campaign_insights.MAX_TOKENS) for _ in range(3)]
+    futures = [pool.submit(sql_agent._worker_json, url, messages, campaign_insights.MAX_TOKENS,
+                           campaign_insights.RESPONSE_FORMAT) for _ in range(3)]
     try:
         for future in as_completed(futures, timeout=25):  # stay inside the CDN request timeout
             try:
                 found = campaign_insights.clean_and_ground(future.result(), facts)
-            except Exception as exc:  # one unreadable or failed reply must not fail the page
+            except Exception as exc:  # one failed attempt must not fail the others
                 print(f"Campaign insights attempt failed: {exc}")
                 continue
             if len(found) > len(best):
@@ -2510,11 +2512,9 @@ def get_campaign_insights(campaign_id: int, db: Session = Depends(get_db)):
         print("Campaign insights: AI attempts timed out")
     finally:
         pool.shutdown(wait=False, cancel_futures=True)  # do not wait for slower attempts
-    insights = campaign_insights.top_up(best, facts)
-    calculated = len(best) == 0
-    if len(best) < campaign_insights.INSIGHT_COUNT:
-        print(f"Campaign insights: {len(best)} AI points, {len(insights) - min(len(best), len(insights))} calculated")
-    return {"insights": insights, "_meta": {"generated_at": datetime.now(timezone.utc).isoformat(), "fallback": calculated}}
+    if not best:
+        raise HTTPException(status_code=502, detail="The AI could not generate insights. Try again.")
+    return {"insights": best, "_meta": {"generated_at": datetime.now(timezone.utc).isoformat()}}
 
 
 @app.get("/api/executive-summary/groq-legacy", include_in_schema=False)

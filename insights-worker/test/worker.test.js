@@ -139,3 +139,22 @@ test("chat falls back when the model invents a metric", async () => {
   assert.equal(body._meta.fallback, true);
   assert.match(body.reply, /18 posts/);
 });
+
+test("sql route passes a JSON schema through as JSON mode", async () => {
+  const seen = [];
+  const env = {
+    CIMB_INSIGHTS_KEY: "test-secret",
+    AI: { run: async (model, options) => { seen.push(options); return { response: { insights: [] } }; } },
+  };
+  const call = body => worker.fetch(new Request("https://example.com/sql", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": "test-secret" },
+    body: JSON.stringify(body),
+  }), env);
+  const schema = { type: "object", properties: { insights: { type: "array" } } };
+  const withSchema = await call({ messages: [{ role: "user", content: "hi" }], response_format: { type: "json_schema", json_schema: schema } });
+  assert.equal(withSchema.status, 200);
+  assert.deepEqual(seen[0].response_format, { type: "json_schema", json_schema: schema });
+  await call({ messages: [{ role: "user", content: "hi" }] });
+  assert.equal(seen[1].response_format, undefined);
+});

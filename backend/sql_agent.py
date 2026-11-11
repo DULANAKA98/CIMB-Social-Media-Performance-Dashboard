@@ -272,14 +272,17 @@ def worker_sql_url() -> Optional[str]:
     return parsed._replace(path="/sql", params="", query="", fragment="").geturl()
 
 
-def _worker_json(url: str, messages: List[Dict[str, str]], max_tokens: int) -> Dict[str, Any]:
+def _worker_json(url: str, messages: List[Dict[str, str]], max_tokens: int,
+                 response_format: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     headers = {
         "x-api-key": os.getenv("CIMB_INSIGHTS_KEY", "").strip(),
         "content-type": "application/json",
     }
     try:
         response = http_requests.post(
-            url, headers=headers, json={"messages": messages, "max_tokens": max_tokens}, timeout=60
+            url, headers=headers, timeout=60,
+            json={"messages": messages, "max_tokens": max_tokens,
+                  **({"response_format": response_format} if response_format else {})}
         )
     except http_requests.RequestException as exc:
         raise SqlAgentError("The CIMB AI service is unreachable (%s)." % type(exc).__name__)

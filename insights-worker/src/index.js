@@ -315,7 +315,12 @@ export default {
 
       const maxTokens = Math.min(Number(parsed.value.max_tokens) || 900, 1200);
       try {
-        const result = await env.AI.run(SQL_MODEL, { messages, temperature: 0.1, max_tokens: maxTokens });
+        const format = parsed.value.response_format;
+        // JSON mode: when the caller sends a JSON schema, the model can only produce valid JSON in that shape.
+        const jsonMode = format && format.type === "json_schema" && format.json_schema && typeof format.json_schema === "object"
+          ? { response_format: { type: "json_schema", json_schema: format.json_schema } }
+          : {};
+        const result = await env.AI.run(SQL_MODEL, { messages, temperature: 0.1, max_tokens: maxTokens, ...jsonMode });
         return json({ output: unwrapModelResponse(result), _meta: { model: SQL_MODEL } });
       } catch (error) {
         console.error("SQL proxy generation failed", error instanceof Error ? error.message : "unknown error");
