@@ -162,11 +162,29 @@ class CampaignApiTests(unittest.TestCase):
         pad = " This suggests the audience responds to the content itself, so the next wave should be planned around it."
         good = {"output": {"insights": [{"kind": "insight", "headline": f"Point {i}", "text": f"Facebook drew 1,000 reach from one post.{pad}"}
                                         for i in range(5)]}}
-        replies = iter([mock.Mock(status_code=502), mock.Mock(status_code=200, json=lambda: good)])
-        with mock.patch.dict(os.environ, {"CIMB_INSIGHTS_URL": "https://worker.example/insights", "CIMB_INSIGHTS_KEY": "k"}),                 mock.patch("sql_agent.http_requests.post", side_effect=lambda *a, **k: next(replies)):
+        import threading
+        lock, calls = threading.Lock(), []
+
+        def reply(*args, **kwargs):  # the first parallel attempt fails, the others succeed
+            with lock:
+                calls.append(1)
+                first = len(calls) == 1
+            return mock.Mock(status_code=502) if first else mock.Mock(status_code=200, json=lambda: good)
+        with mock.patch.dict(os.environ, {"CIMB_INSIGHTS_URL": "https://worker.example/insights", "CIMB_INSIGHTS_KEY": "k"}),                 mock.patch("sql_agent.http_requests.post", side_effect=reply):
             result = self.client.get(f"/api/campaigns/{campaign['id']}/insights")
         self.assertEqual(result.status_code, 200, result.text)
         self.assertEqual(len(result.json()["insights"]), 5)
+
+    def test_campaign_insights_never_fail_when_the_ai_does(self):
+        from unittest import mock
+        campaign = self.client.post("/api/campaigns", json={"name": "Hmmm Dulu", "hashtag": "hmmmdulu"}).json()["campaign"]
+        with mock.patch.dict(os.environ, {"CIMB_INSIGHTS_URL": "https://worker.example/insights", "CIMB_INSIGHTS_KEY": "k"}),                 mock.patch("sql_agent.http_requests.post", return_value=mock.Mock(status_code=502)):
+            result = self.client.get(f"/api/campaigns/{campaign['id']}/insights")
+        self.assertEqual(result.status_code, 200, result.text)
+        body = result.json()
+        self.assertTrue(body["_meta"]["fallback"])
+        self.assertGreaterEqual(len(body["insights"]), 2)
+        self.assertTrue(all(i["headline"] and i["text"] for i in body["insights"]))
 
     def test_campaign_without_hashtag_uses_links_only(self):
         created = self.client.post("/api/campaigns", json={"name": "Links only", "hashtag": ""})

@@ -249,7 +249,7 @@ function CampaignInsights({ campaignId }) {
       })}</ol>
         : <div className="campaign-insights-empty"><Sparkles size={22} /><strong>Get 5 insights on this campaign</strong><p>What this campaign's numbers really mean, and the decisions they point to.</p><button className="perf-button primary" onClick={generate}>Generate AI insights</button></div>}
     {state.error && <p className="form-error" role="alert">{state.error}</p>}
-    <p className="panel-footnote">{state.items.length ? (state.fallback ? 'Calculated highlights · AI was unavailable' : 'AI-generated with CIMB Insights · review before sharing') : "Uses only this campaign's aggregate numbers."}</p>
+    <p className="panel-footnote">{state.items.length ? (state.fallback ? "Calculated from this campaign's numbers · AI was busy, try Regenerate later" : 'AI-generated with CIMB Insights · review before sharing') : "Uses only this campaign's aggregate numbers."}</p>
   </aside>;
 }
 
