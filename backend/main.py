@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from data_processor import calculate_fb_ig_engagement_rate, process_data, read_platform_file
-from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign, CampaignInsight
+from database import init_db, get_db, Post, AiReport, FollowerSnapshot, FollowerHistory, Campaign, CampaignInsight
 import auth
 import campaigns as campaign_helpers
 import campaign_insights
@@ -2326,6 +2326,28 @@ def get_follower_growth(
     return result
 
 
+def _fill_from_follower_history(db: Session, result: Dict[str, Any], errors: Dict[str, str], start, end) -> None:
+    """Add imported daily totals for days Metricool has no value for; Metricool wins on the same day."""
+    stored = (db.query(FollowerHistory)
+              .filter(FollowerHistory.day >= start, FollowerHistory.day <= end)
+              .order_by(FollowerHistory.day).all())
+    for platform in FOLLOWER_PLATFORMS:
+        rows = [row for row in stored if row.platform == platform]
+        if not rows:
+            continue
+        have = {item["month"] for item in result.get(platform) or []}
+        extra = [{
+            "month": row.day.isoformat(),
+            "month_label": row.day.strftime("%d %b %Y"),
+            "followers": row.followers,
+            "provider": row.source,
+            "observed_at": datetime.combine(row.day, datetime.min.time(), MALAYSIA_TZ).isoformat(),
+        } for row in rows if row.day.isoformat() not in have]
+        if extra:
+            result[platform] = sorted((result.get(platform) or []) + extra, key=lambda item: item["month"])
+            errors.pop(platform, None)
+
+
 @app.get("/api/follower-growth/metricool")
 def get_metricool_follower_growth(
     start_date: Optional[str] = Query(None),
@@ -2350,6 +2372,7 @@ def get_metricool_follower_growth(
         raise HTTPException(status_code=400, detail="Follower date range cannot exceed two years")
 
     result, errors = _fetch_metricool_follower_history(start.isoformat(), end.isoformat())
+    _fill_from_follower_history(db, result, errors, start, end)
     result["_meta"] = {
         "last_refreshed_at": datetime.now(timezone.utc).isoformat(),
         "source": "Metricool",

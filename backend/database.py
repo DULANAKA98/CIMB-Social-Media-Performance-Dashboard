@@ -77,6 +77,17 @@ class YoutubeFormat(Base):
     checked_at = Column(DateTime, default=datetime.utcnow)
 
 
+class FollowerHistory(Base):
+    """Daily follower totals imported from a platform's own export (e.g. YouTube Studio) for dates
+    Metricool has no history for. Metricool's own values always take precedence for the same day."""
+    __tablename__ = "follower_history"
+
+    platform  = Column(String, primary_key=True)
+    day       = Column(Date, primary_key=True)
+    followers = Column(Integer, nullable=False)
+    source    = Column(String, nullable=False)
+
+
 class AiReport(Base):
     __tablename__ = "ai_reports"
 

@@ -91,7 +91,7 @@ function Followers({ followers, loading, error, printing = false }) {
     {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Daily follower growth">
       {printing ? <div className="fixed-print-chart">{chart}</div> : <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>{chart}</ResponsiveContainer>}
     </div> : <Empty icon={TrendingUp} title={error ? 'Follower data unavailable' : 'Waiting for the first daily snapshot'}>
-      {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms supplied. Matching daily snapshots are needed for a combined total.` : 'Follower counts will appear after the scheduled refresh runs.')}
+      {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms have follower history for this period${followers.missing?.length ? `; ${followers.missing.join(' and ')} ${followers.missing.length > 1 ? 'have' : 'has'} none` : ''}. A combined total needs every platform.` : 'Follower counts will appear after the scheduled refresh runs.')}
     </Empty>}
     <p className="follower-refreshed">{refreshed ? `Metricool · fetched ${refreshed}` : 'Metricool data has not loaded yet'}</p>
   </Panel>;
