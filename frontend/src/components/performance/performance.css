@@ -214,3 +214,13 @@
   .perf-footer { margin-top: 7px; font-size: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .performance-app *, .performance-app *::before { animation: none !important; transition: none !important; }.reveal-item { opacity: 1; transform: none; } }
+
+/* Cards in one row share its height: spread their rows over it instead of leaving blank space below. */
+.category-chart, .campaign-panel, .insights-panel { display: flex; flex-direction: column; }
+.category-chart .category-rows { flex: 1; justify-content: space-around; }
+.campaign-panel .campaign-rank { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
+.insights-panel .insights-list { flex: 1; }
+/* The AI button is the panel's main action, so it reads as a button at a glance. */
+.insights-generate { align-self: flex-start; margin-top: 12px; padding: 10px 16px; font-size: 13px; }
+.insights-generate:disabled { opacity: .6; cursor: default; }
+@media print { .insights-generate { display: none; } }
