@@ -149,6 +149,11 @@ test('thumbnail matching prefers the post URL and safely falls back to platform 
   assert.equal(thumbnailForPost({ platform: 'Instagram', date: '2026-09-01', link: 'https://www.instagram.com/p/abc/' }, items), 'https://cdn.example.com/a.jpg');
   assert.equal(thumbnailForPost({ platform: 'Facebook', date: '2026-09-10', link: '' }, items), 'https://cdn.example.com/b.jpg');
   assert.equal(thumbnailForPost({ platform: 'TikTok', date: '2026-09-10' }, items), null);
+  // Every YouTube watch link used to look the same once the query string was dropped, so all videos shared one image.
+  const yt = [{ platform: 'youtube', link: 'https://www.youtube.com/watch?v=AAAAAAAAAAA', publication_date: '2026-10-05', picture: 'https://cdn.example.com/first.jpg' }];
+  assert.equal(thumbnailForPost({ platform: 'YouTube', date: '2026-10-05', link: 'https://youtube.com/watch?v=BBBBBBBBBBB' }, yt), 'https://i.ytimg.com/vi/BBBBBBBBBBB/hqdefault.jpg');
+  assert.equal(thumbnailForPost({ platform: 'YouTube', link: 'https://www.youtube.com/shorts/ck_jjvyKVSY' }, yt), 'https://i.ytimg.com/vi/ck_jjvyKVSY/hqdefault.jpg');
+  assert.equal(thumbnailForPost({ platform: 'YouTube', link: 'https://www.youtube.com/post/Ugkx1LYKkwseg65r5' }, yt), null);
 });
 
 test('follower date filtering is independent and preserves response metadata', () => {

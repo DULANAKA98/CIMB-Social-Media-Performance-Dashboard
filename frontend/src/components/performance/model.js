@@ -41,7 +41,12 @@ const titleScore = (left, right) => {
   return [...a].filter(word => b.has(word)).length / Math.min(a.size, b.size);
 };
 
+// YouTube serves a fixed thumbnail for every video id, so it never depends on matching.
+const YOUTUBE_ID = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)\s*([A-Za-z0-9_-]{11})/;
+export const youtubeThumbnail = link => { const id = String(link || '').match(YOUTUBE_ID)?.[1]; return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null; };
+
 export function thumbnailForPost(post, items = []) {
+  if (normalizePlatform(post?.platform) === 'youtube') return youtubeThumbnail(post?.link);
   const exactUrl = normalizeUrl(post?.link);
   let match = exactUrl ? items.find(item => normalizeUrl(item.link) === exactUrl) : null;
   if (!match) {
