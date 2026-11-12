@@ -30,8 +30,9 @@ class AiInsightsScopeTests(unittest.TestCase):
         "CIMB_INSIGHTS_KEY": "test-key",
     })
     @patch("main.http_requests.post")
+    @patch("main.sql_agent.worker_json", return_value=None)  # no strategic answer: the earlier Worker path runs
     @patch("main.get_filtered_data")
-    def test_selected_platform_is_the_only_data_sent_to_ai(self, filtered_data, post):
+    def test_selected_platform_is_the_only_data_sent_to_ai(self, filtered_data, _worker_json, post):
         filtered_data.return_value = self.rows
         response = Mock(status_code=200)
         response.json.return_value = {"key_highlights": ["Instagram scoped insight"]}

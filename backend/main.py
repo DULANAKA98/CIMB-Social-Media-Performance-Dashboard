@@ -8,6 +8,7 @@ from database import init_db, get_db, Post, AiReport, FollowerSnapshot, Campaign
 import auth
 import campaigns as campaign_helpers
 import campaign_insights
+import overview_insights
 import post_matching
 import youtube_formats
 import sql_agent
@@ -2478,6 +2479,45 @@ def _request_cimb_insights_from(insights_url: str, insights_key: str, snapshot: 
     return result
 
 
+def _strategic_overview_insights(df: pd.DataFrame, start_date: Optional[str], end_date: Optional[str],
+                                 platform: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Four strategic points (3 insights, 1 decision) for the selected period and platform, or None."""
+    records = overview_insights.records_from_frame(df)
+    previous, previous_period = None, overview_insights.previous_range(start_date, end_date)
+    if previous_period:
+        try:
+            before = get_filtered_data(previous_period[0], previous_period[1],
+                                       include_instagram_stories=True, separate_instagram_stories=True)
+            if platform:
+                before = before[before['platform'] == platform]
+            previous = overview_insights.records_from_frame(before) if len(before) else None
+        except HTTPException:
+            previous = None  # no data before the selected period
+    facts = overview_insights.build_facts(platform or "All platforms", start_date, end_date, records, previous, previous_period)
+    messages = overview_insights.build_messages(facts, platform)
+    best: List[Dict[str, str]] = []
+    pool = ThreadPoolExecutor(max_workers=3)
+    futures = [pool.submit(sql_agent.worker_json, messages, overview_insights.MAX_TOKENS) for _ in range(3)]
+    try:
+        for future in as_completed(futures, timeout=20):  # leave time for the fallback inside the CDN timeout
+            try:
+                found = overview_insights.clean_and_ground(future.result(), facts)
+            except Exception as exc:  # one failed attempt must not fail the others
+                print(f"Strategic insights attempt failed: {exc}")
+                continue
+            if len(found) > len(best):
+                best = found
+            if len(best) >= overview_insights.POINTS:
+                break
+    except FuturesTimeout:
+        print("Strategic insights: AI attempts timed out")
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)  # do not wait for slower attempts
+    if len(best) < overview_insights.MIN_POINTS:
+        return None
+    return overview_insights.to_response(best)
+
+
 @app.get("/api/executive-summary")
 def get_executive_summary(
     start_date: Optional[str] = Query(None),
@@ -2495,6 +2535,15 @@ def get_executive_summary(
             raise HTTPException(status_code=400, detail=f"No {platform} data is available for the selected period.")
     snapshot = _cimb_insight_snapshot(df, start_date, end_date)
     snapshot["platform_scope"] = platform or "All platforms"
+    # Strategic insights first (what the numbers mean, grounded in a fact sheet). If the AI gives
+    # nothing usable, fall back to the earlier Worker insights so the panel never breaks.
+    try:
+        strategic = _strategic_overview_insights(df, start_date, end_date, platform)
+    except Exception as exc:
+        print(f"Strategic insights failed: {type(exc).__name__}: {exc}")
+        strategic = None
+    if strategic:
+        return strategic
     return _request_cimb_insights(snapshot)
 
 
