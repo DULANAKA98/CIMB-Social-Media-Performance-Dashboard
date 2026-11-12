@@ -191,7 +191,7 @@ function Benchmarks({ current, previous, mode, onMode, hasRange, loading, compar
     : '';
   const comparisonNote = comparisonEmpty ? 'No content data is available for the comparison period.' : '';
   return <Panel title="Benchmarking" className="benchmark-panel">
-    <div className="benchmark-tabs" role="group" aria-label="Benchmark comparison"><button aria-pressed={mode === 'previous'} onClick={() => onMode('previous')}>Previous period</button><button aria-pressed={mode === 'year'} onClick={() => onMode('year')}>Same period last year</button><button disabled title="Industry benchmark source not connected">Industry avg.</button><button disabled title="Campaign mapping not connected">Similar campaigns</button></div>
+    <div className="benchmark-tabs" role="group" aria-label="Benchmark comparison"><button aria-pressed={mode === 'previous'} onClick={() => onMode('previous')}>Previous period</button><button aria-pressed={mode === 'year'} onClick={() => onMode('year')}>Same period last year</button></div>
     <div className="benchmark-metrics">{metrics.map(([label, key]) => { const pending = key === 'followers' ? followerLoading : loading; const delta = !pending && change(current[key], previous[key], key === 'er'); return <div key={key}><span>{label}</span><strong className={delta && delta.value < 0 ? 'negative' : ''}>{delta ? delta.label : '—'}</strong><small>{pending ? 'Loading…' : delta ? key === 'er' ? 'percentage points' : 'change' : 'Not available'}</small></div>; })}</div>
     <p className="panel-footnote">{hasRange ? comparison ? `Compared with ${dateLabel(comparison.start)} – ${dateLabel(comparison.end)}. ${comparisonNote} ${followerNote}` : 'Comparison unavailable.' : 'Select a date range to compare performance.'}</p>
   </Panel>;
