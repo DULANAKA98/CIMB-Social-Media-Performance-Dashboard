@@ -9,7 +9,7 @@ import Campaigns, { CampaignImage } from './performance/Campaigns';
 import { CHART_STYLE, DateFilter, Empty, Kpi, Panel, PlatformIcon, PostThumbnail, PREPARE_PRINT_EVENT, TOOLTIP_STYLE, trapFocus, waitForImages } from './performance/ui';
 import CrossPlatformContent from './performance/CrossPlatformContent';
 import usePerformanceData, { API_URL, queryFor } from './performance/usePerformanceData';
-import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, exposureMetric, exposureValue, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink } from './performance/model';
+import { PLATFORMS, buildModel, change, compact, comparisonRange, dateLabel, exposureMetric, exposureValue, followerAxisLabel, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink } from './performance/model';
 import './performance/performance.css';
 
 function Delta({ current, previous, rate = false, label = 'vs previous period' }) {
@@ -84,7 +84,7 @@ function Followers({ followers, loading, error, printing = false }) {
   const markerIndexes = new Set(markers.indexes);
   const chart = <LineChart {...(printing ? { width: 520, height: 230 } : {})} data={followers.rows} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
     <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="month" ticks={markers.ticks} interval="preserveStartEnd" minTickGap={14} tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => followerTickLabel(value, markers.spanDays)} />
-    <YAxis tickFormatter={compact} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={47} />
+    <YAxis tickFormatter={followerAxisLabel(followers.rows)} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={58} />
     {!printing && <Tooltip contentStyle={TOOLTIP_STYLE} formatter={full} labelFormatter={dateLabel} />}<Line isAnimationActive={!printing} dataKey="followers" name="Followers" stroke="#ed0027" strokeWidth={2} dot={props => markerIndexes.has(props.index) ? <circle cx={props.cx} cy={props.cy} r={3} fill="#ed0027" stroke="#fff" strokeWidth={1} /> : null} activeDot={{ r: 4, fill: '#ed0027', stroke: '#fff', strokeWidth: 1.5 }} />
   </LineChart>;
   return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart">

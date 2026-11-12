@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildModel, change, comparisonRange, exposureMetric, exposureValue, filterFollowerData, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './model.js';
+import { followerAxisLabel, buildModel, change, comparisonRange, exposureMetric, exposureValue, filterFollowerData, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './model.js';
 
 test('previous period uses inclusive day bounds and crosses month/year boundaries', () => {
   assert.deepEqual(comparisonRange({ start: '2026-01-01', end: '2026-01-31' }), { start: '2025-12-01', end: '2025-12-31' });
@@ -161,4 +161,12 @@ test('follower date filtering is independent and preserves response metadata', (
   const filtered = filterFollowerData(data, { start: '2026-08-15', end: '2026-09-30' });
   assert.deepEqual(filtered.Facebook, [{ month: '2026-09-01' }]);
   assert.deepEqual(filtered._meta, data._meta);
+});
+
+test('follower axis labels stay distinct when totals barely move', () => {
+  const narrow = followerAxisLabel([{ followers: 1641082 }, { followers: 1656742 }]);
+  assert.equal(narrow(1645000), '1,645k');
+  assert.notEqual(narrow(1645000), narrow(1655000));
+  assert.equal(followerAxisLabel([{ followers: 70100 }, { followers: 70396 }])(70200), '70,200');
+  assert.equal(followerAxisLabel([{ followers: 10 }, { followers: 900000 }])(900000), '900K');
 });

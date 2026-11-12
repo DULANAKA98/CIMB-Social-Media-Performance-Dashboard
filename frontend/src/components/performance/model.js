@@ -167,6 +167,17 @@ export function followerModel(data, platform = null) {
   return { total: rows.at(-1)?.followers ?? null, rows, coverage: available.length, expected: names.length, ...metadata };
 }
 
+// Follower totals move little relative to their size, so one decimal of a million would give several
+// gridlines the same label (1.645m and 1.655m both read 1.7m). Pick a precision that keeps them apart.
+export function followerAxisLabel(rows = []) {
+  const values = rows.map(row => number(row.followers)).filter(value => value != null);
+  if (!values.length) return compact;
+  const low = Math.min(...values); const high = Math.max(...values); const spread = high - low;
+  if (high >= 10000 && spread < 5000) return value => full(value);
+  if (high >= 10000 && spread < high * 0.2) return value => `${new Intl.NumberFormat('en-GB').format(Math.round(value / 1000))}k`;
+  return compact;
+}
+
 export function followerChartMarkers(rows = []) {
   if (!rows.length) return { indexes: [], ticks: [], spanDays: 0 };
   const start = Date.parse(`${rows[0]?.month}T00:00:00Z`);
