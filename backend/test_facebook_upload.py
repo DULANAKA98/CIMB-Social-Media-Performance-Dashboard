@@ -28,6 +28,11 @@ class FacebookUploadTests(unittest.TestCase):
         self.assertEqual([r["reach"] for r in records], [800, 600])
         self.assertEqual([r["is_organic"] for r in records], [False, True])
 
+    def test_funded_content_status_does_not_make_a_post_paid(self):
+        records = facebook([{**BASE, "Viewers": "800", "Views from Boosted posts": "0",
+                             "Funded content status": "Funded"}])
+        self.assertTrue(records[0]["is_organic"])
+
     def test_old_export_keeps_reach_split_rule(self):
         records = facebook([
             {**BASE, "Reach": "900", "Reach from Organic posts": "900", "Lifetime Post Paid Reach": "0"},
