@@ -17,7 +17,7 @@ const FORMATS = ['Video', 'Shorts', 'Static', 'Carousel', 'Reel', 'IG Story', 'S
 // Campaign membership is managed on the Campaigns page, so it is read-only here.
 const READ_ONLY_COLS = ['campaign'];
 // Pillars used in the team's sheet; the input suggests them but accepts any value.
-const PILLARS = ['Brand', 'Marketing', 'Security', 'GCE', 'FinLit', 'Preferred', 'DS', 'HR', 'Foundation', 'Kita Serumpun', 'Sustainability'];
+const PILLARS = ['Brand', 'Marketing', 'Security', 'GCE', 'FinLit', 'Preferred', 'DS', 'HR', 'Foundation', 'Kita Serumpun', 'Sustainability', 'Islamic'];
 const NUMERIC_COLS = ['reach', 'views', 'engagement', 'likes', 'comments', 'shares', 'favorites', 'reposts', 'engagement_rate'];
 
 const COLUMNS = [
