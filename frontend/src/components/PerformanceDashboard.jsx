@@ -161,8 +161,9 @@ function TopPosts({ posts, onExpand, platform, thumbnails }) {
   const filtered = useMemo(() => postsForPlatform(posts, selectedPlatform).slice().sort((a, b) => (b.engagement || 0) - (a.engagement || 0)), [posts, selectedPlatform]);
   const mixedPlatforms = selectedPlatform === ALL_PLATFORMS;
   const metricLabel = mixedPlatforms ? 'Reach' : exposureMetric(selectedPlatform).label;
-  // Views gets its own column only on pages led by reach (Facebook, Instagram, Instagram Stories).
-  const showViews = !mixedPlatforms && exposureMetric(selectedPlatform).key === 'reach';
+  // Views gets its own column for all platforms and on reach-led pages (Facebook, Instagram, Instagram Stories);
+  // TikTok and YouTube already lead with views, and LinkedIn leads with impressions.
+  const showViews = mixedPlatforms || exposureMetric(selectedPlatform).key === 'reach';
   return <Panel title="Top Performing Posts" subtitle={`${selectedPlatform} · ranked by engagement`} className="top-posts" action={<div className="post-card-actions"><PlatformSelect value={selectedPlatform} onChange={setSelectedPlatform} /><button className="text-button" onClick={() => onExpand(selectedPlatform)}>View all <ArrowUpRight size={12} /></button></div>}>
     {filtered.length ? <div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>{metricLabel}</th>{showViews && <th>Views</th>}<th>Engagement</th><th>ER%</th></tr></thead><tbody><PostRows posts={filtered.slice(0, 5)} thumbnails={thumbnails} showMetricLabel={mixedPlatforms} showViews={showViews} showEngagement /></tbody></table></div> : <Empty icon={FileText} title="No posts for this platform">Choose another platform or reporting period.</Empty>}
   </Panel>;
