@@ -224,3 +224,8 @@
 .insights-generate { align-self: flex-start; margin-top: 12px; padding: 10px 16px; font-size: 13px; }
 .insights-generate:disabled { opacity: .6; cursor: default; }
 @media print { .insights-generate { display: none; } }
+/* Typed reporting period */
+.date-popover input.date-typed { border: 1px solid #e7e5ed; border-radius: 5px; padding: 10px; font: inherit; font-size: 13px; color: #352f3a; background: #fff; }
+.date-popover input.date-typed:focus { outline: none; border-color: #ed0027; box-shadow: 0 0 0 2px #ed002718; }
+.date-popover .form-hint { font-size: 11px; line-height: 1.4; color: #8c8392; margin: -6px 0 10px; }
+.date-popover input.date-typed[aria-invalid='true'] { border-color: #ed0027; }

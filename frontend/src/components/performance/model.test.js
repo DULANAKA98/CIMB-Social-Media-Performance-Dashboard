@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { followerAxisLabel, buildModel, change, comparisonRange, exposureMetric, exposureValue, filterFollowerData, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './model.js';
+import { parseTypedRange, followerAxisLabel, buildModel, change, comparisonRange, exposureMetric, exposureValue, filterFollowerData, followerChartMarkers, followerModel, followerTickLabel, full, percent, safeLink, thumbnailForPost } from './model.js';
 
 test('previous period uses inclusive day bounds and crosses month/year boundaries', () => {
   assert.deepEqual(comparisonRange({ start: '2026-01-01', end: '2026-01-31' }), { start: '2025-12-01', end: '2025-12-31' });
@@ -169,4 +169,14 @@ test('follower axis labels stay distinct when totals barely move', () => {
   assert.notEqual(narrow(1645000), narrow(1655000));
   assert.equal(followerAxisLabel([{ followers: 70100 }, { followers: 70396 }])(70200), '70,200');
   assert.equal(followerAxisLabel([{ followers: 10 }, { followers: 900000 }])(900000), '900K');
+});
+
+test('typed reporting periods are read day-first in common formats', () => {
+  assert.deepEqual(parseTypedRange('1/1/2025 - 31/12/2025'), { start: '2025-01-01', end: '2025-12-31' });
+  assert.deepEqual(parseTypedRange('01-02-25 to 28-02-25'), { start: '2025-02-01', end: '2025-02-28' });
+  assert.deepEqual(parseTypedRange('1 Jan 2025 – 31 Mar 2025'), { start: '2025-01-01', end: '2025-03-31' });
+  assert.deepEqual(parseTypedRange('2025-01-01 - 2025-06-30'), { start: '2025-01-01', end: '2025-06-30' });
+  assert.equal(parseTypedRange('31/02/2025 - 1/3/2025'), null);
+  assert.equal(parseTypedRange('31/12/2025 - 1/1/2025'), null);
+  assert.equal(parseTypedRange('last week'), null);
 });

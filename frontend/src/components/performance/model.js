@@ -169,6 +169,29 @@ export function followerModel(data, platform = null) {
 
 // Follower totals move little relative to their size, so one decimal of a million would give several
 // gridlines the same label (1.645m and 1.655m both read 1.7m). Pick a precision that keeps them apart.
+// Typed reporting periods: "1/1/2025 - 31/12/2025", "01-01-25 to 31-03-25", "2025-01-01 – 2025-06-30",
+// "1 Jan 2025 - 31 Mar 2025". Day comes before month, as in Malaysia. Returns null when it can't be read.
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+export function parseTypedDate(text) {
+  const value = String(text || '').trim().toLowerCase().replace(/,/g, ' ');
+  let day, month, year;
+  let m = value.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (m) [year, month, day] = [m[1], m[2], m[3]];
+  else if ((m = value.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/))) [day, month, year] = [m[1], m[2], m[3]];
+  else if ((m = value.match(/^(\d{1,2})\s+([a-z]{3})[a-z]*\s+(\d{2}|\d{4})$/)) && MONTHS.includes(m[2])) [day, month, year] = [m[1], MONTHS.indexOf(m[2]) + 1, m[3]];
+  else return null;
+  year = Number(year) < 100 ? 2000 + Number(year) : Number(year);
+  const date = new Date(Date.UTC(year, Number(month) - 1, Number(day)));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== Number(month) - 1 || date.getUTCDate() !== Number(day)) return null;
+  return date.toISOString().slice(0, 10);
+}
+export function parseTypedRange(text) {
+  const parts = String(text || '').split(/\s+(?:to|until)\s+|\s*[–—]\s*|\s+-\s+/i).filter(Boolean);
+  if (parts.length !== 2) return null;
+  const [start, end] = parts.map(parseTypedDate);
+  return start && end && start <= end ? { start, end } : null;
+}
+
 export function followerAxisLabel(rows = []) {
   const values = rows.map(row => number(row.followers)).filter(value => value != null);
   if (!values.length) return compact;

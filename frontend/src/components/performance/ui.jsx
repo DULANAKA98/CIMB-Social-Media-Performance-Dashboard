@@ -5,7 +5,7 @@ import axios from 'axios';
 import { BarChart3, CalendarDays, ChevronDown, Info, X } from 'lucide-react';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaTiktok, FaYoutube } from 'react-icons/fa6';
 import { API_URL } from './usePerformanceData';
-import { PLATFORMS, dateLabel, safeLink, thumbnailForPost } from './model';
+import { PLATFORMS, dateLabel, parseTypedRange, safeLink, thumbnailForPost } from './model';
 
 export const BRAND_ICONS = { Facebook: FaFacebookF, Instagram: FaInstagram, 'Instagram Stories': FaInstagram, TikTok: FaTiktok, YouTube: FaYoutube, LinkedIn: FaLinkedinIn };
 export const CHART_STYLE = { fontSize: 12, fill: '#818493' };
@@ -48,7 +48,10 @@ export function Kpi({ label, value, icon: Icon, children, help, tone = '' }) {
 export function DateFilter({ range, onApply, label = 'Reporting period' }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(range);
+  const [typed, setTyped] = useState('');
   const ref = useRef(null);
+  const typedRange = parseTypedRange(typed);
+  const onType = value => { setTyped(value); const parsed = parseTypedRange(value); if (parsed) setDraft(parsed); };
   useEffect(() => {
     if (!open) return;
     const close = event => { if (!ref.current?.contains(event.target)) setOpen(false); };
@@ -60,7 +63,7 @@ export function DateFilter({ range, onApply, label = 'Reporting period' }) {
   const invalid = !draft.start || !draft.end || draft.start > draft.end;
   const apply = value => { onApply(value); setOpen(false); };
   return <div className="date-filter" ref={ref}>
-    <button className="perf-button date-trigger" aria-expanded={open} onClick={() => { setDraft(range); setOpen(!open); }}><CalendarDays size={15} /><span>{range.start ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates'}</span><ChevronDown size={13} /></button>
+    <button className="perf-button date-trigger" aria-expanded={open} onClick={() => { setDraft(range); setTyped(''); setOpen(!open); }}><CalendarDays size={15} /><span>{range.start ? `${dateLabel(range.start)} – ${dateLabel(range.end)}` : 'All available dates'}</span><ChevronDown size={13} /></button>
     {open && <div className="date-popover" role="dialog" aria-label={label}>
       <div className="popover-title"><strong>{label}</strong><button aria-label="Close date filter" className="icon-button" onClick={() => setOpen(false)}><X size={16} /></button></div>
       <div className="date-shortcuts"><button onClick={() => apply({ start: '', end: '' })}>All time</button><button onClick={() => {
@@ -68,6 +71,8 @@ export function DateFilter({ range, onApply, label = 'Reporting period' }) {
         const local = value => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
         apply({ start: local(new Date(now.getFullYear(), now.getMonth() - 1, 1)), end: local(new Date(now.getFullYear(), now.getMonth(), 0)) });
       }}>Last month</button></div>
+      <label>Type a date range<input type="text" className="date-typed" placeholder="e.g. 1/1/2025 - 31/12/2025" value={typed} onChange={e => onType(e.currentTarget.value)} onKeyDown={e => { if (e.key === 'Enter' && typedRange) apply(typedRange); }} aria-invalid={Boolean(typed.trim()) && !typedRange} /></label>
+      {typed.trim() && !typedRange && <p className="form-hint">Use day/month/year, e.g. 1/1/2025 - 31/3/2025 or 1 Jan 2025 to 31 Mar 2025.</p>}
       <label>Start date<input type="date" value={draft.start} max={draft.end || undefined} onInput={e => { const value = e.currentTarget.value; setDraft(prev => ({ ...prev, start: value })); }} onChange={e => { const value = e.currentTarget.value; setDraft(prev => ({ ...prev, start: value })); }} /></label>
       <label>End date<input type="date" value={draft.end} min={draft.start || undefined} onInput={e => { const value = e.currentTarget.value; setDraft(prev => ({ ...prev, end: value })); }} onChange={e => { const value = e.currentTarget.value; setDraft(prev => ({ ...prev, end: value })); }} /></label>
       {draft.start && draft.end && draft.start > draft.end && <p className="form-error">End date must be on or after start date.</p>}
