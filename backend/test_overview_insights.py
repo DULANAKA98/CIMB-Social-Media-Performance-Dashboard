@@ -165,6 +165,8 @@ class PillarChartTests(unittest.TestCase):
         result = get_content_types("2025-01-01", "2025-12-31")
         self.assertEqual(sorted(r["type"] for r in result["Overall"]), ["Brand", "Marketing", "Security"])
         self.assertEqual(sum(r["count"] for r in result["Overall"]), 5)
+        brand = next(r for r in result["Overall"] if r["type"] == "Brand")
+        self.assertAlmostEqual(brand["engagement_rate"], (10.0 + 8.0 + 5.0) / 3)  # mean of each post's ER
         rows["pillar"] = ""
         self.assertEqual(get_content_types("2026-01-01", "2026-01-31")["Overall"], [])
 

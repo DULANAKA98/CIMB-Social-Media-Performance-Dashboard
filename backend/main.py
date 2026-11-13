@@ -1189,7 +1189,7 @@ def _cross_platform_content_rows(df: pd.DataFrame):
 
 @app.get("/api/content-types")
 def get_content_types(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    """Return reach and weighted engagement rate per content pillar, per platform + overall.
+    """Return reach and average engagement rate (mean of each post's ER) per content pillar, per platform + overall.
 
     Pillars come from the posts' stored pillar (set from the team's sheet). Posts without a pillar
     are left out, so a period with no tagged posts returns no rows."""
@@ -1204,22 +1204,17 @@ def get_content_types(start_date: Optional[str] = Query(None), end_date: Optiona
         work = work[work['_category'] != '']
         if work.empty:
             return []
-        # Match the dashboard's ER definition: Meta posts fall back to views when
-        # reach is unavailable; every other platform uses reach.
-        work['_er_base'] = work['reach'].fillna(0).astype(float)
-        meta_mask = work['platform'].isin(['Facebook', 'Instagram']) & (work['_er_base'] <= 0)
-        work.loc[meta_mask, '_er_base'] = work.loc[meta_mask, 'views'].fillna(0).astype(float)
         rows = []
         for category, group in work.groupby('_category', sort=False):
             reach = float(group['reach'].fillna(0).sum())
             engagement = float(group['engagement'].fillna(0).sum())
-            denominator = float(group['_er_base'].sum())
+            rates = group['engagement_rate'].dropna().astype(float)
             rows.append({
                 "type": category,
                 "count": int(len(group)),
                 "reach": reach,
                 "engagement": engagement,
-                "engagement_rate": (engagement / denominator * 100) if denominator > 0 else None,
+                "engagement_rate": float(rates.mean()) if len(rates) else None,
             })
         return sorted(rows, key=lambda row: row['reach'], reverse=True)
 
