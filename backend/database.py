@@ -40,6 +40,7 @@ class Post(Base):
     engagement_rate = Column(Float, default=0)
     is_organic   = Column(Boolean, default=True)
     campaign     = Column(Text, nullable=True, index=True)   # campaigns.name; empty when not in a campaign
+    pillar       = Column(Text, nullable=True)               # content pillar, set from the team's sheet; empty when not tagged
     external_id  = Column(Text, nullable=True, index=True)   # platform's own post ID (Meta "Post ID" for Facebook)
     created_at   = Column(DateTime, default=datetime.utcnow)
 

@@ -155,5 +155,19 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(result["key_highlights"], ["Earlier style insight"])
 
 
+class PillarChartTests(unittest.TestCase):
+    @patch("main.get_filtered_data")
+    def test_categories_are_the_stored_pillars_and_untagged_posts_are_left_out(self, filtered):
+        from main import get_content_types
+        rows = CURRENT.copy()
+        rows["pillar"] = ["Brand", "Marketing", "Brand", "", "Security", "Brand"]
+        filtered.return_value = rows
+        result = get_content_types("2025-01-01", "2025-12-31")
+        self.assertEqual(sorted(r["type"] for r in result["Overall"]), ["Brand", "Marketing", "Security"])
+        self.assertEqual(sum(r["count"] for r in result["Overall"]), 5)
+        rows["pillar"] = ""
+        self.assertEqual(get_content_types("2026-01-01", "2026-01-31")["Overall"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

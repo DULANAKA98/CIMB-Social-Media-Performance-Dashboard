@@ -262,6 +262,7 @@ def get_filtered_data(
                     r.platform, r.format, r.engagement, r.reach, r.views, r.engagement_rate
                 ),
                 'is_organic': r.is_organic,
+                'pillar': (getattr(r, 'pillar', '') or '').strip(),
             })
         df = pd.DataFrame(records)
         df['date'] = pd.to_datetime(df['date'])
@@ -1184,7 +1185,10 @@ def _cross_platform_content_rows(df: pd.DataFrame):
 
 @app.get("/api/content-types")
 def get_content_types(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    """Return category reach and weighted engagement rate per platform + overall."""
+    """Return reach and weighted engagement rate per content pillar, per platform + overall.
+
+    Pillars come from the posts' stored pillar (set from the team's sheet). Posts without a pillar
+    are left out, so a period with no tagged posts returns no rows."""
     df = get_filtered_data(start_date, end_date, include_instagram_stories=True, separate_instagram_stories=True)
 
     platforms = PERFORMANCE_PLATFORMS
@@ -1192,7 +1196,10 @@ def get_content_types(start_date: Optional[str] = Query(None), end_date: Optiona
         if pdf.empty:
             return []
         work = pdf.copy()
-        work['_category'] = work['title'].fillna('').map(lambda value: classify_content_type(str(value)))
+        work['_category'] = work['pillar'].fillna('').astype(str).str.strip() if 'pillar' in work.columns else ''
+        work = work[work['_category'] != '']
+        if work.empty:
+            return []
         # Match the dashboard's ER definition: Meta posts fall back to views when
         # reach is unavailable; every other platform uses reach.
         work['_er_base'] = work['reach'].fillna(0).astype(float)

@@ -116,10 +116,10 @@ function Followers({ followers, loading, error, printing = false }) {
 }
 
 function Categories({ rows, exposureLabel = 'Reach' }) {
-  const visible = rows?.slice(0, 7) || [];
+  const visible = rows?.slice(0, 12) || [];
   const max = Math.max(...visible.map(row => row.reach || 0), 1);
-  return <Panel title="Content Categories Performance" subtitle={`${exposureLabel} and weighted ER% · auto-classified by title`} className="category-chart">
-    {visible.length ? <><div className="category-columns"><span>Category</span><span /><span>{exposureLabel}</span><span>ER%</span></div><div className="category-rows">{visible.map((row, index) => <div className="category-row" key={row.type}><span title={row.type}>{row.type}</span><div><i style={{ width: `${(row.reach || 0) / max * 100}%`, opacity: 1 - index * 0.065 }} /></div><strong>{compact(row.reach)}</strong><em>{percent(row.engagement_rate)}</em></div>)}</div></> : <Empty icon={FileText}>Content categories will appear after posts are uploaded.</Empty>}
+  return <Panel title="Content Categories Performance" subtitle={`${exposureLabel} and weighted ER% · by content pillar`} className="category-chart">
+    {visible.length ? <><div className="category-columns"><span>Pillar</span><span /><span>{exposureLabel}</span><span>ER%</span></div><div className="category-rows">{visible.map((row, index) => <div className="category-row" key={row.type}><span title={row.type}>{row.type}</span><div><i style={{ width: `${(row.reach || 0) / max * 100}%`, opacity: 1 - index * 0.065 }} /></div><strong>{compact(row.reach)}</strong><em>{percent(row.engagement_rate)}</em></div>)}</div></> : <Empty icon={FileText} title="No pillar data for this period">Content pillars haven't been added for the posts in this period yet.</Empty>}
   </Panel>;
 }
 
