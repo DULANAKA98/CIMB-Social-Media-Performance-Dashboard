@@ -185,8 +185,19 @@ export function followerChartMarkers(rows = []) {
   const spanDays = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.round((end - start) / 86400000)) : Math.max(0, rows.length - 1);
   const target = spanDays <= 7 ? 7 : spanDays <= 45 ? 6 : spanDays <= 180 ? 7 : 8;
   const count = Math.min(rows.length, target);
-  const indexes = count === 1 ? [0] : Array.from({ length: count }, (_, index) => Math.round(index * (rows.length - 1) / (count - 1)));
-  return { indexes, ticks: indexes.map(index => rows[index].month), spanDays };
+  if (!Number.isFinite(start) || !Number.isFinite(end) || count === 1) {
+    const indexes = count === 1 ? [0] : Array.from({ length: count }, (_, index) => Math.round(index * (rows.length - 1) / (count - 1)));
+    return { indexes, ticks: indexes.map(index => rows[index].month), spanDays };
+  }
+  // The axis is scaled by time, not by point count: monthly history and daily data share it fairly,
+  // so ticks are evenly spaced dates and each marker dot sits on the observation nearest its tick.
+  const times = rows.map(row => Date.parse(`${row.month}T00:00:00Z`));
+  const ticks = Array.from({ length: count }, (_, index) => new Date(start + index * (end - start) / (count - 1)).toISOString().slice(0, 10));
+  const indexes = [...new Set(ticks.map(tick => {
+    const at = Date.parse(`${tick}T00:00:00Z`);
+    return times.reduce((best, time, index) => Math.abs(time - at) < Math.abs(times[best] - at) ? index : best, 0);
+  }))];
+  return { indexes, ticks, spanDays };
 }
 
 export function followerTickLabel(value, spanDays) {
