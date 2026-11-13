@@ -501,6 +501,7 @@ def get_posts(
                 ),
                 "is_organic": p.is_organic,
                 "campaign": p.campaign or None,
+                "pillar": getattr(p, 'pillar', '') or '',
             }
             for p in posts
         ]
@@ -524,6 +525,7 @@ class PostUpdate(BaseModel):
     reposts: Optional[float] = None
     engagement_rate: Optional[float] = None
     is_organic: Optional[bool] = None
+    pillar: Optional[str] = None
 
 @app.patch("/api/posts/{post_id}")
 def update_post(post_id: str, body: PostUpdate, db: Session = Depends(get_db)):
@@ -536,6 +538,8 @@ def update_post(post_id: str, body: PostUpdate, db: Session = Depends(get_db)):
             data['date'] = pd.to_datetime(data['date']).to_pydatetime()
         except:
             del data['date']
+    if 'pillar' in data:
+        data['pillar'] = (data['pillar'] or '').strip() or None
     for key, val in data.items():
         setattr(post, key, val)
     er_inputs = {'platform', 'format', 'engagement', 'reach', 'views'}

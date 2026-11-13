@@ -16,22 +16,25 @@ const PLATFORM_UPLOADS = [
 const FORMATS = ['Video', 'Shorts', 'Static', 'Carousel', 'Reel', 'IG Story', 'Story', 'Article', 'Unknown'];
 // Campaign membership is managed on the Campaigns page, so it is read-only here.
 const READ_ONLY_COLS = ['campaign'];
+// Pillars used in the team's sheet; the input suggests them but accepts any value.
+const PILLARS = ['Brand', 'Marketing', 'Security', 'GCE', 'FinLit', 'Preferred', 'DS', 'HR', 'Foundation', 'Kita Serumpun', 'Sustainability'];
 const NUMERIC_COLS = ['reach', 'views', 'engagement', 'likes', 'comments', 'shares', 'favorites', 'reposts', 'engagement_rate'];
 
 const COLUMNS = [
   { key: 'date', label: 'Date', width: '110px' },
-  { key: 'platform', label: 'Platform', width: '115px' },
+  { key: 'platform', label: 'Platform', width: '105px' },
   { key: 'format', label: 'Format', width: '105px' },
-  { key: 'is_organic', label: 'Organic/Paid', width: '115px' },
-  { key: 'collab', label: 'Collab', width: '140px' },
-  { key: 'campaign', label: 'Campaign', width: '150px' },
-  { key: 'title', label: 'Caption', width: '220px' },
+  { key: 'is_organic', label: 'Organic/Paid', width: '105px' },
+  { key: 'collab', label: 'Collab', width: '120px' },
+  { key: 'campaign', label: 'Campaign', width: '130px' },
+  { key: 'pillar', label: 'Pillar', width: '110px' },
+  { key: 'title', label: 'Caption', width: '190px' },
   { key: 'reach', label: 'Reach', width: '90px' },
   { key: 'views', label: 'Views', width: '90px' },
-  { key: 'engagement', label: 'Engagement', width: '110px' },
+  { key: 'engagement', label: 'Engagement', width: '100px' },
   { key: 'engagement_rate', label: 'ER %', width: '80px' },
   { key: 'likes', label: 'Likes', width: '80px' },
-  { key: 'comments', label: 'Comments', width: '95px' },
+  { key: 'comments', label: 'Comments', width: '85px' },
   { key: 'shares', label: 'Shares', width: '80px' },
   { key: 'favorites', label: 'Saves', width: '80px' },
   { key: 'link', label: 'Link', width: '110px' },
@@ -249,6 +252,7 @@ const DataHub = ({ startDate, endDate }) => {
       return (
         <input
           autoFocus
+          list={col === 'pillar' ? 'datahub-pillars' : undefined}
           value={editingValue}
           onChange={e => setEditingValue(e.target.value)}
           onBlur={() => commitEdit(post.id, col)}
@@ -459,6 +463,7 @@ Double-click to change`}>
       {/* Data Grid */}
       <div className="glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
+          <datalist id="datahub-pillars">{PILLARS.map(pillar => <option key={pillar} value={pillar} />)}</datalist>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1400px' }}>
             <thead>
               <tr>
