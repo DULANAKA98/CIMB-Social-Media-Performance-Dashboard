@@ -97,9 +97,12 @@ function Followers({ followers, loading, error, printing = false }) {
   const refreshed = refreshedLabel(followers.lastRefreshedAt);
   const markers = followerChartMarkers(followers.rows);
   const markerIndexes = new Set(markers.indexes);
+  const axisLabel = followerAxisLabel(followers.rows);
+  // Size the axis to its longest label (about 6.5px per character at 11px) so no digit is cut off.
+  const axisWidth = Math.max(40, ...followers.rows.map(row => String(axisLabel(row.followers)).length * 6.5 + 10));
   const chart = <LineChart {...(printing ? { width: 520, height: 230 } : {})} data={followers.rows.map(row => ({ ...row, time: Date.parse(`${row.month}T00:00:00Z`) }))} margin={{ top: 20, right: 12, left: -8, bottom: 5 }}>
     <CartesianGrid stroke="#f0f0f4" vertical={false} /><XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']} ticks={markers.ticks.map(tick => Date.parse(`${tick}T00:00:00Z`))} interval="preserveStartEnd" minTickGap={14} tick={CHART_STYLE} axisLine={false} tickLine={false} tickFormatter={value => followerTickLabel(new Date(value).toISOString(), markers.spanDays)} />
-    <YAxis tickFormatter={followerAxisLabel(followers.rows)} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={58} />
+    <YAxis tickFormatter={axisLabel} tick={CHART_STYLE} axisLine={false} tickLine={false} domain={['auto', 'auto']} width={axisWidth} />
     {!printing && <Tooltip contentStyle={TOOLTIP_STYLE} formatter={full} labelFormatter={value => dateLabel(new Date(value).toISOString())} />}<Line isAnimationActive={!printing} dataKey="followers" name="Followers" stroke="#ed0027" strokeWidth={2} dot={props => markerIndexes.has(props.index) ? <circle cx={props.cx} cy={props.cy} r={3} fill="#ed0027" stroke="#fff" strokeWidth={1} /> : null} activeDot={{ r: 4, fill: '#ed0027', stroke: '#fff', strokeWidth: 1.5 }} />
   </LineChart>;
   return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart">

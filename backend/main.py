@@ -2327,7 +2327,10 @@ def get_follower_growth(
 
 
 def _fill_from_follower_history(db: Session, result: Dict[str, Any], errors: Dict[str, str], start, end) -> None:
-    """Add imported daily totals for days Metricool has no value for; Metricool wins on the same day."""
+    """Use imported totals (monthly reports, YouTube Studio) up to their last recorded day, then Metricool.
+
+    Mixing the two within the same stretch made the line jump between sources that count slightly
+    differently, so a platform's imported period is shown from the import alone."""
     stored = (db.query(FollowerHistory)
               .filter(FollowerHistory.day >= start, FollowerHistory.day <= end)
               .order_by(FollowerHistory.day).all())
@@ -2335,17 +2338,17 @@ def _fill_from_follower_history(db: Session, result: Dict[str, Any], errors: Dic
         rows = [row for row in stored if row.platform == platform]
         if not rows:
             continue
-        have = {item["month"] for item in result.get(platform) or []}
+        last = max(row.day for row in (db.query(FollowerHistory).filter(FollowerHistory.platform == platform).all()))
+        later = [item for item in result.get(platform) or [] if item["month"] > last.isoformat()]
         extra = [{
             "month": row.day.isoformat(),
             "month_label": row.day.strftime("%d %b %Y"),
             "followers": row.followers,
             "provider": row.source,
             "observed_at": datetime.combine(row.day, datetime.min.time(), MALAYSIA_TZ).isoformat(),
-        } for row in rows if row.day.isoformat() not in have]
-        if extra:
-            result[platform] = sorted((result.get(platform) or []) + extra, key=lambda item: item["month"])
-            errors.pop(platform, None)
+        } for row in rows]
+        result[platform] = sorted(later + extra, key=lambda item: item["month"])
+        errors.pop(platform, None)
 
 
 @app.get("/api/follower-growth/metricool")

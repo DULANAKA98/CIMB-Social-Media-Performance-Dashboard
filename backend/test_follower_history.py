@@ -29,12 +29,13 @@ class FollowerHistoryTests(unittest.TestCase):
         self.db.commit()
 
     @patch("main._fetch_metricool_follower_history")
-    def test_history_fills_days_metricool_lacks_and_metricool_wins_on_the_same_day(self, fetch):
-        fetch.return_value = metricool([("2026-06-01", 69800)])
+    def test_imported_history_wins_up_to_its_last_day_then_metricool(self, fetch):
+        fetch.return_value = metricool([("2026-05-31", 69700), ("2026-06-01", 69800), ("2026-06-02", 69810)])
         result = get_metricool_follower_growth("2025-01-01", "2026-06-30", self.db)
         youtube = result["YouTube"]
-        self.assertEqual([row["month"] for row in youtube], ["2025-01-01", "2025-01-02", "2026-06-01"])
-        self.assertEqual(youtube[-1]["followers"], 69800)  # Metricool's value, not the stored one
+        self.assertEqual([row["month"] for row in youtube], ["2025-01-01", "2025-01-02", "2026-06-01", "2026-06-02"])
+        self.assertEqual(youtube[2]["followers"], 1)       # the imported value on its own last day
+        self.assertEqual(youtube[-1]["provider"], "Metricool")  # Metricool only after the import ends
         self.assertEqual(youtube[0]["provider"], "YouTube Studio")
         self.assertEqual(result["Facebook"], [])
 
