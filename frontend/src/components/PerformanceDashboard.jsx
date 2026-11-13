@@ -78,6 +78,21 @@ function currentFollowerWindow() {
   return { start_date: day(14), end_date: day(0) };
 }
 
+// What to say when the selected period has no follower line to draw.
+function followerEmptyTitle(followers, error) {
+  if (error) return 'Follower data unavailable';
+  if (followers.coverage) return 'No combined total for this period';
+  return followers.missing?.length ? 'No daily follower data for this period' : 'Waiting for the first daily snapshot';
+}
+
+function followerEmptyText(followers) {
+  const names = followers.missing || [];
+  const list = names.length > 2 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names.join(' and ');
+  if (followers.coverage) return `${followers.coverage} of ${followers.expected} platforms have follower history for this period; ${list} ${names.length > 1 ? 'have' : 'has'} none. A combined total needs every platform.`;
+  if (names.length) return `Daily follower counts aren't available for ${list} on these dates. Earlier periods may only have month-end figures, so try a range that includes the end of a month.`;
+  return 'Follower counts will appear after the scheduled refresh runs.';
+}
+
 function Followers({ followers, loading, error, printing = false }) {
   const refreshed = refreshedLabel(followers.lastRefreshedAt);
   const markers = followerChartMarkers(followers.rows);
@@ -90,8 +105,8 @@ function Followers({ followers, loading, error, printing = false }) {
   return <Panel title="Follower Growth" subtitle="Daily audience snapshot" className="follower-chart">
     {loading ? <Empty title="Loading follower history…" /> : followers.rows.length ? <div className="chart-area" role="img" aria-label="Daily follower growth">
       {printing ? <div className="fixed-print-chart">{chart}</div> : <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>{chart}</ResponsiveContainer>}
-    </div> : <Empty icon={TrendingUp} title={error ? 'Follower data unavailable' : 'Waiting for the first daily snapshot'}>
-      {error || (followers.coverage ? `${followers.coverage} of ${followers.expected} platforms have follower history for this period${followers.missing?.length ? `; ${followers.missing.join(' and ')} ${followers.missing.length > 1 ? 'have' : 'has'} none` : ''}. A combined total needs every platform.` : 'Follower counts will appear after the scheduled refresh runs.')}
+    </div> : <Empty icon={TrendingUp} title={followerEmptyTitle(followers, error)}>
+      {error || followerEmptyText(followers)}
     </Empty>}
     <p className="follower-refreshed">{refreshed ? `Metricool · fetched ${refreshed}` : 'Metricool data has not loaded yet'}</p>
   </Panel>;
