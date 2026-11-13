@@ -109,16 +109,20 @@ test('deltas handle zero baselines and percentage points honestly', () => {
   assert.equal(change(3, 2.5, true).label, '+0.50pp');
 });
 
-test('follower totals require matching daily snapshots across all selected platforms', () => {
-  const single = { Facebook: [{ month: '2026-09-11', month_label: '11 Sep 2026', followers: 10 }] };
-  assert.equal(followerModel(single).total, null);
+test('combined follower totals add the platforms that have started and name the rest', () => {
+  const single = { Facebook: [{ month: '2026-09-11', month_label: '11 Sep 2026', followers: 10 }], _meta: { available_from: { LinkedIn: '2025-10-21' } } };
+  assert.equal(followerModel(single).total, 10);
+  assert.ok(followerModel(single).notes.some(note => note.startsWith('LinkedIn follower data is only available from 21 Oct 2025')));
   assert.equal(followerModel(single, 'Facebook').total, 10);
+  assert.equal(followerModel(single, 'Instagram').total, null);
   const complete = Object.fromEntries(['Facebook', 'Instagram', 'TikTok', 'YouTube', 'LinkedIn'].map(name => [name, [{ month: '2026-09-11', month_label: '11 Sep 2026', followers: 10 }]]));
   complete._meta = { last_refreshed_at: '2026-09-11T00:00:00Z', refresh_schedule: 'Daily at 08:00 Asia/Kuala_Lumpur' };
   assert.equal(followerModel(complete).total, 50);
   assert.equal(followerModel(complete).lastRefreshedAt, '2026-09-11T00:00:00Z');
   complete.LinkedIn[0].month = '2026-09-12';
-  assert.equal(followerModel(complete).total, null);
+  // LinkedIn has not started on 11 Sep, so that day totals the other four; 12 Sep lacks the others.
+  assert.deepEqual(followerModel(complete).rows.map(row => [row.month, row.followers]), [['2026-09-11', 40]]);
+  assert.ok(followerModel(complete).notes[0].includes('so totals before then exclude LinkedIn'));
 });
 
 test('follower chart markers adapt to the reporting period without dropping the trend line data', () => {

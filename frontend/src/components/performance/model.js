@@ -159,9 +159,32 @@ export function followerModel(data, platform = null) {
     lastRefreshedAt: data?._meta?.last_refreshed_at || null,
     refreshSchedule: data?._meta?.refresh_schedule || null,
   };
-  // Cross-platform totals require matching months from every selected platform.
-  // Missing observations are never filled with zeros or carried forward.
-  if (available.length !== names.length) return { total: null, rows: [], coverage: available.length, expected: names.length, missing: names.filter(name => !available.includes(name)), ...metadata };
+  const missing = names.filter(name => !available.includes(name));
+  if (platform || !available.length) {
+    // A single platform needs its own data. Missing observations are never filled with zeros or carried forward.
+    if (missing.length) return { total: null, rows: [], coverage: available.length, expected: names.length, missing, ...metadata };
+  } else {
+    // Combined total: on each day, add up every platform whose history has begun by then; a day counts only
+    // when all of those have a value. Platforms that start later (or not at all) are named in a note.
+    const firstDay = Object.fromEntries(available.map(name => [name, data[name][0].month]));
+    const byDay = Object.fromEntries(available.map(name => [name, new Map(data[name].map(row => [row.month, row]))]));
+    const days = [...new Set(available.flatMap(name => data[name].map(row => row.month)))].sort();
+    const rows = days.flatMap(month => {
+      const started = available.filter(name => firstDay[name] <= month);
+      if (!started.every(name => byDay[name].has(month))) return [];
+      return [{ month, label: byDay[started[0]].get(month).month_label, followers: sum(started.map(name => byDay[name].get(month).followers)) }];
+    });
+    const day = value => dateLabel(value);
+    const from = data?._meta?.available_from || {};
+    const notes = [
+      ...available.filter(name => rows.length && firstDay[name] > rows[0].month)
+        .map(name => `${name} follower data is only available from ${day(firstDay[name])}, so totals before then exclude ${name}.`),
+      ...missing.map(name => from[name]
+        ? `${name} follower data is only available from ${day(from[name])}, so it is not included in these totals.`
+        : `${name} has no follower data for this period, so it is not included in these totals.`),
+    ];
+    return { total: rows.at(-1)?.followers ?? null, rows, coverage: available.length, expected: names.length, missing, notes, ...metadata };
+  }
   const months = data[names[0]].map(row => row.month).filter(month => names.every(name => data[name].some(row => row.month === month))).sort();
   const rows = months.map(month => ({ month, label: data[names[0]].find(row => row.month === month).month_label, followers: sum(names.map(name => data[name].find(row => row.month === month).followers)) }));
   return { total: rows.at(-1)?.followers ?? null, rows, coverage: available.length, expected: names.length, ...metadata };

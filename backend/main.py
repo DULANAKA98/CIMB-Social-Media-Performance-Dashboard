@@ -2351,6 +2351,27 @@ def _fill_from_follower_history(db: Session, result: Dict[str, Any], errors: Dic
         errors.pop(platform, None)
 
 
+def _follower_history_starts(db: Session, platforms: List[str], end) -> Dict[str, str]:
+    """For platforms with no follower data in the range, the first day their history exists after it."""
+    today = datetime.now(MALAYSIA_TZ).date()
+    if not platforms or end >= today:
+        return {}
+    starts: Dict[str, str] = {}
+    try:
+        later, _ = _fetch_metricool_follower_history((end + timedelta(days=1)).isoformat(), today.isoformat())
+    except Exception:
+        later = {}
+    for platform in platforms:
+        days = [row["month"] for row in later.get(platform) or []]
+        stored = (db.query(func.min(FollowerHistory.day))
+                  .filter(FollowerHistory.platform == platform, FollowerHistory.day > end).scalar())
+        if stored:
+            days.append(stored.isoformat())
+        if days:
+            starts[platform] = min(days)
+    return starts
+
+
 @app.get("/api/follower-growth/metricool")
 def get_metricool_follower_growth(
     start_date: Optional[str] = Query(None),
@@ -2376,6 +2397,7 @@ def get_metricool_follower_growth(
 
     result, errors = _fetch_metricool_follower_history(start.isoformat(), end.isoformat())
     _fill_from_follower_history(db, result, errors, start, end)
+    available_from = _follower_history_starts(db, [p for p in FOLLOWER_PLATFORMS if not result[p]], end)
     result["_meta"] = {
         "last_refreshed_at": datetime.now(timezone.utc).isoformat(),
         "source": "Metricool",
@@ -2384,6 +2406,7 @@ def get_metricool_follower_growth(
         "errors": errors,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
+        "available_from": available_from,
     }
     if not any(result[platform] for platform in FOLLOWER_PLATFORMS):
         raise HTTPException(status_code=502, detail={"message": "Metricool returned no follower history", "errors": errors})

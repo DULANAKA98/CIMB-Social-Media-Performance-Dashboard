@@ -111,6 +111,7 @@ function Followers({ followers, loading, error, printing = false }) {
     </div> : <Empty icon={TrendingUp} title={followerEmptyTitle(followers, error)}>
       {error || followerEmptyText(followers)}
     </Empty>}
+    {!loading && followers.rows.length > 0 && followers.notes?.map(note => <p key={note} className="panel-footnote follower-note">{note}</p>)}
     <p className="follower-refreshed">{refreshed ? `Metricool · fetched ${refreshed}` : 'Metricool data has not loaded yet'}</p>
   </Panel>;
 }
@@ -144,10 +145,10 @@ function postsForPlatform(posts, platform) {
   return (posts || []).filter(post => post.platform === platform);
 }
 
-function PostRows({ posts, thumbnails, detailed = false, startIndex = 0, showMetricLabel = false }) {
+function PostRows({ posts, thumbnails, detailed = false, startIndex = 0, showMetricLabel = false, showViews = false, showEngagement = false }) {
   return posts.map((post, index) => <tr key={post.id ?? `${post.platform}-${startIndex + index}`}>
     <td><div className="post-identity"><PostThumbnail post={post} thumbnails={thumbnails} /><div>{safeLink(post.link) ? <a href={safeLink(post.link)} target="_blank" rel="noreferrer" title={post.title}>{post.title || 'Untitled post'}<ExternalLink size={10} /></a> : <strong title={post.title}>{post.title || 'Untitled post'}</strong>}<span>{dateLabel(post.date)} · {post.platform}{post.format ? ` · ${post.format}` : ''}</span></div></div></td>
-    <td><span className="post-exposure-value">{compact(exposureValue(post))}{showMetricLabel && <small>{exposureMetric(post.platform).label}</small>}</span></td><td>{detailed ? compact(post.engagement) : percent(post.engagement_rate)}</td>{detailed && <td>{percent(post.engagement_rate)}</td>}
+    <td><span className="post-exposure-value">{compact(exposureValue(post))}{showMetricLabel && <small>{exposureMetric(post.platform).label}</small>}</span></td>{showViews && <td>{compact(post.views)}</td>}{(detailed || showEngagement) && <td>{compact(post.engagement)}</td>}<td>{percent(post.engagement_rate)}</td>
   </tr>);
 }
 
@@ -161,8 +162,10 @@ function TopPosts({ posts, onExpand, platform, thumbnails }) {
   const filtered = useMemo(() => postsForPlatform(posts, selectedPlatform).slice().sort((a, b) => (b.engagement || 0) - (a.engagement || 0)), [posts, selectedPlatform]);
   const mixedPlatforms = selectedPlatform === ALL_PLATFORMS;
   const metricLabel = mixedPlatforms ? 'Reach / Views / Impressions' : exposureMetric(selectedPlatform).label;
+  // Views gets its own column unless it is already the main figure (TikTok and YouTube).
+  const showViews = mixedPlatforms || exposureMetric(selectedPlatform).key !== 'views';
   return <Panel title="Top Performing Posts" subtitle={`${selectedPlatform} · ranked by engagement`} className="top-posts" action={<div className="post-card-actions"><PlatformSelect value={selectedPlatform} onChange={setSelectedPlatform} /><button className="text-button" onClick={() => onExpand(selectedPlatform)}>View all <ArrowUpRight size={12} /></button></div>}>
-    {filtered.length ? <div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>{metricLabel}</th><th>ER%</th></tr></thead><tbody><PostRows posts={filtered.slice(0, 5)} thumbnails={thumbnails} showMetricLabel={mixedPlatforms} /></tbody></table></div> : <Empty icon={FileText} title="No posts for this platform">Choose another platform or reporting period.</Empty>}
+    {filtered.length ? <div className="perf-table-scroll"><table className="perf-post-table"><thead><tr><th>Post</th><th>{metricLabel}</th>{showViews && <th>Views</th>}<th>Engagement</th><th>ER%</th></tr></thead><tbody><PostRows posts={filtered.slice(0, 5)} thumbnails={thumbnails} showMetricLabel={mixedPlatforms} showViews={showViews} showEngagement /></tbody></table></div> : <Empty icon={FileText} title="No posts for this platform">Choose another platform or reporting period.</Empty>}
   </Panel>;
 }
 
